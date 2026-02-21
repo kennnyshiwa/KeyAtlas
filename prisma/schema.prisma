@@ -1,0 +1,304 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  VENDOR
+  MODERATOR
+  ADMIN
+}
+
+enum ProjectCategory {
+  KEYBOARDS
+  KEYCAPS
+  SWITCHES
+  DESKMATS
+  ARTISANS
+  ACCESSORIES
+}
+
+enum ProjectStatus {
+  INTEREST_CHECK
+  GROUP_BUY
+  PRODUCTION
+  SHIPPING
+  EXTRAS
+  IN_STOCK
+  COMPLETED
+  ARCHIVED
+}
+
+enum LinkType {
+  GEEKHACK
+  WEBSITE
+  DISCORD
+  INSTAGRAM
+  REDDIT
+  STORE
+  OTHER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  vendors    Vendor[]
+  projects   Project[]
+  favorites  Favorite[]       @relation("UserFavorites")
+  collection UserCollection[] @relation("UserCollection")
+  comments   Comment[]        @relation("UserComments")
+  apiKeys    ApiKey[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Vendor {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  logo          String?
+  description   String?  @db.Text
+  storefrontUrl String?
+  verified      Boolean  @default(false)
+  regionsServed String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ownerId        String?
+  owner          User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  projects       Project[]
+  projectVendors ProjectVendor[]  @relation("VendorProjects")
+
+  @@index([ownerId])
+  @@map("vendors")
+}
+
+model Project {
+  id                String          @id @default(cuid())
+  title             String
+  slug              String          @unique
+  description       String?         @db.Text
+  category          ProjectCategory
+  status            ProjectStatus   @default(INTEREST_CHECK)
+  priceMin          Int?
+  priceMax          Int?
+  currency          String          @default("USD")
+  heroImage         String?
+  tags              String[]
+  icDate            DateTime?
+  gbStartDate       DateTime?
+  gbEndDate         DateTime?
+  estimatedDelivery DateTime?
+  featured          Boolean         @default(false)
+  published         Boolean         @default(false)
+  metaTitle         String?
+  metaDescription   String?
+  profile           String?
+  shipped           Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  vendorId  String?
+  vendor    Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  creatorId String
+  creator   User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  designer       String?
+
+  images         ProjectImage[]
+  links          ProjectLink[]
+  favorites      Favorite[]         @relation("ProjectFavorites")
+  collection     UserCollection[]   @relation("ProjectCollection")
+  projectVendors ProjectVendor[]
+  comments       Comment[]
+  updates        ProjectUpdate[]
+
+  @@index([category])
+  @@index([status])
+  @@index([featured])
+  @@index([published])
+  @@index([createdAt])
+  @@index([profile])
+  @@index([shipped])
+  @@map("projects")
+}
+
+model ProjectImage {
+  id        String   @id @default(cuid())
+  url       String
+  alt       String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_images")
+}
+
+model ProjectLink {
+  id    String   @id @default(cuid())
+  label String
+  url   String
+  type  LinkType @default(OTHER)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_links")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation("UserFavorites", fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation("ProjectFavorites", fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@map("favorites")
+}
+
+model UserCollection {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation("UserCollection", fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation("ProjectCollection", fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@map("user_collections")
+}
+
+model ProjectVendor {
+  id        String    @id @default(cuid())
+  region    String?
+  storeLink String?
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor  @relation("VendorProjects", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, vendorId, region])
+  @@index([projectId])
+  @@index([vendorId])
+  @@map("project_vendors")
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  userId    String
+  user      User      @relation("UserComments", fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model ProjectUpdate {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([createdAt])
+  @@map("project_updates")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  key        String    @unique
+  prefix     String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  revoked    Boolean   @default(false)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([key])
+  @@index([userId])
+  @@map("api_keys")
+}

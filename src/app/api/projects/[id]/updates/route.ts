@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { projectUpdateFormSchema } from "@/lib/validations/project-update";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  const updates = await prisma.projectUpdate.findMany({
+    where: { projectId: id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json(updates);
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const { id } = await params;
+
+  // Only creator or admin can post updates
+  const project = await prisma.project.findUnique({
+    where: { id },
+    select: { creatorId: true },
+  });
+
+  if (!project) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (
+    project.creatorId !== session.user.id &&
+    session.user.role !== "ADMIN"
+  ) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const result = projectUpdateFormSchema.safeParse(body);
+
+  if (!result.success) {
+    return NextResponse.json(
+      { error: "Validation failed", issues: result.error.issues },
+      { status: 400 }
+    );
+  }
+
+  const update = await prisma.projectUpdate.create({
+    data: {
+      ...result.data,
+      projectId: id,
+    },
+  });
+
+  return NextResponse.json(update, { status: 201 });
+}
