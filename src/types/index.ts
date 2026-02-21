@@ -4,7 +4,7 @@ import type {
   ProjectLink,
   Vendor,
   User,
-} from "@/generated/prisma";
+} from "@/generated/prisma/client";
 
 export type ProjectWithRelations = Project & {
   images: ProjectImage[];

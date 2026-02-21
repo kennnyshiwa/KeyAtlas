@@ -1,4 +1,4 @@
-import type { ProjectCategory, ProjectStatus } from "@/generated/prisma";
+import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
 export const CATEGORY_LABELS: Record<ProjectCategory, string> = {
   KEYBOARDS: "Keyboards",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { commentFormSchema } from "@/lib/validations/comment";
+import { dispatchNotification } from "@/lib/notifications/service";
 
 export async function GET(
   _req: NextRequest,
@@ -52,6 +53,19 @@ export async function POST(
     );
   }
 
+  const project = await prisma.project.findUnique({
+    where: { id },
+    select: { id: true, slug: true, title: true },
+  });
+
+  if (!project) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const parentComment = result.data.parentId
+    ? await prisma.comment.findUnique({ where: { id: result.data.parentId }, select: { userId: true } })
+    : null;
+
   const comment = await prisma.comment.create({
     data: {
       content: result.data.content,
@@ -62,6 +76,24 @@ export async function POST(
     include: {
       user: { select: { id: true, name: true, image: true } },
     },
+  });
+
+  const followers = await prisma.follow.findMany({
+    where: { targetType: "PROJECT", targetId: project.id },
+    select: { userId: true },
+  });
+
+  await dispatchNotification({
+    recipients: [parentComment?.userId || "", ...followers.map((f) => f.userId)],
+    actorId: session.user.id,
+    preferenceType: "PROJECT_COMMENTS",
+    notificationType: parentComment ? "COMMENT_REPLY" : "NEW_COMMENT",
+    title: parentComment ? "New reply on project comment" : "New project comment",
+    message: `${session.user.name || "Someone"} commented on ${project.title}.`,
+    link: `/projects/${project.slug}`,
+    emailSubject: `New comment on ${project.title}`,
+    emailHeading: `New activity on ${project.title}`,
+    emailCtaLabel: "View comments",
   });
 
   return NextResponse.json(comment, { status: 201 });

@@ -44,10 +44,47 @@ enum LinkType {
   OTHER
 }
 
+
+enum ProjectHeroTextAlign {
+  LEFT
+  CENTER
+  RIGHT
+}
+
+enum ProjectHeroSize {
+  SMALL
+  MEDIUM
+  LARGE
+  FULL
+}
+
+enum ProjectDescriptionTextAlign {
+  LEFT
+  CENTER
+  RIGHT
+}
+
+enum ProjectDescriptionFontScale {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum ProjectDescriptionMaxWidth {
+  NARROW
+  MEDIUM
+  WIDE
+  FULL
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
+  username      String?   @unique
+  displayName   String?
+  bio           String?   @db.Text
   email         String?   @unique
+  passwordHash  String?
   emailVerified DateTime?
   image         String?
   role          UserRole  @default(USER)
@@ -62,6 +99,16 @@ model User {
   collection UserCollection[] @relation("UserCollection")
   comments   Comment[]        @relation("UserComments")
   apiKeys    ApiKey[]
+  followers     Follow[]       @relation("FollowTarget")
+  following     Follow[]       @relation("FollowSource")
+  notifications Notification[] @relation("UserNotifications")
+  notificationPreferences NotificationPreference[]
+  forumThreads  ForumThread[]
+  forumPosts    ForumPost[]
+  buildGuides   BuildGuide[]
+  emailVerificationTokens EmailVerificationToken[]
+  vendorSuggestions VendorSuggestion[]
+  reviewedVendorSuggestions VendorSuggestion[] @relation("VendorSuggestionReviewer")
 
   @@map("users")
 }
@@ -106,6 +153,28 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+
+enum VendorSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Vendor {
   id            String   @id @default(cuid())
   name          String
@@ -122,9 +191,40 @@ model Vendor {
   owner          User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   projects       Project[]
   projectVendors ProjectVendor[]  @relation("VendorProjects")
+  followers      Follow[]         @relation("VendorFollowers")
+  suggestions    VendorSuggestion[]
 
   @@index([ownerId])
   @@map("vendors")
+}
+
+model VendorSuggestion {
+  id              String                 @id @default(cuid())
+  name            String
+  normalizedName  String
+  website         String?
+  notes           String?                @db.Text
+  status          VendorSuggestionStatus @default(PENDING)
+  createdAt       DateTime               @default(now())
+  reviewedAt      DateTime?
+
+  submittedById String
+  submittedBy   User @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  reviewedById String?
+  reviewedBy   User? @relation("VendorSuggestionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  vendorId String?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([submittedById])
+  @@index([projectId])
+  @@index([normalizedName])
+  @@map("vendor_suggestions")
 }
 
 model Project {
@@ -138,6 +238,14 @@ model Project {
   priceMax          Int?
   currency          String          @default("USD")
   heroImage         String?
+  heroTextAlign     ProjectHeroTextAlign @default(LEFT)
+  heroSize          ProjectHeroSize      @default(MEDIUM)
+  heroBgColor       String?
+  heroTextColor     String?
+  descriptionTextAlign ProjectDescriptionTextAlign @default(LEFT)
+  descriptionFontScale ProjectDescriptionFontScale @default(MEDIUM)
+  descriptionTextColor String?
+  descriptionMaxWidth ProjectDescriptionMaxWidth   @default(MEDIUM)
   tags              String[]
   icDate            DateTime?
   gbStartDate       DateTime?
@@ -166,6 +274,9 @@ model Project {
   projectVendors ProjectVendor[]
   comments       Comment[]
   updates        ProjectUpdate[]
+  followers      Follow[]       @relation("ProjectFollowers")
+  soundTests     SoundTest[]
+  vendorSuggestions VendorSuggestion[]
 
   @@index([category])
   @@index([status])
@@ -181,8 +292,10 @@ model ProjectImage {
   id        String   @id @default(cuid())
   url       String
   alt       String?
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  order        Int      @default(0)
+  linkUrl      String?
+  openInNewTab Boolean  @default(true)
+  createdAt    DateTime @default(now())
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -301,4 +414,191 @@ model ApiKey {
   @@index([key])
   @@index([userId])
   @@map("api_keys")
+}
+
+// ─── Follow System ───────────────────────────────────────────
+
+enum FollowTargetType {
+  USER
+  PROJECT
+  VENDOR
+  FORUM_THREAD
+  FORUM_CATEGORY
+}
+
+model Follow {
+  id         String           @id @default(cuid())
+  targetType FollowTargetType
+  targetId   String
+  createdAt  DateTime         @default(now())
+
+  userId String
+  user   User @relation("FollowSource", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Optional direct relations for querying
+  targetUser    User?    @relation("FollowTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetUserId  String?
+  targetProject Project? @relation("ProjectFollowers", fields: [targetProjectId], references: [id], onDelete: Cascade)
+  targetProjectId String?
+  targetVendor  Vendor?  @relation("VendorFollowers", fields: [targetVendorId], references: [id], onDelete: Cascade)
+  targetVendorId String?
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@index([userId])
+  @@map("follows")
+}
+
+// ─── Notifications ───────────────────────────────────────────
+
+enum NotificationType {
+  PROJECT_UPDATE
+  PROJECT_STATUS_CHANGE
+  NEW_COMMENT
+  COMMENT_REPLY
+  NEW_FOLLOWER
+  FORUM_REPLY
+  NEW_FORUM_THREAD
+  GB_STARTING
+  GB_ENDING
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationPreferenceType {
+  FORUM_REPLIES
+  FORUM_CATEGORY_THREADS
+  PROJECT_UPDATES
+  PROJECT_COMMENTS
+  NEW_FOLLOWERS
+}
+
+model NotificationPreference {
+  id        String                     @id @default(cuid())
+  type      NotificationPreferenceType
+  inApp     Boolean                    @default(true)
+  email     Boolean                    @default(false)
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+// ─── Forums ──────────────────────────────────────────────────
+
+model ForumCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  icon        String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  threads ForumThread[]
+
+  @@map("forum_categories")
+}
+
+model ForumThread {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  content   String   @db.Text
+  pinned    Boolean  @default(false)
+  locked    Boolean  @default(false)
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categoryId String
+  category   ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  posts ForumPost[]
+
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([pinned])
+  @@map("forum_threads")
+}
+
+model ForumPost {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  threadId String
+  thread   ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId String?
+  parent   ForumPost?  @relation("ForumPostReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  ForumPost[] @relation("ForumPostReplies")
+
+  @@index([threadId])
+  @@index([authorId])
+  @@index([parentId])
+  @@map("forum_posts")
+}
+
+// ─── Build Guides ────────────────────────────────────────────
+
+model BuildGuide {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String   @db.Text
+  heroImage   String?
+  difficulty  String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  authorId String
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([published])
+  @@index([createdAt])
+  @@map("build_guides")
+}
+
+// ─── Sound Tests ─────────────────────────────────────────────
+
+model SoundTest {
+  id        String   @id @default(cuid())
+  title     String?
+  url       String
+  platform  String?
+  createdAt DateTime @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("sound_tests")
 }

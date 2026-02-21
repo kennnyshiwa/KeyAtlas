@@ -1,5 +1,5 @@
 import { MeiliSearch } from "meilisearch";
-import type { Project } from "@/generated/prisma";
+import type { Project } from "@/generated/prisma/client";
 
 const client = new MeiliSearch({
   host: process.env.MEILISEARCH_HOST ?? "http://localhost:7700",

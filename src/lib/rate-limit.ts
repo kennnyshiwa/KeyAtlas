@@ -85,3 +85,16 @@ export const RATE_LIMIT_REFERENCE: RateLimitConfig = { limit: 10, window: 60 };
 
 /** API key management (create/list/revoke) — 5 req/min */
 export const RATE_LIMIT_KEY_MGMT: RateLimitConfig = { limit: 5, window: 60 };
+
+
+/** Forum thread creation — 3 threads / 15 minutes */
+export const RATE_LIMIT_FORUM_THREAD_CREATE: RateLimitConfig = {
+  limit: 3,
+  window: 900,
+};
+
+/** Forum post creation — 12 posts / 5 minutes */
+export const RATE_LIMIT_FORUM_POST_CREATE: RateLimitConfig = {
+  limit: 12,
+  window: 300,
+};

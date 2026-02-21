@@ -2,10 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/shared/page-header";
 import { VendorCard } from "@/components/vendors/vendor-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import type { Metadata } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Vendors",
   description: "Browse keyboard vendors and their projects.",
+  alternates: { canonical: "/vendors" },
 };
 
 export default async function VendorsPage() {

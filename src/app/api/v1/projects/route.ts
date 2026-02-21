@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
-import type { ProjectCategory, ProjectStatus } from "@/generated/prisma";
+import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
 export async function GET(req: NextRequest) {
   const user = await authenticateApiKey(req);

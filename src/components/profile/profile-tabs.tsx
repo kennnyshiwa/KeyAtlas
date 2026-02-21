@@ -4,8 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Eye, Pencil, Plus } from "lucide-react";
 import { ApiKeyManager } from "@/components/profile/api-key-manager";
 import { ApiDocs } from "@/components/profile/api-docs";
 import { ProfileSettings } from "@/components/profile/profile-settings";
@@ -62,7 +64,55 @@ export function ProfileTabs({ projects, favorites, collection, apiKeys, user, de
       </TabsList>
       <TabsContent value="projects" className="mt-4">
         {projects.length > 0 ? (
-          <ProjectGrid projects={projects} />
+          <div className="space-y-3">
+            {projects.map((project) => (
+              <Card key={project.id}>
+                <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Link href={project.published ? `/projects/${project.slug}` : `/projects/submit/${project.id}/edit`} className="font-semibold hover:underline">
+                        {project.title}
+                      </Link>
+                      {project.published ? (
+                        <Badge className="bg-emerald-600 text-white">Published</Badge>
+                      ) : (
+                        <Badge className="bg-amber-500 text-white">Draft / Pending Review</Badge>
+                      )}
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {project.published ? "Visible publicly" : "Private until reviewed/published"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {!project.published && (
+                      <>
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/projects/submit/${project.id}/edit`}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </Link>
+                        </Button>
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/projects/preview/${project.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Preview
+                          </Link>
+                        </Button>
+                      </>
+                    )}
+                    {project.published && (
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/projects/${project.slug}`}>
+                          View
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : (
           <EmptyState
             title="No projects yet"

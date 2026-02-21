@@ -9,11 +9,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import type { ProjectCategory, ProjectStatus } from "@/generated/prisma";
+import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+import type { Metadata } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Projects",
   description: "Browse mechanical keyboard interest checks, group buys, and more.",
+  alternates: { canonical: "/projects" },
 };
 
 interface ProjectsPageProps {

@@ -53,7 +53,7 @@ export function Navbar() {
         <MobileNav />
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <Keyboard className="h-6 w-6" />
-          <span className="hidden font-bold sm:inline-block">KeyVault</span>
+          <span className="hidden font-bold sm:inline-block">KeyAtlas</span>
         </Link>
         <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
           <DropdownMenu>

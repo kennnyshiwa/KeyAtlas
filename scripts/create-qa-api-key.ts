@@ -10,7 +10,7 @@ async function main() {
   const client = new Client({ connectionString });
   await client.connect();
 
-  const email = process.env.QA_EMAIL || "qa-bot@keyvault.local";
+  const email = process.env.QA_EMAIL || "qa-bot@keyatlas.local";
   const name = process.env.QA_NAME || "QA Bot";
 
   await client.query(

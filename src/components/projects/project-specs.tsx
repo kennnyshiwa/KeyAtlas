@@ -9,12 +9,38 @@ interface ProjectSpecsProps {
 }
 
 export function ProjectSpecs({ project }: ProjectSpecsProps) {
+  const alignClass = {
+    LEFT: "text-left",
+    CENTER: "text-center",
+    RIGHT: "text-right",
+  }[project.descriptionTextAlign ?? "LEFT"];
+
+  const fontClass = {
+    SMALL: "text-sm",
+    MEDIUM: "text-base",
+    LARGE: "text-lg",
+  }[project.descriptionFontScale ?? "MEDIUM"];
+
+  const widthClass = {
+    NARROW: "max-w-2xl",
+    MEDIUM: "max-w-3xl",
+    WIDE: "max-w-5xl",
+    FULL: "max-w-none",
+  }[project.descriptionMaxWidth ?? "MEDIUM"];
+
+  const safeColor =
+    project.descriptionTextColor && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(project.descriptionTextColor)
+      ? project.descriptionTextColor
+      : undefined;
+
   return (
     <div className="space-y-4">
       {project.description && (
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Description</h2>
-          <RichTextRenderer content={project.description} />
+          <div className={`${alignClass} ${fontClass} ${widthClass}`} style={{ color: safeColor }}>
+            <RichTextRenderer content={project.description} />
+          </div>
         </div>
       )}
 

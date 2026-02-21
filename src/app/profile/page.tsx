@@ -180,7 +180,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">{pendingCount}</div>
-            <p className="text-muted-foreground text-sm">Pending Review</p>
+            <p className="text-muted-foreground text-sm">Draft / Pending</p>
           </CardContent>
         </Card>
         <Card>

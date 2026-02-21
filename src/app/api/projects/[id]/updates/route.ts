@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { projectUpdateFormSchema } from "@/lib/validations/project-update";
+import { dispatchNotification } from "@/lib/notifications/service";
 
 export async function GET(
   _req: NextRequest,
@@ -31,7 +32,7 @@ export async function POST(
   // Only creator or admin can post updates
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { creatorId: true },
+    select: { creatorId: true, title: true, slug: true },
   });
 
   if (!project) {
@@ -60,6 +61,24 @@ export async function POST(
       ...result.data,
       projectId: id,
     },
+  });
+
+  const followers = await prisma.follow.findMany({
+    where: { targetType: "PROJECT", targetId: id },
+    select: { userId: true },
+  });
+
+  await dispatchNotification({
+    recipients: followers.map((f) => f.userId),
+    actorId: session.user.id,
+    preferenceType: "PROJECT_UPDATES",
+    notificationType: "PROJECT_UPDATE",
+    title: "Project update posted",
+    message: `${project.title} has a new update: ${update.title}`,
+    link: `/projects/${project.slug}`,
+    emailSubject: `Project update: ${project.title}`,
+    emailHeading: `New update for ${project.title}`,
+    emailCtaLabel: "View project",
   });
 
   return NextResponse.json(update, { status: 201 });

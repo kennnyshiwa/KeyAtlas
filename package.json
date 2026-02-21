@@ -1,5 +1,5 @@
 {
-  "name": "keyvault",
+  "name": "keyatlas",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,10 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "npx tsx --tsconfig tsconfig.seed.json prisma/seed.ts",
-    "postgenerate": "echo 'export * from \"./client\";' > src/generated/prisma/index.ts",
+    "prisma:postgenerate": "node scripts/prisma-postgenerate.mjs",
+    "prisma:generate": "prisma generate && npm run prisma:postgenerate",
+    "postgenerate": "npm run prisma:postgenerate",
     "qa:key": "tsx scripts/create-qa-api-key.ts",
+    "qa:follow-validation": "tsx scripts/qa-follow-target-validation.ts",
+    "qa:notification-preferences": "tsx scripts/qa-notification-preferences.ts",
     "qa:smoke": "scripts/qa-smoke.sh",
-    "qa:smoke:local": "BASE_URL=http://localhost:3000 scripts/qa-smoke.sh"
+    "qa:smoke:local": "BASE_URL=http://localhost:3000 scripts/qa-smoke.sh",
+    "qa:create-user": "tsx scripts/create-qa-user.ts"
   },
   "prisma": {
     "seed": "npx tsx --tsconfig tsconfig.seed.json prisma/seed.ts"
@@ -26,6 +31,7 @@
     "@tiptap/pm": "^3.19.0",
     "@tiptap/react": "^3.19.0",
     "@tiptap/starter-kit": "^3.19.0",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -35,6 +41,7 @@
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.4.6",
+    "nodemailer": "^7.0.13",
     "pg": "^8.18.0",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
@@ -49,6 +56,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.11",
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",

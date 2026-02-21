@@ -127,7 +127,7 @@ export function ApiKeyManager({ initialKeys }: ApiKeyManagerProps) {
         <div>
           <CardTitle>API Keys</CardTitle>
           <CardDescription>
-            Manage your API keys for programmatic access to KeyVault data.
+            Manage your API keys for programmatic access to KeyAtlas data.
           </CardDescription>
         </div>
         <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>

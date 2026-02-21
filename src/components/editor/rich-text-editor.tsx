@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -24,12 +25,14 @@ interface RichTextEditorProps {
   content?: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  toolbarExtra?: ReactNode;
 }
 
 export function RichTextEditor({
   content = "",
   onChange,
   placeholder = "Write something...",
+  toolbarExtra,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -182,6 +185,11 @@ export function RichTextEditor({
         >
           <Redo className="h-4 w-4" />
         </Button>
+        {toolbarExtra && (
+          <div className="ml-auto flex flex-wrap items-center gap-2 border-l pl-2">
+            {toolbarExtra}
+          </div>
+        )}
       </div>
       <div className="prose dark:prose-invert max-w-none px-3 py-2">
         <EditorContent editor={editor} />

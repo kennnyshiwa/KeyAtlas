@@ -20,7 +20,10 @@ export async function GET(
   const project = await prisma.project.findUnique({
     where: { slug, published: true },
     include: {
-      images: { select: { id: true, url: true, alt: true, order: true }, orderBy: { order: "asc" } },
+      images: {
+        select: { id: true, url: true, alt: true, order: true, linkUrl: true, openInNewTab: true },
+        orderBy: { order: "asc" },
+      },
       links: { select: { id: true, label: true, url: true, type: true } },
       projectVendors: {
         include: { vendor: { select: { name: true } } },
@@ -44,6 +47,10 @@ export async function GET(
     priceMax: project.priceMax,
     currency: project.currency,
     heroImage: project.heroImage,
+    heroTextAlign: project.heroTextAlign,
+    heroSize: project.heroSize,
+    heroBgColor: project.heroBgColor,
+    heroTextColor: project.heroTextColor,
     profile: project.profile,
     shipped: project.shipped,
     tags: project.tags,

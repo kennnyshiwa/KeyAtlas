@@ -5,13 +5,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: keyvault
-      POSTGRES_PASSWORD: keyvault
-      POSTGRES_DB: keyvault
+      POSTGRES_USER: keyatlas
+      POSTGRES_PASSWORD: keyatlas
+      POSTGRES_DB: keyatlas
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keyvault"]
+      test: ["CMD-SHELL", "pg_isready -U keyatlas"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,7 +35,7 @@ services:
     ports:
       - "7700:7700"
     environment:
-      MEILI_MASTER_KEY: keyvault_dev_master_key
+      MEILI_MASTER_KEY: keyatlas_dev_master_key
       MEILI_ENV: development
     volumes:
       - meilisearch_data:/meili_data

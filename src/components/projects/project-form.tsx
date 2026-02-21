@@ -19,7 +19,7 @@ import { CATEGORY_LABELS, STATUS_LABELS, PROFILE_OPTIONS } from "@/lib/constants
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
 import type { ProjectWithRelations } from "@/types";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 const RichTextEditor = lazy(() =>
@@ -56,6 +56,10 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
     priceMax: project?.priceMax ?? null,
     currency: project?.currency ?? "USD",
     heroImage: project?.heroImage ?? null,
+    descriptionTextAlign: project?.descriptionTextAlign ?? "LEFT",
+    descriptionFontScale: project?.descriptionFontScale ?? "MEDIUM",
+    descriptionTextColor: project?.descriptionTextColor ?? null,
+    descriptionMaxWidth: project?.descriptionMaxWidth ?? "MEDIUM",
     tags: project?.tags ?? [],
     icDate: project?.icDate ?? null,
     gbStartDate: project?.gbStartDate ?? null,
@@ -73,6 +77,8 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
       url: img.url,
       alt: img.alt ?? undefined,
       order: img.order,
+      linkUrl: img.linkUrl ?? null,
+      openInNewTab: img.openInNewTab ?? true,
     })) ?? [],
     projectVendors: project?.projectVendors?.map((pv) => ({
       vendorId: pv.vendorId,
@@ -142,10 +148,10 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
     );
   };
 
-  const addImage = (url: string) => {
+  const addEmptyImage = () => {
     updateField("images", [
       ...formData.images,
-      { url, alt: "", order: formData.images.length },
+      { url: "", alt: "", order: formData.images.length, linkUrl: null, openInNewTab: true },
     ]);
   };
 
@@ -156,22 +162,41 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const updateImage = (
+    index: number,
+    field: "url" | "alt" | "linkUrl" | "openInNewTab",
+    value: string | boolean
+  ) => {
+    const nextImages = [...formData.images];
+    if (field === "openInNewTab") {
+      nextImages[index] = { ...nextImages[index], openInNewTab: Boolean(value) };
+    } else if (field === "linkUrl") {
+      const normalized = typeof value === "string" && value.trim() ? value.trim() : null;
+      nextImages[index] = { ...nextImages[index], linkUrl: normalized };
+    } else if (field === "url") {
+      nextImages[index] = { ...nextImages[index], url: String(value) };
+    } else {
+      nextImages[index] = { ...nextImages[index], alt: String(value) };
+    }
+    updateField("images", nextImages);
+  };
+
+  const saveProject = async (
+    intent: "draft" | "review" | "publish",
+    options?: { redirectToPreview?: boolean }
+  ) => {
     setIsSubmitting(true);
 
     try {
-      const url = isEditing
-        ? `/api/projects/${project.id}`
-        : "/api/projects";
+      const baseUrl = isEditing ? `/api/projects/${project.id}` : "/api/projects";
+      const url = `${baseUrl}?intent=${intent}`;
       const method = isEditing ? "PUT" : "POST";
 
       // Filter out vendor entries with no vendor selected before submitting
       const submitData = {
         ...formData,
-        projectVendors: (formData.projectVendors ?? []).filter(
-          (pv) => pv.vendorId
-        ),
+        published: intent === "publish",
+        projectVendors: (formData.projectVendors ?? []).filter((pv) => pv.vendorId),
       };
 
       const res = await fetch(url, {
@@ -185,22 +210,48 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         throw new Error(data.error ?? "Failed to save project");
       }
 
-      toast.success(
-        mode === "submit"
-          ? "Project submitted for review"
-          : isEditing
-            ? "Project updated"
-            : "Project created"
-      );
+      const savedProject = await res.json();
+
+      if (options?.redirectToPreview) {
+        toast.success("Draft saved. Opening preview...");
+        router.push(`/projects/preview/${savedProject.id}`);
+        router.refresh();
+        return;
+      }
+
+      if (intent === "draft") {
+        toast.success("Draft saved");
+      } else if (intent === "review") {
+        toast.success("Project submitted for review");
+      } else {
+        toast.success(isEditing ? "Project updated and published" : "Project created and published");
+      }
+
       router.push(mode === "submit" ? "/profile" : "/admin/projects");
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Something went wrong"
-      );
+      toast.error(error instanceof Error ? error.message : "Something went wrong");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await saveProject(mode === "admin" ? "publish" : "review");
+  };
+
+  const handleSaveDraft = async () => {
+    await saveProject("draft");
+  };
+
+  const handlePreview = async () => {
+    if (isEditing) {
+      router.push(`/projects/preview/${project.id}`);
+      return;
+    }
+
+    await saveProject("draft", { redirectToPreview: true });
   };
 
   const formatDateForInput = (date: Date | string | null | undefined) => {
@@ -242,9 +293,80 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
                 content={formData.description ?? ""}
                 onChange={(html) => updateField("description", html)}
                 placeholder="Describe your project..."
+                toolbarExtra={
+                  <>
+                    <Select
+                      value={formData.descriptionTextAlign}
+                      onValueChange={(v) =>
+                        updateField(
+                          "descriptionTextAlign",
+                          v as ProjectFormData["descriptionTextAlign"]
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-28 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="LEFT">Align: Left</SelectItem>
+                        <SelectItem value="CENTER">Align: Center</SelectItem>
+                        <SelectItem value="RIGHT">Align: Right</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select
+                      value={formData.descriptionFontScale}
+                      onValueChange={(v) =>
+                        updateField(
+                          "descriptionFontScale",
+                          v as ProjectFormData["descriptionFontScale"]
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-28 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SMALL">Size: Small</SelectItem>
+                        <SelectItem value="MEDIUM">Size: Medium</SelectItem>
+                        <SelectItem value="LARGE">Size: Large</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Input
+                      value={formData.descriptionTextColor ?? ""}
+                      onChange={(e) =>
+                        updateField("descriptionTextColor", e.target.value || null)
+                      }
+                      placeholder="#374151"
+                      className="h-8 w-24 text-xs"
+                    />
+
+                    <Select
+                      value={formData.descriptionMaxWidth}
+                      onValueChange={(v) =>
+                        updateField(
+                          "descriptionMaxWidth",
+                          v as ProjectFormData["descriptionMaxWidth"]
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-28 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NARROW">Width: Narrow</SelectItem>
+                        <SelectItem value="MEDIUM">Width: Medium</SelectItem>
+                        <SelectItem value="WIDE">Width: Wide</SelectItem>
+                        <SelectItem value="FULL">Width: Full</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </>
+                }
               />
             </Suspense>
           </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Category</Label>
@@ -398,6 +520,8 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
               endDate: pv.endDate
                 ? new Date(pv.endDate).toISOString().split("T")[0]
                 : "",
+              customVendorName: (pv as { customVendorName?: string | null }).customVendorName ?? "",
+              customVendorWebsite: (pv as { customVendorWebsite?: string | null }).customVendorWebsite ?? "",
             }))}
             onChange={(entries) =>
               updateField(
@@ -407,6 +531,8 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
                   region: e.region,
                   storeLink: e.storeLink,
                   endDate: e.endDate ? new Date(e.endDate) : null,
+                  customVendorName: e.customVendorName || null,
+                  customVendorWebsite: e.customVendorWebsite || null,
                 }))
               )
             }
@@ -484,7 +610,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         <CardHeader>
           <CardTitle>Hero Image</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <ImageUpload
             value={formData.heroImage ?? undefined}
             onChange={(url) => updateField("heroImage", url)}
@@ -492,6 +618,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
           />
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader>
@@ -501,57 +628,52 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                document.getElementById("gallery-upload-input")?.click()
-              }
+              onClick={addEmptyImage}
             >
               <Plus className="mr-1 h-4 w-4" />
               Add Image
             </Button>
           </CardTitle>
-          <input
-            id="gallery-upload-input"
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const fd = new FormData();
-              fd.append("file", file);
-              const res = await fetch("/api/upload", {
-                method: "POST",
-                body: fd,
-              });
-              if (res.ok) {
-                const data = await res.json();
-                addImage(data.url);
-              }
-              e.target.value = "";
-            }}
-          />
         </CardHeader>
         <CardContent>
           {formData.images.length === 0 ? (
             <p className="text-muted-foreground text-sm">No gallery images</p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="space-y-4">
               {formData.images.map((img, i) => (
-                <div key={i} className="group relative">
-                  <img
-                    src={img.url}
-                    alt={img.alt ?? "Gallery image"}
-                    className="h-24 w-full rounded-md border object-cover"
+                <div key={i} className="space-y-3 rounded-md border p-3">
+                  <ImageUpload
+                    value={img.url || undefined}
+                    onChange={(url) => updateImage(i, "url", url)}
+                    onRemove={() => removeImage(i)}
                   />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1 right-1 h-5 w-5 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => removeImage(i)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label>Alt text (optional)</Label>
+                      <Input
+                        value={img.alt ?? ""}
+                        onChange={(e) => updateImage(i, "alt", e.target.value)}
+                        placeholder="Describe this image"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Image link URL (optional)</Label>
+                      <Input
+                        value={img.linkUrl ?? ""}
+                        onChange={(e) => updateImage(i, "linkUrl", e.target.value)}
+                        placeholder="https://example.com"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={img.openInNewTab ?? true}
+                      onChange={(e) => updateImage(i, "openInNewTab", e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Open in new tab</span>
+                  </label>
                 </div>
               ))}
             </div>
@@ -715,19 +837,23 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </Card>
       )}
 
-      <div className="flex justify-end gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-        >
+      <div className="flex flex-wrap justify-end gap-3">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
+        </Button>
+        <Button type="button" variant="outline" onClick={handlePreview} disabled={isSubmitting}>
+          <Eye className="mr-2 h-4 w-4" />
+          Preview
+        </Button>
+        <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Save Draft
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {mode === "submit"
-            ? isEditing ? "Update Submission" : "Submit Project"
-            : isEditing ? "Update Project" : "Create Project"}
+            ? "Submit for Review"
+            : "Publish"}
         </Button>
       </div>
     </form>

@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import Script from "next/script";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/shared/page-header";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Store, CheckCircle, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
+import { getSiteUrl, SITE_NAME } from "@/lib/site";
 
 interface VendorPageProps {
   params: Promise<{ slug: string }>;
@@ -40,9 +41,29 @@ export async function generateMetadata({
 
   if (!vendor) return { title: "Not Found" };
 
+  const siteUrl = getSiteUrl();
+  const canonical = new URL(`/vendors/${vendor.slug}`, siteUrl).toString();
+  const description = vendor.description?.trim() || `${vendor.name} on ${SITE_NAME}`;
+  const image = vendor.logo || `${siteUrl}/window.svg`;
+
   return {
     title: vendor.name,
-    description: vendor.description ?? `${vendor.name} on KeyVault`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: vendor.name,
+      description,
+      url: canonical,
+      type: "profile",
+      siteName: SITE_NAME,
+      images: image ? [image] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: vendor.name,
+      description,
+      images: image ? [image] : undefined,
+    },
   };
 }
 
@@ -54,12 +75,30 @@ export default async function VendorPage({ params }: VendorPageProps) {
     notFound();
   }
 
+  const siteUrl = getSiteUrl();
+  const canonical = new URL(`/vendors/${vendor.slug}`, siteUrl).toString();
+  const description = vendor.description?.trim() || `${vendor.name} on ${SITE_NAME}`;
+  const image = vendor.logo || `${siteUrl}/window.svg`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: vendor.name,
+    description,
+    url: canonical,
+    logo: image,
+  };
+
   const publishedProjects = vendor.projectVendors
     .map((pv) => pv.project)
     .filter((p) => p.published);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
+      <Script
+        id="vendor-json-ld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="flex items-start gap-6">
         <div className="bg-muted flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl">
           {vendor.logo ? (

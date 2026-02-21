@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, LogOut, Shield, User } from "lucide-react";
+import { FolderOpen, LogOut, Shield, User, Settings } from "lucide-react";
 
 export function UserMenu() {
   const { data: session } = useSession();
@@ -62,8 +62,14 @@ export function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/profile">
-            <FolderOpen className="mr-2 h-4 w-4" />
-            My Projects
+            <User className="mr-2 h-4 w-4" />
+            My Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/profile?tab=settings">
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
           </Link>
         </DropdownMenuItem>
         {isAdmin && (

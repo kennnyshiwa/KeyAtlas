@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_REFERENCE } from "@/lib/rate-limit";
-import { ProjectCategory } from "@/generated/prisma";
+import { ProjectCategory } from "@/generated/prisma/client";
 
 const CATEGORY_LABELS: Record<ProjectCategory, string> = {
   KEYBOARDS: "Keyboards",

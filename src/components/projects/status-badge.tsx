@@ -1,4 +1,4 @@
-import type { ProjectStatus } from "@/generated/prisma";
+import type { ProjectStatus } from "@/generated/prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";

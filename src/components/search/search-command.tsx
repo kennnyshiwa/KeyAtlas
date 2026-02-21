@@ -11,7 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { CATEGORY_LABELS, STATUS_LABELS } from "@/lib/constants";
-import type { ProjectCategory, ProjectStatus } from "@/generated/prisma";
+import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
 interface SearchHit {
   id: string;

@@ -8,12 +8,30 @@ export function Footer() {
         <div className="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
           <Keyboard className="h-5 w-5" />
           <p className="text-muted-foreground text-center text-sm leading-loose md:text-left">
-            KeyVault — Your mechanical keyboard community hub.
+            KeyAtlas — Your mechanical keyboard community hub.
           </p>
         </div>
-        <div className="text-muted-foreground flex gap-4 text-sm">
+        <div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
           <Link href="/projects" className="hover:text-foreground transition-colors">
             Projects
+          </Link>
+          <Link href="/forums" className="hover:text-foreground transition-colors">
+            Forums
+          </Link>
+          <Link href="/guides" className="hover:text-foreground transition-colors">
+            Build Guides
+          </Link>
+          <Link href="/vendors" className="hover:text-foreground transition-colors">
+            Vendors
+          </Link>
+          <Link href="/activity" className="hover:text-foreground transition-colors">
+            Activity
+          </Link>
+          <Link href="/compare" className="hover:text-foreground transition-colors">
+            Compare
+          </Link>
+          <Link href="/statistics" className="hover:text-foreground transition-colors">
+            Stats
           </Link>
         </div>
       </div>

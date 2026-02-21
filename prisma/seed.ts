@@ -11,10 +11,10 @@ async function main() {
 
   // Create admin user
   const admin = await prisma.user.upsert({
-    where: { email: "admin@keyvault.dev" },
+    where: { email: "admin@keyatlas.dev" },
     update: {},
     create: {
-      email: "admin@keyvault.dev",
+      email: "admin@keyatlas.dev",
       name: "Admin",
       role: "ADMIN",
     },
@@ -39,10 +39,10 @@ async function main() {
 
   // Create a second user for another vendor
   const vendorUser = await prisma.user.upsert({
-    where: { email: "vendor@keyvault.dev" },
+    where: { email: "vendor@keyatlas.dev" },
     update: {},
     create: {
-      email: "vendor@keyvault.dev",
+      email: "vendor@keyatlas.dev",
       name: "Vendor User",
       role: "VENDOR",
     },

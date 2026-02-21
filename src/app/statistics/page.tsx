@@ -11,7 +11,7 @@ import { format, subMonths } from "date-fns";
 
 export const metadata = {
   title: "Statistics",
-  description: "KeyVault community statistics and trends.",
+  description: "KeyAtlas community statistics and trends.",
 };
 
 export default async function StatisticsPage() {

@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { SmartImage } from "@/components/shared/smart-image";
 import { ProjectStatusBadge } from "./status-badge";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
@@ -14,7 +14,7 @@ export function ProjectHero({ project }: ProjectHeroProps) {
     <div className="space-y-4">
       {project.heroImage && (
         <div className="relative aspect-[16/9] overflow-hidden rounded-lg">
-          <Image
+          <SmartImage
             src={project.heroImage}
             alt={project.title}
             fill

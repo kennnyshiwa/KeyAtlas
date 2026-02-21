@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { STATUS_LABELS } from "@/lib/constants";
-import type { ProjectStatus } from "@/generated/prisma";
+import type { ProjectStatus } from "@/generated/prisma/client";
 
 export const metadata = {
   title: "Admin Dashboard",
@@ -27,7 +27,7 @@ export default async function AdminDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Overview of your KeyVault projects."
+        description="Overview of your KeyAtlas projects."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

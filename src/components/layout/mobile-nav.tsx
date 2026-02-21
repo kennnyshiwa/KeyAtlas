@@ -49,7 +49,7 @@ export function MobileNav() {
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Keyboard className="h-5 w-5" />
-            KeyVault
+            KeyAtlas
           </SheetTitle>
         </SheetHeader>
         <nav className="mt-6 flex flex-col space-y-1">

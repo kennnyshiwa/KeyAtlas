@@ -22,7 +22,7 @@ export function ProjectGrid({ projects, viewMode = "card" }: ProjectGridProps) {
 
   if (viewMode === "image") {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {projects.map((project) => (
           <ProjectImageCard key={project.id} project={project} />
         ))}
@@ -31,7 +31,7 @@ export function ProjectGrid({ projects, viewMode = "card" }: ProjectGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {projects.map((project) => (
         <ProjectCard key={project.id} project={project} />
       ))}

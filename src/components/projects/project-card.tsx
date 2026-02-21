@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { SmartImage } from "@/components/shared/smart-image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProjectStatusBadge } from "./status-badge";
@@ -20,9 +20,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
   return (
     <Link href={href} className="h-full">
       <Card className="group flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg">
-        <div className="relative aspect-[4/3] overflow-hidden">
+        <div className="relative aspect-[16/10] overflow-hidden">
           {project.heroImage ? (
-            <Image
+            <SmartImage
               src={project.heroImage}
               alt={project.title}
               fill
@@ -50,7 +50,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             )}
           </div>
         </div>
-        <CardContent className="flex flex-1 flex-col p-4">
+        <CardContent className="flex flex-1 flex-col p-3">
           <div className="mb-1 flex items-center gap-2">
             <Badge className={`text-xs ${CATEGORY_COLORS[project.category]}`}>
               {CATEGORY_LABELS[project.category]}

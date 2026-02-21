@@ -5,7 +5,7 @@ import { Upload, X, ImageIcon, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+import { SmartImage } from "@/components/shared/smart-image";
 
 interface ImageUploadProps {
   value?: string;
@@ -104,7 +104,7 @@ export function ImageUpload({
   if (value) {
     return (
       <div className={cn("relative overflow-hidden rounded-lg border", className)}>
-        <Image
+        <SmartImage
           src={value}
           alt="Uploaded image"
           width={400}
@@ -217,7 +217,7 @@ export function ImageUpload({
             <p className="text-destructive text-sm">{urlError}</p>
           )}
           <p className="text-muted-foreground text-xs">
-            Supported: Imgur, Reddit, Discord, Twitter, Unsplash, Shopify, Postimg
+            Supported: Imgur, Reddit, Discord, Twitter, Unsplash, Shopify, Postimg, Geekhack, kstj, ibb, bord.design
           </p>
         </div>
       )}

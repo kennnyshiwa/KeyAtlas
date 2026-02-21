@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Script from "next/script";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
@@ -7,6 +9,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { SearchCommand } from "@/components/search/search-command";
+import { getSiteUrl, SITE_NAME } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,13 +21,38 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "KeyVault",
-    template: "%s - KeyVault",
+    default: SITE_NAME,
+    template: `%s - ${SITE_NAME}`,
   },
   description:
-    "Your mechanical keyboard community hub for interest checks, group buys, and more.",
+    "Your mechanical keyboard community hub for interest checks, group buys, vendors, and build guides.",
+  applicationName: SITE_NAME,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description:
+      "Track keyboard projects, group buys, vendors, and community discussions in one place.",
+    url: siteUrl,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description:
+      "Track keyboard projects, group buys, vendors, and community discussions in one place.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -39,12 +67,45 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ThemeProvider>
+            <Script
+              id="ld-json-website"
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "WebSite",
+                  name: SITE_NAME,
+                  url: siteUrl,
+                  potentialAction: {
+                    "@type": "SearchAction",
+                    target: `${siteUrl}/projects?q={search_term_string}`,
+                    "query-input": "required name=search_term_string",
+                  },
+                }),
+              }}
+            />
+            <Script
+              id="ld-json-org"
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "Organization",
+                  name: SITE_NAME,
+                  url: siteUrl,
+                }),
+              }}
+            />
             <div className="flex min-h-screen flex-col">
-              <Navbar />
+              <Suspense fallback={null}>
+                <Navbar />
+              </Suspense>
               <main className="container flex-1 py-6">{children}</main>
               <Footer />
             </div>
-            <SearchCommand />
+            <Suspense fallback={null}>
+              <SearchCommand />
+            </Suspense>
             <Toaster />
           </ThemeProvider>
         </AuthProvider>

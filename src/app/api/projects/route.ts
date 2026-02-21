@@ -3,7 +3,54 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { projectFormSchema } from "@/lib/validations/project";
 import { indexProject } from "@/lib/meilisearch";
-import type { ProjectCategory, ProjectStatus } from "@/generated/prisma";
+import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
+async function findOrCreateVendorByEntry(entry: {
+  vendorId: string;
+  customVendorName?: string | null;
+  customVendorWebsite?: string | null;
+}) {
+  if (entry.vendorId && entry.vendorId !== "__new__") return entry.vendorId;
+
+  const rawName = entry.customVendorName?.trim();
+  if (!rawName) return null;
+
+  const existing = await prisma.vendor.findFirst({
+    where: { name: { equals: rawName, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const baseSlug = slugify(rawName) || "vendor";
+  let slug = baseSlug;
+  let i = 1;
+  while (await prisma.vendor.findUnique({ where: { slug }, select: { id: true } })) {
+    slug = `${baseSlug}-${i++}`;
+  }
+
+  const created = await prisma.vendor.create({
+    data: {
+      name: rawName,
+      slug,
+      storefrontUrl: entry.customVendorWebsite || null,
+      verified: false,
+      regionsServed: [],
+    },
+    select: { id: true },
+  });
+
+  return created.id;
+}
+
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -48,6 +95,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const intent = searchParams.get("intent");
   const body = await req.json();
   const result = projectFormSchema.safeParse(body);
 
@@ -67,6 +116,14 @@ export async function POST(req: NextRequest) {
     data.featured = false;
   }
 
+  // Optional explicit intent for draft/review/publish while keeping legacy payload compatibility
+  if (intent === "draft" || intent === "review") {
+    data.published = false;
+  }
+  if (intent === "publish" && isAdmin) {
+    data.published = true;
+  }
+
   const existing = await prisma.project.findUnique({
     where: { slug: data.slug },
   });
@@ -77,8 +134,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const resolvedVendors = (
+    await Promise.all(
+      projectVendors.map(async (pv) => ({
+        ...pv,
+        vendorId: await findOrCreateVendorByEntry({
+          vendorId: pv.vendorId,
+          customVendorName: pv.customVendorName,
+          customVendorWebsite: pv.customVendorWebsite,
+        }),
+      }))
+    )
+  ).filter((pv) => !!pv.vendorId) as Array<{
+    vendorId: string;
+    region?: string;
+    storeLink?: string;
+    endDate?: Date | null;
+  }>;
+
   // Auto-set vendorId from first projectVendor for backward compat
-  const primaryVendorId = projectVendors.length > 0 ? projectVendors[0].vendorId : null;
+  const primaryVendorId = resolvedVendors.length > 0 ? resolvedVendors[0].vendorId : null;
 
   const project = await prisma.project.create({
     data: {
@@ -92,7 +167,7 @@ export async function POST(req: NextRequest) {
         create: links,
       },
       projectVendors: {
-        create: projectVendors.map((pv) => ({
+        create: resolvedVendors.map((pv) => ({
           vendorId: pv.vendorId,
           region: pv.region || null,
           storeLink: pv.storeLink || null,

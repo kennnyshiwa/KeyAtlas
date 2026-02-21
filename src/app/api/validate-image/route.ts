@@ -22,6 +22,10 @@ const ALLOWED_HOSTS = [
   "i.postimg.cc",
   "images.unsplash.com",
   "cdn.shopify.com",
+  "geekhack.org",
+  "photos.kstj.us",
+  "i.ibb.co",
+  "bord.design",
 ];
 
 export async function POST(req: NextRequest) {

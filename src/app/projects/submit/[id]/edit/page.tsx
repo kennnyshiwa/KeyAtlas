@@ -21,15 +21,22 @@ export default async function EditSubmissionPage({ params }: EditSubmissionPageP
 
   const { id } = await params;
 
-  const project = await prisma.project.findUnique({
-    where: { id },
-    include: {
-      images: { orderBy: { order: "asc" } },
-      links: true,
-      vendor: true,
-      creator: { select: { id: true, name: true, image: true } },
-    },
-  });
+  const [project, vendors] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id },
+      include: {
+        images: { orderBy: { order: "asc" } },
+        links: true,
+        vendor: true,
+        creator: { select: { id: true, name: true, image: true } },
+        projectVendors: true,
+      },
+    }),
+    prisma.vendor.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!project) {
     notFound();
@@ -46,7 +53,7 @@ export default async function EditSubmissionPage({ params }: EditSubmissionPageP
         title="Edit Submission"
         description="Update your project submission before it's reviewed."
       />
-      <ProjectForm project={project} mode="submit" />
+      <ProjectForm project={project} mode="submit" vendors={vendors} />
     </div>
   );
 }

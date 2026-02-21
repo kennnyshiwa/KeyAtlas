@@ -17,6 +17,8 @@ export interface ProjectVendorEntry {
   region: string;
   storeLink: string;
   endDate: string;
+  customVendorName?: string;
+  customVendorWebsite?: string;
 }
 
 interface VendorMultiSelectProps {
@@ -33,7 +35,14 @@ export function VendorMultiSelect({
   const addEntry = () => {
     onChange([
       ...value,
-      { vendorId: "", region: "", storeLink: "", endDate: "" },
+      {
+        vendorId: "",
+        region: "",
+        storeLink: "",
+        endDate: "",
+        customVendorName: "",
+        customVendorWebsite: "",
+      },
     ]);
   };
 
@@ -81,9 +90,36 @@ export function VendorMultiSelect({
                       {v.name}
                     </SelectItem>
                   ))}
+                  <SelectItem value="__new__">+ Add new vendor</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {entry.vendorId === "__new__" && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs">New vendor name</Label>
+                  <Input
+                    value={entry.customVendorName ?? ""}
+                    onChange={(e) =>
+                      updateEntry(i, "customVendorName", e.target.value)
+                    }
+                    placeholder="Vendor name"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">New vendor website (optional)</Label>
+                  <Input
+                    value={entry.customVendorWebsite ?? ""}
+                    onChange={(e) =>
+                      updateEntry(i, "customVendorWebsite", e.target.value)
+                    }
+                    placeholder="https://vendor.com"
+                  />
+                </div>
+              </>
+            )}
+
             <div className="space-y-1">
               <Label className="text-xs">Region</Label>
               <Input
