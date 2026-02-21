@@ -13,7 +13,8 @@ FROM base AS builder
 RUN apk add --no-cache libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+# Generate Prisma client for the configured custom output path before Next build
+RUN npx prisma generate && npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
