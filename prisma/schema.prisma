@@ -87,11 +87,15 @@ model User {
   passwordHash  String?
   emailVerified DateTime?
   image         String?
-  role          UserRole  @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role               UserRole  @default(USER)
+  bannedAt           DateTime?
+  banReason          String?
+  forcePasswordReset Boolean   @default(false)
+  lastSeenAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  accounts   Account[]
+  accounts            Account[]
   sessions   Session[]
   vendors    Vendor[]
   projects   Project[]
@@ -107,6 +111,7 @@ model User {
   forumPosts    ForumPost[]
   buildGuides   BuildGuide[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
   vendorSuggestions VendorSuggestion[]
   reviewedVendorSuggestions VendorSuggestion[] @relation("VendorSuggestionReviewer")
 
@@ -168,6 +173,20 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
 
 enum VendorSuggestionStatus {
   PENDING

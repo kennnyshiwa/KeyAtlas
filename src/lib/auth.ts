@@ -43,6 +43,16 @@ async function ensureDiscordUsername(userId: string, seed?: string | null) {
   });
 }
 
+async function ensureAtLeastOneAdmin(userId: string) {
+  const adminCount = await prisma.user.count({ where: { role: "ADMIN", bannedAt: null } });
+  if (adminCount > 0) return;
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { role: "ADMIN" },
+  });
+}
+
 declare module "next-auth" {
   interface Session {
     user: {
@@ -84,6 +94,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           throw new Error("Invalid email or password");
         }
 
+        if (user.bannedAt) {
+          throw new Error("This account is banned");
+        }
+
+        if (user.forcePasswordReset) {
+          throw new Error("Password reset required");
+        }
+
         const valid = await verifyPassword(password, user.passwordHash);
         if (!valid) {
           throw new Error("Invalid email or password");
@@ -112,33 +130,62 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (account?.provider === "discord" && user?.id) {
+      if (!user?.id) return true;
+
+      try {
+        await ensureAtLeastOneAdmin(user.id);
+      } catch (error) {
+        console.error("[auth] ensureAtLeastOneAdmin failed", error);
+      }
+
+      if (account?.provider === "discord") {
         const profileSeed =
           (profile as { username?: string; global_name?: string } | null)?.global_name ||
           (profile as { username?: string; global_name?: string } | null)?.username ||
           user.name;
-        await ensureDiscordUsername(user.id, profileSeed);
+        try {
+          await ensureDiscordUsername(user.id, profileSeed);
+        } catch (error) {
+          console.error("[auth] ensureDiscordUsername failed", error);
+        }
       }
       return true;
     },
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
-        (token as { role?: UserRole }).role = user.role;
       }
 
-      if (!(token as { role?: UserRole }).role && token.sub) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.sub },
-          select: { role: true },
-        });
-        (token as { role?: UserRole }).role = dbUser?.role;
+      if (token.sub) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: { role: true, bannedAt: true, forcePasswordReset: true, lastSeenAt: true },
+          });
+
+          if (!dbUser || dbUser.bannedAt) {
+            return {};
+          }
+
+          (token as { role?: UserRole }).role = dbUser.role;
+
+          const now = Date.now();
+          const shouldUpdateSeen =
+            !dbUser.lastSeenAt || now - dbUser.lastSeenAt.getTime() > 1000 * 60 * 5;
+          if (shouldUpdateSeen) {
+            prisma.user
+              .update({ where: { id: token.sub }, data: { lastSeenAt: new Date(now) } })
+              .catch(() => {});
+          }
+        } catch (error) {
+          console.error("[auth] jwt user lookup failed", error);
+        }
       }
 
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token.sub) {
+      if (session.user && token?.sub) {
         session.user.id = token.sub;
         session.user.role = (token as { role?: UserRole }).role ?? "USER";
       }

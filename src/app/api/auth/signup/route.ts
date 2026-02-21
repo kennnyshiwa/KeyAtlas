@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
 
   await prisma.$transaction(async (tx) => {
+    const userCount = await tx.user.count();
+    const isFirstUser = userCount === 0;
+
     const user = await tx.user.create({
       data: {
         email: normalizedEmail,
@@ -50,6 +53,7 @@ export async function POST(req: NextRequest) {
         displayName: displayName?.trim() || null,
         name: displayName?.trim() || null,
         emailVerified: null,
+        role: isFirstUser ? "ADMIN" : "USER",
       },
     });
 
