@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Menu, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,8 @@ const navLinks = [
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeCategory = searchParams.get("category");
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -55,7 +57,7 @@ export function MobileNav() {
             onClick={() => setOpen(false)}
             className={cn(
               "text-foreground/60 hover:text-foreground rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              pathname === "/projects" && !new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").has("category") &&
+              pathname === "/projects" && !activeCategory &&
                 "bg-accent text-foreground"
             )}
           >
@@ -68,7 +70,7 @@ export function MobileNav() {
               onClick={() => setOpen(false)}
               className={cn(
                 "text-foreground/60 hover:text-foreground rounded-md px-3 py-2 pl-6 text-sm transition-colors",
-                pathname === "/projects" && cat.href.includes(new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("category") ?? "__none__") &&
+                pathname === "/projects" && activeCategory && cat.href.includes(activeCategory) &&
                   "bg-accent text-foreground"
               )}
             >

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { ApiKeyManager } from "@/components/profile/api-key-manager";
 import { ApiDocs } from "@/components/profile/api-docs";
+import { ProfileSettings } from "@/components/profile/profile-settings";
 import type { ProjectListItem } from "@/types";
 
 interface ApiKeyInfo {
@@ -19,16 +20,29 @@ interface ApiKeyInfo {
   expiresAt: string | null;
 }
 
+interface ProfileUser {
+  id: string;
+  name: string | null;
+  username: string | null;
+  displayName: string | null;
+  bio: string | null;
+  email: string | null;
+  image: string | null;
+  createdAt: string;
+}
+
 interface ProfileTabsProps {
   projects: ProjectListItem[];
   favorites: ProjectListItem[];
   collection: ProjectListItem[];
   apiKeys: ApiKeyInfo[];
+  user: ProfileUser;
+  defaultTab?: "projects" | "favorites" | "collection" | "api" | "settings";
 }
 
-export function ProfileTabs({ projects, favorites, collection, apiKeys }: ProfileTabsProps) {
+export function ProfileTabs({ projects, favorites, collection, apiKeys, user, defaultTab = "projects" }: ProfileTabsProps) {
   return (
-    <Tabs defaultValue="projects">
+    <Tabs defaultValue={defaultTab}>
       <TabsList>
         <TabsTrigger value="projects">
           My Projects ({projects.length})
@@ -41,6 +55,9 @@ export function ProfileTabs({ projects, favorites, collection, apiKeys }: Profil
         </TabsTrigger>
         <TabsTrigger value="api">
           API
+        </TabsTrigger>
+        <TabsTrigger value="settings">
+          Settings
         </TabsTrigger>
       </TabsList>
       <TabsContent value="projects" className="mt-4">
@@ -83,6 +100,9 @@ export function ProfileTabs({ projects, favorites, collection, apiKeys }: Profil
       <TabsContent value="api" className="mt-4 space-y-6">
         <ApiKeyManager initialKeys={apiKeys} />
         <ApiDocs />
+      </TabsContent>
+      <TabsContent value="settings" className="mt-4">
+        <ProfileSettings user={user} />
       </TabsContent>
     </Tabs>
   );

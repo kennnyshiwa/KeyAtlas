@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:seed": "npx tsx --tsconfig tsconfig.seed.json prisma/seed.ts"
+    "db:seed": "npx tsx --tsconfig tsconfig.seed.json prisma/seed.ts",
+    "postgenerate": "echo 'export * from \"./client\";' > src/generated/prisma/index.ts",
+    "qa:key": "tsx scripts/create-qa-api-key.ts",
+    "qa:smoke": "scripts/qa-smoke.sh",
+    "qa:smoke:local": "BASE_URL=http://localhost:3000 scripts/qa-smoke.sh"
   },
   "prisma": {
     "seed": "npx tsx --tsconfig tsconfig.seed.json prisma/seed.ts"
