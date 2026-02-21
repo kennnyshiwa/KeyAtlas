@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
 
 const projectCategories = [
   { href: "/projects?category=KEYCAPS", label: "Keycaps" },
@@ -27,7 +28,6 @@ const navLinks = [
   { href: "/vendors", label: "Vendors" },
   { href: "/calendar", label: "Calendar" },
   { href: "/statistics", label: "Stats" },
-  { href: "/projects/submit", label: "Submit" },
 ];
 
 export function MobileNav() {
@@ -35,6 +35,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeCategory = searchParams.get("category");
+  const { data: session } = useSession();
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -92,6 +93,18 @@ export function MobileNav() {
               {link.label}
             </Link>
           ))}
+          {session?.user && (
+            <Link
+              href="/projects/submit"
+              onClick={() => setOpen(false)}
+              className={cn(
+                "text-foreground/60 hover:text-foreground rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                pathname === "/projects/submit" && "bg-accent text-foreground"
+              )}
+            >
+              Submit Project
+            </Link>
+          )}
         </nav>
         <div className="mt-auto border-t pt-4">
           <ThemeToggle />

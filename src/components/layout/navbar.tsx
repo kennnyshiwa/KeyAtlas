@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Keyboard, Search, ChevronDown } from "lucide-react";
+import { Keyboard, Search, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,7 +14,9 @@ import {
 import { UserMenu } from "@/components/auth/user-menu";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
 
 const projectCategories = [
   { href: "/projects?category=KEYCAPS", label: "Keycaps" },
@@ -24,14 +26,16 @@ const projectCategories = [
 ];
 
 const navLinks = [
+  { href: "/forums", label: "Forums" },
   { href: "/vendors", label: "Vendors" },
+  { href: "/guides", label: "Guides" },
   { href: "/calendar", label: "Calendar" },
   { href: "/statistics", label: "Stats" },
-  { href: "/projects/submit", label: "Submit" },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   return (
     <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
@@ -83,14 +87,20 @@ export function Navbar() {
         </nav>
         <div className="flex flex-1 items-center justify-end space-x-2">
           <Button variant="outline" size="sm" className="hidden md:flex" asChild>
-            <Link href="/projects?search=true">
+            <Link href="/projects">
               <Search className="mr-2 h-4 w-4" />
               Search
-              <kbd className="bg-muted text-muted-foreground pointer-events-none ml-2 hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-xs font-medium opacity-100 select-none sm:flex">
-                <span className="text-xs">⌘</span>K
-              </kbd>
             </Link>
           </Button>
+          {session?.user && (
+            <Button size="sm" className="hidden md:flex" asChild>
+              <Link href="/projects/submit">
+                <Plus className="mr-2 h-4 w-4" />
+                Submit Project
+              </Link>
+            </Button>
+          )}
+          <NotificationBell />
           <ThemeToggle />
           <UserMenu />
         </div>
