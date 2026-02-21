@@ -23,6 +23,9 @@ const geistMono = Geist_Mono({
 
 const siteUrl = getSiteUrl();
 
+// Force dynamic rendering so Docker/CI builds don't require live DB for prerender.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
