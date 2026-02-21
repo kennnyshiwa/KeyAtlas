@@ -33,7 +33,13 @@ yarn-error.log*
 # env files
 .env
 .env.local
+.env.*
+!.env.example
 .env.*.local
+
+# editor swap files
+*.swp
+*.swo
 
 # vercel
 .vercel
