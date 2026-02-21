@@ -5,28 +5,6 @@ import { getSiteUrl } from "@/lib/site";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = getSiteUrl();
 
-  const [projects, vendors, guides, users] = await Promise.all([
-    prisma.project.findMany({
-      where: { published: true },
-      select: { slug: true, updatedAt: true },
-      orderBy: { updatedAt: "desc" },
-    }),
-    prisma.vendor.findMany({
-      select: { slug: true, updatedAt: true },
-      orderBy: { updatedAt: "desc" },
-    }),
-    prisma.buildGuide.findMany({
-      where: { published: true },
-      select: { slug: true, updatedAt: true },
-      orderBy: { updatedAt: "desc" },
-    }),
-    prisma.user.findMany({
-      where: { username: { not: null } },
-      select: { username: true, updatedAt: true },
-      orderBy: { updatedAt: "desc" },
-    }),
-  ]);
-
   const staticRoutes: MetadataRoute.Sitemap = [
     "",
     "/projects",
@@ -50,35 +28,62 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: path === "" ? 1 : 0.7,
   }));
 
-  const projectRoutes: MetadataRoute.Sitemap = projects.map((project) => ({
-    url: `${siteUrl}/projects/${project.slug}`,
-    lastModified: project.updatedAt,
-    changeFrequency: "daily",
-    priority: 0.8,
-  }));
+  try {
+    const [projects, vendors, guides, users] = await Promise.all([
+      prisma.project.findMany({
+        where: { published: true },
+        select: { slug: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.vendor.findMany({
+        select: { slug: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.buildGuide.findMany({
+        where: { published: true },
+        select: { slug: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.user.findMany({
+        where: { username: { not: null } },
+        select: { username: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+    ]);
 
-  const vendorRoutes: MetadataRoute.Sitemap = vendors.map((vendor) => ({
-    url: `${siteUrl}/vendors/${vendor.slug}`,
-    lastModified: vendor.updatedAt,
-    changeFrequency: "weekly",
-    priority: 0.6,
-  }));
-
-  const guideRoutes: MetadataRoute.Sitemap = guides.map((guide) => ({
-    url: `${siteUrl}/guides/${guide.slug}`,
-    lastModified: guide.updatedAt,
-    changeFrequency: "weekly",
-    priority: 0.7,
-  }));
-
-  const userRoutes: MetadataRoute.Sitemap = users
-    .filter((user) => !!user.username)
-    .map((user) => ({
-      url: `${siteUrl}/users/${user.username}`,
-      lastModified: user.updatedAt,
-      changeFrequency: "weekly",
-      priority: 0.5,
+    const projectRoutes: MetadataRoute.Sitemap = projects.map((project) => ({
+      url: `${siteUrl}/projects/${project.slug}`,
+      lastModified: project.updatedAt,
+      changeFrequency: "daily",
+      priority: 0.8,
     }));
 
-  return [...staticRoutes, ...projectRoutes, ...vendorRoutes, ...guideRoutes, ...userRoutes];
+    const vendorRoutes: MetadataRoute.Sitemap = vendors.map((vendor) => ({
+      url: `${siteUrl}/vendors/${vendor.slug}`,
+      lastModified: vendor.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    }));
+
+    const guideRoutes: MetadataRoute.Sitemap = guides.map((guide) => ({
+      url: `${siteUrl}/guides/${guide.slug}`,
+      lastModified: guide.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    }));
+
+    const userRoutes: MetadataRoute.Sitemap = users
+      .filter((user) => !!user.username)
+      .map((user) => ({
+        url: `${siteUrl}/users/${user.username}`,
+        lastModified: user.updatedAt,
+        changeFrequency: "weekly",
+        priority: 0.5,
+      }));
+
+    return [...staticRoutes, ...projectRoutes, ...vendorRoutes, ...guideRoutes, ...userRoutes];
+  } catch {
+    // In CI/build environments without DB connectivity, return static routes so build can succeed.
+    return staticRoutes;
+  }
 }
