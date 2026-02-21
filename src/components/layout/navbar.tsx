@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
 import { Keyboard, Search, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
+import { Input } from "@/components/ui/input";
 
 const projectCategories = [
   { href: "/projects?category=KEYCAPS", label: "Keycaps" },
@@ -35,7 +37,15 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
+  const [search, setSearch] = useState("");
+
+  function handleSearchSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const q = search.trim();
+    router.push(q ? `/projects?q=${encodeURIComponent(q)}` : "/projects");
+  }
 
   return (
     <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
@@ -86,12 +96,16 @@ export function Navbar() {
           ))}
         </nav>
         <div className="flex flex-1 items-center justify-end space-x-2">
-          <Button variant="outline" size="sm" className="hidden md:flex" asChild>
-            <Link href="/projects">
-              <Search className="mr-2 h-4 w-4" />
-              Search
-            </Link>
-          </Button>
+          <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
+            <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search projects..."
+              className="h-9 w-64 pl-9"
+            />
+          </form>
           {session?.user && (
             <Button size="sm" className="hidden md:flex" asChild>
               <Link href="/projects/submit">
