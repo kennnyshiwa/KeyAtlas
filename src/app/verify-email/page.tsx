@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ResendVerificationForm } from "@/components/auth/resend-verification-form";
 
 interface VerifyEmailPageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 const reasonMessages: Record<string, string> = {
@@ -13,10 +13,11 @@ const reasonMessages: Record<string, string> = {
   expired: "This verification link has expired. Request a new one below.",
 };
 
-export default function VerifyEmailPage({ searchParams }: VerifyEmailPageProps) {
-  const status = typeof searchParams.status === "string" ? searchParams.status : undefined;
-  const reasonKey = typeof searchParams.reason === "string" ? searchParams.reason : undefined;
-  const email = typeof searchParams.email === "string" ? searchParams.email : undefined;
+export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageProps) {
+  const resolved = await searchParams;
+  const status = typeof resolved.status === "string" ? resolved.status : undefined;
+  const reasonKey = typeof resolved.reason === "string" ? resolved.reason : undefined;
+  const email = typeof resolved.email === "string" ? resolved.email : undefined;
 
   const isSuccess = status === "success";
   const isPending = status === "pending";
