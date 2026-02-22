@@ -20,13 +20,17 @@ export default function VerifyEmailPage({ searchParams }: VerifyEmailPageProps) 
 
   const isSuccess = status === "success";
   const isPending = status === "pending";
+  const isConfirm = status === "confirm";
   const isError = status === "error";
+  const token = typeof searchParams.token === "string" ? searchParams.token : undefined;
 
   const description = isSuccess
     ? "Your email has been verified. Redirecting you to sign in…"
     : isPending
       ? "Check your inbox for a verification link."
-      : "Use the form below to request a new verification email.";
+      : isConfirm
+        ? "Click the button below to verify your email."
+        : "Use the form below to request a new verification email.";
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center">
@@ -54,7 +58,19 @@ export default function VerifyEmailPage({ searchParams }: VerifyEmailPageProps) 
             </div>
           )}
 
-          {!isSuccess && (
+          {isConfirm && token && (
+            <form action="/api/auth/verify-email" method="post" className="space-y-3">
+              <input type="hidden" name="token" value={token} />
+              <button
+                type="submit"
+                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              >
+                Verify my email
+              </button>
+            </form>
+          )}
+
+          {!isSuccess && !isConfirm && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground text-center">Didn&apos;t get the email? Resend it.</p>
               <ResendVerificationForm defaultEmail={email} />
