@@ -53,6 +53,13 @@ async function ensureAtLeastOneAdmin(userId: string) {
   });
 }
 
+async function ensureOAuthEmailVerified(userId: string) {
+  await prisma.user.updateMany({
+    where: { id: userId, emailVerified: null },
+    data: { emailVerified: new Date() },
+  });
+}
+
 declare module "next-auth" {
   interface Session {
     user: {
@@ -152,6 +159,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         await ensureAtLeastOneAdmin(user.id);
       } catch (error) {
         console.error("[auth] ensureAtLeastOneAdmin failed", error);
+      }
+
+      if (account?.provider === "discord" || account?.provider === "google") {
+        try {
+          await ensureOAuthEmailVerified(user.id);
+        } catch (error) {
+          console.error("[auth] ensureOAuthEmailVerified failed", error);
+        }
       }
 
       if (account?.provider === "discord") {
