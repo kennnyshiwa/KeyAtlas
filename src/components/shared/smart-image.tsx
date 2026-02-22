@@ -32,21 +32,28 @@ const TRUSTED_HOSTS = new Set([
   "bord.design",
 ]);
 
-function isTrusted(src: string) {
-  if (!src) return false;
-  if (src.startsWith("/")) return true;
+const DIRECT_LOAD_HOSTS = new Set([
+  // Next image optimizer occasionally crashes on timeout for this host in prod.
+  "i.postimg.cc",
+]);
+
+function getImageMode(src: string): "next" | "direct" {
+  if (!src) return "direct";
+  if (src.startsWith("/")) return "next";
+
   try {
     const u = new URL(src);
-    return TRUSTED_HOSTS.has(u.hostname);
+    if (DIRECT_LOAD_HOSTS.has(u.hostname)) return "direct";
+    return TRUSTED_HOSTS.has(u.hostname) ? "next" : "direct";
   } catch {
-    return false;
+    return "direct";
   }
 }
 
 export function SmartImage({ src, alt, className, fill, width, height, sizes, loading = "lazy", priority = false }: SmartImageProps) {
-  const trusted = isTrusted(src);
+  const mode = getImageMode(src);
 
-  if (trusted) {
+  if (mode === "next") {
     if (fill) {
       return <Image src={src} alt={alt} fill className={className} sizes={sizes} priority={priority} />;
     }
