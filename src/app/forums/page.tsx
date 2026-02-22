@@ -3,9 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/shared/page-header";
 import { AdminCreateCategoryForm } from "@/components/forums/admin-create-category-form";
+import { AdminCategoryActions } from "@/components/forums/admin-category-actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Pin } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Metadata } from "next";
 
@@ -54,37 +55,50 @@ export default async function ForumsPage() {
           categories.map((category) => {
             const latestThread = category.threads[0];
             return (
-              <Link key={category.id} href={`/forums/${category.slug}`}>
-                <Card className="transition-shadow hover:shadow-md">
-                  <CardContent className="flex items-center gap-4 p-4">
-                    <div className="bg-primary/10 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg">
-                      <MessageSquare className="text-primary h-6 w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{category.name}</h3>
-                        <Badge variant="secondary" className="text-xs">
-                          {category._count.threads} threads
-                        </Badge>
+              <div key={category.id} className="space-y-2">
+                <Link href={`/forums/${category.slug}`}>
+                  <Card className="transition-shadow hover:shadow-md">
+                    <CardContent className="flex items-center gap-4 p-4">
+                      <div className="bg-primary/10 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg">
+                        <MessageSquare className="text-primary h-6 w-6" />
                       </div>
-                      {category.description && (
-                        <p className="text-muted-foreground line-clamp-1 text-sm">
-                          {category.description}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{category.name}</h3>
+                          <Badge variant="secondary" className="text-xs">
+                            {category._count.threads} threads
+                          </Badge>
+                        </div>
+                        {category.description && (
+                          <p className="text-muted-foreground line-clamp-1 text-sm">
+                            {category.description}
+                          </p>
+                        )}
+                      </div>
+                      {latestThread && (
+                        <div className="hidden text-right text-sm lg:block">
+                          <p className="line-clamp-1 font-medium">{latestThread.title}</p>
+                          <p className="text-muted-foreground text-xs">
+                            by {latestThread.author.displayName || latestThread.author.name || "Anonymous"}{" "}
+                            · {formatDistanceToNow(latestThread.createdAt, { addSuffix: true })}
+                          </p>
+                        </div>
                       )}
-                    </div>
-                    {latestThread && (
-                      <div className="hidden text-right text-sm lg:block">
-                        <p className="line-clamp-1 font-medium">{latestThread.title}</p>
-                        <p className="text-muted-foreground text-xs">
-                          by {latestThread.author.displayName || latestThread.author.name || "Anonymous"}{" "}
-                          · {formatDistanceToNow(latestThread.createdAt, { addSuffix: true })}
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
+                    </CardContent>
+                  </Card>
+                </Link>
+
+                {isAdmin && (
+                  <AdminCategoryActions
+                    id={category.id}
+                    name={category.name}
+                    slug={category.slug}
+                    description={category.description}
+                    order={category.order}
+                    threadCount={category._count.threads}
+                  />
+                )}
+              </div>
             );
           })
         )}
