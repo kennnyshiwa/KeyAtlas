@@ -23,7 +23,7 @@ export default function VerifyEmailPage({ searchParams }: VerifyEmailPageProps) 
   const isError = status === "error";
 
   const description = isSuccess
-    ? "Your email has been verified. You can sign in now."
+    ? "Your email has been verified. Redirecting you to sign in…"
     : isPending
       ? "Check your inbox for a verification link."
       : "Use the form below to request a new verification email.";

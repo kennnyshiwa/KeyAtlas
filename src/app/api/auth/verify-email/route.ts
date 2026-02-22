@@ -27,10 +27,28 @@ export async function GET(req: NextRequest) {
   }
 
   if (record.consumedAt) {
+    const user = await prisma.user.findUnique({
+      where: { id: record.userId },
+      select: { emailVerified: true },
+    });
+
+    if (user?.emailVerified) {
+      return redirectWithStatus("success");
+    }
+
     return redirectWithStatus("error", "already_used");
   }
 
   if (record.expiresAt < new Date()) {
+    const user = await prisma.user.findUnique({
+      where: { id: record.userId },
+      select: { emailVerified: true },
+    });
+
+    if (user?.emailVerified) {
+      return redirectWithStatus("success");
+    }
+
     return redirectWithStatus("error", "expired");
   }
 
