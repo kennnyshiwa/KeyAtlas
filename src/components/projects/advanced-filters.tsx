@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -45,34 +45,40 @@ export function AdvancedFilters({ vendors }: AdvancedFiltersProps) {
     vendorIds.length > 0 ||
     shipped;
 
-  const applyFilters = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    // Remove page when filters change
-    params.delete("page");
-
-    if (categories.length > 0) params.set("category", categories.join(","));
-    else params.delete("category");
-
-    if (profiles.length > 0) params.set("profile", profiles.join(","));
-    else params.delete("profile");
-
-    if (designerQuery) params.set("designer", designerQuery);
-    else params.delete("designer");
-
-    if (vendorIds.length > 0) params.set("vendor", vendorIds.join(","));
-    else params.delete("vendor");
-
-    if (shipped) params.set("shipped", "true");
-    else params.delete("shipped");
-
-    router.push(`/projects?${params.toString()}`);
-  }, [categories, profiles, designerQuery, vendorIds, shipped, searchParams, router]);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
-    const timeout = setTimeout(applyFilters, 300);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+
+      // Remove page when filters change
+      params.delete("page");
+
+      if (categories.length > 0) params.set("category", categories.join(","));
+      else params.delete("category");
+
+      if (profiles.length > 0) params.set("profile", profiles.join(","));
+      else params.delete("profile");
+
+      if (designerQuery) params.set("designer", designerQuery);
+      else params.delete("designer");
+
+      if (vendorIds.length > 0) params.set("vendor", vendorIds.join(","));
+      else params.delete("vendor");
+
+      if (shipped) params.set("shipped", "true");
+      else params.delete("shipped");
+
+      router.push(`/projects?${params.toString()}`);
+    }, 300);
+
     return () => clearTimeout(timeout);
-  }, [applyFilters]);
+  }, [categories, profiles, designerQuery, vendorIds, shipped, router]);
 
   const clearAll = () => {
     setCategories([]);

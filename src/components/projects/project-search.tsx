@@ -20,7 +20,7 @@ export function ProjectSearch() {
       return;
     }
 
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     if (debouncedQuery) {
       params.set("q", debouncedQuery);
     } else {
@@ -28,8 +28,6 @@ export function ProjectSearch() {
     }
     params.delete("page");
     router.push(`/projects?${params.toString()}`);
-    // intentionally omit searchParams to avoid infinite loop
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery, router]);
 
   return (

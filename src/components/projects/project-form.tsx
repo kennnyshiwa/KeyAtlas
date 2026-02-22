@@ -59,7 +59,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
     descriptionTextAlign: project?.descriptionTextAlign ?? "LEFT",
     descriptionFontScale: project?.descriptionFontScale ?? "MEDIUM",
     descriptionTextColor: project?.descriptionTextColor ?? null,
-    descriptionMaxWidth: project?.descriptionMaxWidth ?? "MEDIUM",
+    descriptionMaxWidth: "FULL",
     tags: project?.tags ?? [],
     icDate: project?.icDate ?? null,
     gbStartDate: project?.gbStartDate ?? null,
@@ -182,7 +182,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
   };
 
   const saveProject = async (
-    intent: "draft" | "review" | "publish",
+    intent: "draft" | "review" | "publish" | "preview",
     options?: { redirectToPreview?: boolean }
   ) => {
     setIsSubmitting(true);
@@ -195,7 +195,12 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
       // Filter out vendor entries with no vendor selected before submitting
       const submitData = {
         ...formData,
-        published: intent === "publish",
+        published:
+          intent === "publish"
+            ? true
+            : intent === "draft" || intent === "review"
+              ? false
+              : Boolean(formData.published),
         projectVendors: (formData.projectVendors ?? []).filter((pv) => pv.vendorId),
       };
 
@@ -213,8 +218,16 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
       const savedProject = await res.json();
 
       if (options?.redirectToPreview) {
-        toast.success("Draft saved. Opening preview...");
-        router.push(`/projects/preview/${savedProject.id}`);
+        toast.success("Saved. Opening preview...");
+        const returnTo =
+          mode === "admin"
+            ? isEditing
+              ? `/admin/projects/${savedProject.id}/edit`
+              : "/admin/projects/new"
+            : isEditing
+              ? `/projects/submit/${savedProject.id}/edit`
+              : "/projects/submit";
+        router.push(`/projects/preview/${savedProject.id}?returnTo=${encodeURIComponent(returnTo)}`);
         router.refresh();
         return;
       }
@@ -246,12 +259,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
   };
 
   const handlePreview = async () => {
-    if (isEditing) {
-      router.push(`/projects/preview/${project.id}`);
-      return;
-    }
-
-    await saveProject("draft", { redirectToPreview: true });
+    await saveProject("preview", { redirectToPreview: true });
   };
 
   const formatDateForInput = (date: Date | string | null | undefined) => {
@@ -293,76 +301,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
                 content={formData.description ?? ""}
                 onChange={(html) => updateField("description", html)}
                 placeholder="Describe your project..."
-                toolbarExtra={
-                  <>
-                    <Select
-                      value={formData.descriptionTextAlign}
-                      onValueChange={(v) =>
-                        updateField(
-                          "descriptionTextAlign",
-                          v as ProjectFormData["descriptionTextAlign"]
-                        )
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-28 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="LEFT">Align: Left</SelectItem>
-                        <SelectItem value="CENTER">Align: Center</SelectItem>
-                        <SelectItem value="RIGHT">Align: Right</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Select
-                      value={formData.descriptionFontScale}
-                      onValueChange={(v) =>
-                        updateField(
-                          "descriptionFontScale",
-                          v as ProjectFormData["descriptionFontScale"]
-                        )
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-28 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="SMALL">Size: Small</SelectItem>
-                        <SelectItem value="MEDIUM">Size: Medium</SelectItem>
-                        <SelectItem value="LARGE">Size: Large</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Input
-                      value={formData.descriptionTextColor ?? ""}
-                      onChange={(e) =>
-                        updateField("descriptionTextColor", e.target.value || null)
-                      }
-                      placeholder="#374151"
-                      className="h-8 w-24 text-xs"
-                    />
-
-                    <Select
-                      value={formData.descriptionMaxWidth}
-                      onValueChange={(v) =>
-                        updateField(
-                          "descriptionMaxWidth",
-                          v as ProjectFormData["descriptionMaxWidth"]
-                        )
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-28 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NARROW">Width: Narrow</SelectItem>
-                        <SelectItem value="MEDIUM">Width: Medium</SelectItem>
-                        <SelectItem value="WIDE">Width: Wide</SelectItem>
-                        <SelectItem value="FULL">Width: Full</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </>
-                }
               />
             </Suspense>
           </div>
