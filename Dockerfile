@@ -25,12 +25,15 @@ ENV HOSTNAME=0.0.0.0
 
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Include Prisma CLI/runtime so migrations can run at container startup
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Next image optimizer writes cache under /app/.next/cache at runtime
+RUN mkdir -p /app/.next/cache && chown -R nextjs:nodejs /app
 
 USER nextjs
 EXPOSE 3000
