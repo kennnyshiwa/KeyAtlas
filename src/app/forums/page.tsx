@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/shared/page-header";
+import { AdminCreateCategoryForm } from "@/components/forums/admin-create-category-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Pin } from "lucide-react";
@@ -14,6 +16,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ForumsPage() {
+  const session = await auth();
+  const isAdmin = session?.user?.role === "ADMIN";
+
   const categories = await prisma.forumCategory.findMany({
     orderBy: { order: "asc" },
     include: {
@@ -35,6 +40,8 @@ export default async function ForumsPage() {
         title="Forums"
         description="Join the discussion. Ask questions, share builds, and connect with the community."
       />
+
+      {isAdmin && <AdminCreateCategoryForm />}
 
       <div className="space-y-4">
         {categories.length === 0 ? (
