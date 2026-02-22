@@ -3,15 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { projectFormSchema } from "@/lib/validations/project";
 import { indexProject, removeProjectFromIndex } from "@/lib/meilisearch";
-
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 80);
-}
+import { slugify } from "@/lib/slug";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;

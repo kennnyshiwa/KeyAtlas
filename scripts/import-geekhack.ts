@@ -1,16 +1,6 @@
 import { prisma } from "../src/lib/prisma";
 import { ProjectCategory, ProjectStatus } from "../src/generated/prisma/client";
-
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 90);
-}
+import { slugify } from "../src/lib/slug";
 
 function categoryFromTitle(title: string): ProjectCategory {
   const t = title.toLowerCase();

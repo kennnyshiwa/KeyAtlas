@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Script from "next/script";
 import { prisma } from "@/lib/prisma";
 import { ProjectHero } from "@/components/projects/project-hero";
@@ -30,17 +30,33 @@ interface ProjectPageProps {
 }
 
 async function getProject(slug: string) {
-  return prisma.project.findUnique({
-    where: { slug },
-    include: {
-      images: { orderBy: { order: "asc" } },
-      links: true,
-      vendor: true,
-      creator: { select: { id: true, name: true, image: true } },
-      projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
-      soundTests: { orderBy: { createdAt: "asc" } },
+  const include = {
+    images: { orderBy: { order: "asc" as const } },
+    links: true,
+    vendor: true,
+    creator: { select: { id: true, name: true, image: true } },
+    projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
+    soundTests: { orderBy: { createdAt: "asc" as const } },
+  };
+
+  const direct = await prisma.project.findUnique({ where: { slug }, include });
+  if (direct) return direct;
+
+  const topicId = slug.match(/^(\d{5,})-/)?.[1];
+  if (!topicId) return null;
+
+  const byGeekhackTopic = await prisma.project.findFirst({
+    where: {
+      links: {
+        some: {
+          url: { contains: `topic=${topicId}.0` },
+        },
+      },
     },
+    include,
   });
+
+  return byGeekhackTopic;
 }
 
 export async function generateMetadata({
@@ -88,6 +104,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   if (!project || !project.published) {
     notFound();
+  }
+
+  if (project.slug !== slug) {
+    redirect(`/projects/${project.slug}`);
   }
 
   const relatedProjects = await prisma.project.findMany({
