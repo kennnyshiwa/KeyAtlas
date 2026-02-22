@@ -11,6 +11,40 @@ interface SendMailOptions {
 export async function sendMail(options: SendMailOptions) {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
 
+  const mailProvider = process.env.MAIL_PROVIDER;
+  const hasMailgunConfig =
+    mailProvider === "mailgun" && !!process.env.MAILGUN_API_KEY && !!process.env.MAILGUN_DOMAIN;
+
+  if (hasMailgunConfig) {
+    const domain = process.env.MAILGUN_DOMAIN!;
+    const apiKey = process.env.MAILGUN_API_KEY!;
+    const from = process.env.MAIL_FROM || `KeyAtlas <noreply@${domain}>`;
+
+    const form = new URLSearchParams({
+      from,
+      to: options.to,
+      subject: options.subject,
+      text: options.text,
+      html: options.html,
+    });
+
+    const res = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`api:${apiKey}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: form,
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Mailgun send failed: ${res.status} ${body}`);
+    }
+
+    return { delivered: true, provider: "mailgun" as const };
+  }
+
   const hasSmtpConfig = SMTP_HOST && SMTP_PORT && SMTP_FROM;
   if (!hasSmtpConfig) {
     console.info(

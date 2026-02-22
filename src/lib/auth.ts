@@ -69,60 +69,76 @@ declare module "next-auth" {
   }
 }
 
+const providers: any[] = [
+  Credentials({
+    id: "credentials",
+    name: "Email and Password",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      const email = credentials?.email;
+      const password = credentials?.password;
+
+      if (typeof email !== "string" || typeof password !== "string") {
+        throw new Error("Missing credentials");
+      }
+
+      const normalizedEmail = normalizeEmail(email);
+      const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+      if (!user || !user.passwordHash) {
+        throw new Error("Invalid email or password");
+      }
+
+      if (user.bannedAt) {
+        throw new Error("This account is banned");
+      }
+
+      if (user.forcePasswordReset) {
+        throw new Error("Password reset required");
+      }
+
+      const valid = await verifyPassword(password, user.passwordHash);
+      if (!valid) {
+        throw new Error("Invalid email or password");
+      }
+
+      if (!user.emailVerified) {
+        throw new Error("Email not verified");
+      }
+
+      return user;
+    },
+  }),
+];
+
+if (process.env.AUTH_DISCORD_ID && process.env.AUTH_DISCORD_SECRET) {
+  providers.push(
+    Discord({
+      clientId: process.env.AUTH_DISCORD_ID,
+      clientSecret: process.env.AUTH_DISCORD_SECRET,
+    })
+  );
+} else {
+  console.warn("[auth] Discord OAuth disabled: AUTH_DISCORD_ID/SECRET missing");
+}
+
+if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
+  providers.push(
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+    })
+  );
+} else {
+  console.warn("[auth] Google OAuth disabled: AUTH_GOOGLE_ID/SECRET missing");
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma) as never,
-  providers: [
-    Credentials({
-      id: "credentials",
-      name: "Email and Password",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = credentials?.email;
-        const password = credentials?.password;
-
-        if (typeof email !== "string" || typeof password !== "string") {
-          throw new Error("Missing credentials");
-        }
-
-        const normalizedEmail = normalizeEmail(email);
-        const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-
-        if (!user || !user.passwordHash) {
-          throw new Error("Invalid email or password");
-        }
-
-        if (user.bannedAt) {
-          throw new Error("This account is banned");
-        }
-
-        if (user.forcePasswordReset) {
-          throw new Error("Password reset required");
-        }
-
-        const valid = await verifyPassword(password, user.passwordHash);
-        if (!valid) {
-          throw new Error("Invalid email or password");
-        }
-
-        if (!user.emailVerified) {
-          throw new Error("Email not verified");
-        }
-
-        return user;
-      },
-    }),
-    Discord({
-      clientId: process.env.AUTH_DISCORD_ID!,
-      clientSecret: process.env.AUTH_DISCORD_SECRET!,
-    }),
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-    }),
-  ],
+  providers,
   trustHost: true,
   session: { strategy: "jwt" },
   pages: {
