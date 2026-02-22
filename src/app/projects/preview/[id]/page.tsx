@@ -36,6 +36,7 @@ export const metadata: Metadata = {
 
 interface PreviewPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 }
 
 async function getProject(id: string) {
@@ -52,13 +53,14 @@ async function getProject(id: string) {
   });
 }
 
-export default async function ProjectPreviewPage({ params }: PreviewPageProps) {
+export default async function ProjectPreviewPage({ params, searchParams }: PreviewPageProps) {
   const session = await auth();
   if (!session?.user) {
     redirect("/sign-in");
   }
 
   const { id } = await params;
+  const { returnTo } = await searchParams;
   const project = await getProject(id);
 
   if (!project) {
@@ -132,7 +134,12 @@ export default async function ProjectPreviewPage({ params }: PreviewPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <Badge variant="secondary">Preview Mode (Private)</Badge>
+      <div className="flex items-center justify-between gap-3">
+        <Badge variant="secondary">Preview Mode (Private)</Badge>
+        <Button asChild variant="outline" size="sm">
+          <Link href={returnTo || `/projects/submit/${project.id}/edit`}>Back to editor</Link>
+        </Button>
+      </div>
       <ProjectHero project={project} />
 
       <div className="flex flex-wrap items-center gap-2">

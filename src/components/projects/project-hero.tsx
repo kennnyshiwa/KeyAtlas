@@ -39,9 +39,9 @@ export function ProjectHero({ project }: ProjectHeroProps) {
           )}
         </div>
         <h1 className="text-3xl font-bold tracking-tight">{project.title}</h1>
-        {project.vendor && (
+        {(project.designer || project.vendor) && (
           <p className="text-muted-foreground text-lg">
-            by {project.vendor.name}
+            by {project.designer || project.vendor?.name}
           </p>
         )}
         {project.priceMin != null && (

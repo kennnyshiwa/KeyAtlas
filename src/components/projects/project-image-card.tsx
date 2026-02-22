@@ -36,6 +36,9 @@ export function ProjectImageCard({ project }: ProjectImageCardProps) {
           <h3 className="line-clamp-2 font-semibold text-white">
             {project.title}
           </h3>
+          {(project.designer || project.vendor) && (
+            <p className="mt-1 text-xs text-white/80">by {project.designer || project.vendor?.name}</p>
+          )}
         </div>
       </div>
     </Link>

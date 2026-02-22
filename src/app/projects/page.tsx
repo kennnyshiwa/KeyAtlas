@@ -12,6 +12,8 @@ import Link from "next/link";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Projects",
   description: "Browse mechanical keyboard interest checks, group buys, and more.",
@@ -110,7 +112,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
       {projects.length > 0 ? (
         <>
-          <ProjectViewWrapper projects={projects} />
+          <ProjectViewWrapper key={JSON.stringify(params)} projects={projects} />
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2">
               {page > 1 && (

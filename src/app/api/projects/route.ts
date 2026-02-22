@@ -108,13 +108,14 @@ export async function POST(req: NextRequest) {
     data.featured = false;
   }
 
-  // Optional explicit intent for draft/review/publish while keeping legacy payload compatibility
+  // Optional explicit intent for draft/review/publish/preview while keeping legacy payload compatibility
   if (intent === "draft" || intent === "review") {
     data.published = false;
   }
   if (intent === "publish" && isAdmin) {
     data.published = true;
   }
+  // intent=preview preserves payload published state (admins) while still saving latest edits.
 
   const existing = await prisma.project.findUnique({
     where: { slug: data.slug },

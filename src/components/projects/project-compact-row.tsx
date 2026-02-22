@@ -26,9 +26,9 @@ export function ProjectCompactRow({ project }: ProjectCompactRowProps) {
       <span className={`hidden rounded-md px-2 py-0.5 text-xs font-medium sm:inline ${CATEGORY_COLORS[project.category]}`}>
         {CATEGORY_LABELS[project.category]}
       </span>
-      {project.vendor && (
+      {(project.designer || project.vendor) && (
         <span className="text-muted-foreground hidden text-sm md:inline">
-          {project.vendor.name}
+          {project.designer || project.vendor?.name}
         </span>
       )}
       {project.priceMin != null && (

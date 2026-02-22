@@ -109,13 +109,14 @@ export async function PUT(
     data.featured = false;
   }
 
-  // Optional explicit intent for draft/review/publish while keeping legacy payload compatibility
+  // Optional explicit intent for draft/review/publish/preview while keeping legacy payload compatibility
   if (intent === "draft" || intent === "review") {
     data.published = false;
   }
   if (intent === "publish" && isAdmin) {
     data.published = true;
   }
+  // intent=preview preserves payload published state (admins) while still saving latest edits.
 
   const slugConflict = await prisma.project.findFirst({
     where: { slug: data.slug, NOT: { id } },
