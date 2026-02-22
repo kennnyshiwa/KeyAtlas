@@ -73,6 +73,26 @@ export function UserActions({
         >
           Trigger password reset
         </Button>
+
+        <Button
+          variant="destructive"
+          disabled={loading}
+          onClick={async () => {
+            const ok = window.confirm(
+              "Delete this user permanently? This action cannot be undone."
+            );
+            if (!ok) return;
+
+            const result = await runRequest(`/api/admin/users/${userId}`, {
+              method: "DELETE",
+            });
+            if (result?.data?.deleted) {
+              router.push("/admin/users");
+            }
+          }}
+        >
+          Delete user
+        </Button>
       </div>
 
       <div className="flex items-center gap-2">
