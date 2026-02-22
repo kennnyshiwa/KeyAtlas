@@ -3,12 +3,11 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSiteUrl } from "@/lib/site";
 
-function redirectWithStatus(status: "success" | "error" | "confirm", reason?: string, token?: string) {
+function redirectWithStatus(status: "success" | "error", reason?: string) {
   const base = getSiteUrl().replace(/\/$/, "");
   const url = new URL(`/verify-email`, base);
   url.searchParams.set("status", status);
   if (reason) url.searchParams.set("reason", reason);
-  if (token) url.searchParams.set("token", token);
   return NextResponse.redirect(url.toString(), { status: 302 });
 }
 
@@ -43,8 +42,12 @@ export async function GET(req: NextRequest) {
     return redirectWithStatus("error", "missing_token");
   }
 
-  // Do not consume token on GET to avoid automatic verification by link scanners.
-  return redirectWithStatus("confirm", undefined, token);
+  const result = await consumeVerificationToken(token);
+  if (!result.ok) {
+    return redirectWithStatus("error", result.reason);
+  }
+
+  return redirectWithStatus("success");
 }
 
 export async function POST(req: NextRequest) {

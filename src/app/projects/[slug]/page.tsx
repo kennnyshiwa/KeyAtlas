@@ -127,7 +127,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       { featured: "desc" },
       { updatedAt: "desc" },
     ],
-    take: 6,
+    take: 4,
   });
 
   const session = await auth();
@@ -215,6 +215,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         canEdit={isCreator || session?.user?.role === "ADMIN"}
       />
 
+      <Separator />
+      <UpdateTimeline projectId={project.id} creatorId={project.creatorId} />
+      <Separator />
+      <CommentSection projectId={project.id} />
+
       {relatedProjects.length > 0 && (
         <>
           <Separator />
@@ -229,11 +234,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </section>
         </>
       )}
-
-      <Separator />
-      <UpdateTimeline projectId={project.id} creatorId={project.creatorId} />
-      <Separator />
-      <CommentSection projectId={project.id} />
     </div>
   );
 }

@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 
 export function UserActions({
   userId,
+  userEmail,
   isBanned,
   currentRole,
   canEdit,
 }: {
   userId: string;
+  userEmail?: string | null;
   isBanned: boolean;
   currentRole: "USER" | "MODERATOR" | "ADMIN" | "VENDOR";
   canEdit: boolean;
@@ -19,10 +21,12 @@ export function UserActions({
   const [role, setRole] = useState(currentRole === "VENDOR" ? "USER" : currentRole);
   const [loading, setLoading] = useState(false);
   const [resetLink, setResetLink] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function runRequest(path: string, init: RequestInit) {
     setError(null);
+    setNotice(null);
     setLoading(true);
     try {
       const res = await fetch(path, init);
@@ -72,6 +76,23 @@ export function UserActions({
           }}
         >
           Trigger password reset
+        </Button>
+
+        <Button
+          variant="outline"
+          disabled={loading || !userEmail}
+          onClick={async () => {
+            const result = await runRequest(`/api/admin/users/${userId}/resend-verification`, {
+              method: "POST",
+            });
+            if (result?.data?.alreadyVerified) {
+              setNotice("User is already verified.");
+            } else if (result?.data?.sent) {
+              setNotice(`Verification email sent to ${userEmail}.`);
+            }
+          }}
+        >
+          Resend verification email
         </Button>
 
         <Button
@@ -125,6 +146,7 @@ export function UserActions({
           Reset link: <a className="underline" href={resetLink}>{resetLink}</a>
         </p>
       )}
+      {notice && <p className="text-sm text-green-700">{notice}</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );

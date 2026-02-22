@@ -72,6 +72,7 @@ export default async function AdminUserDetailPage({
         <CardContent>
           <UserActions
             userId={user.id}
+            userEmail={user.email}
             isBanned={Boolean(user.bannedAt)}
             currentRole={user.role}
             canEdit={session?.user.role === "ADMIN"}
