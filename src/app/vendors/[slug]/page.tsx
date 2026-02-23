@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import { SmartImage } from "@/components/shared/smart-image";
 import Script from "next/script";
 import { prisma } from "@/lib/prisma";
 import { ProjectGrid } from "@/components/projects/project-grid";
@@ -102,7 +102,7 @@ export default async function VendorPage({ params }: VendorPageProps) {
       <div className="flex items-start gap-6">
         <div className="bg-muted flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl">
           {vendor.logo ? (
-            <Image
+            <SmartImage
               src={vendor.logo}
               alt={vendor.name}
               width={80}

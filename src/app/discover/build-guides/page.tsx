@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { SmartImage } from "@/components/shared/smart-image";
 import { formatDistanceToNow } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/shared/page-header";
@@ -44,7 +44,7 @@ function GuideCard({ guide }: { guide: GuideListItem }) {
       <Card className="group h-full overflow-hidden transition-shadow hover:shadow-lg">
         {guide.heroImage && (
           <div className="relative aspect-[16/9] overflow-hidden">
-            <Image
+            <SmartImage
               src={guide.heroImage}
               alt={guide.title}
               fill

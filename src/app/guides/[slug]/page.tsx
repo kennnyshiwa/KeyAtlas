@@ -13,7 +13,7 @@ import { DeleteGuideButton } from "@/components/guides/delete-guide-button";
 import { RichTextRenderer } from "@/components/editor/rich-text-renderer";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { Calendar } from "lucide-react";
-import Image from "next/image";
+import { SmartImage } from "@/components/shared/smart-image";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
 
@@ -163,7 +163,7 @@ export default async function GuidePage({ params }: Props) {
 
       {guide.heroImage && (
         <div className="relative aspect-[16/9] overflow-hidden rounded-lg">
-          <Image
+          <SmartImage
             src={guide.heroImage}
             alt={guide.title}
             fill
@@ -203,7 +203,7 @@ export default async function GuidePage({ params }: Props) {
                   <Card className="group h-full overflow-hidden transition-shadow hover:shadow-lg">
                     {item.heroImage && (
                       <div className="relative aspect-[16/9] overflow-hidden">
-                        <Image
+                        <SmartImage
                           src={item.heroImage}
                           alt={item.title}
                           fill
