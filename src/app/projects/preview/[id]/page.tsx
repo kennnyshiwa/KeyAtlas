@@ -169,11 +169,13 @@ export default async function ProjectPreviewPage({ params, searchParams }: Previ
         </div>
       </div>
 
-      <SoundTestSection
-        projectId={project.id}
-        soundTests={project.soundTests}
-        canEdit={isCreator || session.user.role === "ADMIN"}
-      />
+      {project.category === "KEYBOARDS" && (
+        <SoundTestSection
+          projectId={project.id}
+          soundTests={project.soundTests}
+          canEdit={isCreator || session.user.role === "ADMIN"}
+        />
+      )}
 
       {relatedProjects.length > 0 && (
         <>

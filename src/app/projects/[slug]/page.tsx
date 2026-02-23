@@ -209,11 +209,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         </div>
       </div>
 
-      <SoundTestSection
-        projectId={project.id}
-        soundTests={project.soundTests}
-        canEdit={isCreator || session?.user?.role === "ADMIN"}
-      />
+      {project.category === "KEYBOARDS" && (
+        <SoundTestSection
+          projectId={project.id}
+          soundTests={project.soundTests}
+          canEdit={isCreator || session?.user?.role === "ADMIN"}
+        />
+      )}
 
       <Separator />
       <UpdateTimeline projectId={project.id} creatorId={project.creatorId} />
