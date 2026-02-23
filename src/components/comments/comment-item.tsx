@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { SmartImage } from "@/components/shared/smart-image";
 import { Button } from "@/components/ui/button";
 import { RichTextRenderer } from "@/components/editor/rich-text-renderer";
 import { CommentForm } from "./comment-form";
@@ -40,7 +40,7 @@ export function CommentItem({
         <div className="flex items-center gap-2">
           <div className="bg-muted flex h-7 w-7 items-center justify-center overflow-hidden rounded-full">
             {comment.user.image ? (
-              <Image
+              <SmartImage
                 src={comment.user.image}
                 alt={comment.user.name ?? "User"}
                 width={28}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { SmartImage } from "@/components/shared/smart-image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Store, CheckCircle } from "lucide-react";
@@ -22,7 +22,7 @@ export function VendorCard({ vendor }: VendorCardProps) {
         <CardContent className="flex items-start gap-4 p-4">
           <div className="bg-muted flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg">
             {vendor.logo ? (
-              <Image
+              <SmartImage
                 src={vendor.logo}
                 alt={vendor.name}
                 width={56}

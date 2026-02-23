@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ProjectStatusBadge } from "./status-badge";
+import { SmartImage } from "@/components/shared/smart-image";
 import type { ProjectListItem } from "@/types";
 
 interface ProjectImageCardProps {
@@ -16,7 +16,7 @@ export function ProjectImageCard({ project }: ProjectImageCardProps) {
     <Link href={href} className="group relative overflow-hidden rounded-lg">
       <div className="relative aspect-[3/4]">
         {project.heroImage ? (
-          <Image
+          <SmartImage
             src={project.heroImage}
             alt={project.title}
             fill
