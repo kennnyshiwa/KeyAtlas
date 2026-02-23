@@ -153,17 +153,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (!user?.id) return true;
+      let targetUserId = user?.id ?? null;
+
+      if (!targetUserId && user?.email) {
+        const byEmail = await prisma.user.findUnique({
+          where: { email: normalizeEmail(user.email) },
+          select: { id: true },
+        });
+        targetUserId = byEmail?.id ?? null;
+      }
+
+      if (!targetUserId) return true;
 
       try {
-        await ensureAtLeastOneAdmin(user.id);
+        await ensureAtLeastOneAdmin(targetUserId);
       } catch (error) {
         console.error("[auth] ensureAtLeastOneAdmin failed", error);
       }
 
       if (account?.provider === "discord" || account?.provider === "google") {
         try {
-          await ensureOAuthEmailVerified(user.id);
+          await ensureOAuthEmailVerified(targetUserId);
         } catch (error) {
           console.error("[auth] ensureOAuthEmailVerified failed", error);
         }
@@ -175,16 +185,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           (profile as { username?: string; global_name?: string } | null)?.username ||
           user.name;
         try {
-          await ensureDiscordUsername(user.id, profileSeed);
+          await ensureDiscordUsername(targetUserId, profileSeed);
         } catch (error) {
           console.error("[auth] ensureDiscordUsername failed", error);
         }
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.sub = user.id;
+      }
+
+      if (token.sub && (account?.provider === "discord" || account?.provider === "google")) {
+        ensureOAuthEmailVerified(token.sub).catch((error) => {
+          console.error("[auth] jwt ensureOAuthEmailVerified failed", error);
+        });
       }
 
       if (token.sub) {
