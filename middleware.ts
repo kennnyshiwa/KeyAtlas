@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 
 const NOT_FOUND_HTML = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"/><title>404 - Not Found</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:40px;max-width:720px;margin:0 auto;color:#111}a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}</style></head><body><h1>404</h1><p>The page you\'re looking for doesn\'t exist.</p><p><a href="/">Go home</a></p></body></html>`;
 
@@ -30,7 +29,10 @@ function getCheck(pathname: string): { type: "project" | "user" | "forum"; slug:
 export async function middleware(req: NextRequest) {
   const { pathname, origin, searchParams } = req.nextUrl;
 
-  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  const requestId =
+    req.headers.get("x-request-id") ||
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-request-id", requestId);
 
