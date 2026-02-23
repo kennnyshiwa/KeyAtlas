@@ -1,6 +1,8 @@
 let wired = false;
 
 export async function register() {
+  // register() can run in edge runtime too; Node process hooks are unsupported there.
+  if (typeof (globalThis as any).EdgeRuntime !== "undefined") return;
   if (wired) return;
   wired = true;
 

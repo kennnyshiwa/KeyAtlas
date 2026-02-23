@@ -17,7 +17,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "i.redd.it" },
       { protocol: "https", hostname: "preview.redd.it" },
       { protocol: "https", hostname: "pbs.twimg.com" },
-      { protocol: "https", hostname: "i.postimg.cc" },
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "cdn.shopify.com" },
       { protocol: "https", hostname: "geekhack.org" },
