@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEffect, useRef, useState, useMemo, type ReactNode, type CSSProperties } from "react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
@@ -30,19 +31,104 @@ import {
   Undo,
   Redo,
 } from "lucide-react";
+import { contrastRatio, WCAG_AA_THRESHOLD, passesWcagAA } from "@/lib/color-contrast";
 import "./rich-text-editor.css";
 
 interface RichTextEditorProps {
   content?: string;
   onChange: (html: string) => void;
   placeholder?: string;
-  toolbarExtra?: ReactNode | ((ctx: { editor: ReturnType<typeof useEditor> }) => ReactNode);
+  toolbarExtra?: ReactNode | ((ctx: { editor: Editor }) => ReactNode);
   contentClassName?: string;
   contentStyle?: CSSProperties;
 }
 
 const DEFAULT_FONT_SIZE = "16";
 const DEFAULT_COLOR = "#374151";
+
+function normalizeGeekhackHtml(html: string) {
+  return html
+    // Convert <div align="..."> to <p> (Tiptap doesn't support div)
+    .replace(/<div\s+align=["']([^"']+)["'][^>]*>/gi, '<p style="text-align:$1">')
+    .replace(/<\/div>/gi, "</p>")
+    // Convert bbc_size spans to inline font-size
+    .replace(/<span[^>]*class=["'][^"']*bbc_size[^"']*["'][^>]*style=["'][^"']*font-size:\s*([^;"']+)[^"']*["'][^>]*>/gi,
+      '<span style="font-size:$1">')
+    // Convert bbc_color spans to inline color
+    .replace(/<span[^>]*class=["'][^"']*bbc_color[^"']*["'][^>]*style=["'][^"']*color:\s*([^;"']+)[^"']*["'][^>]*>/gi,
+      '<span style="color:$1">')
+    // Strip remaining class attributes (bbc_ classes confuse Tiptap)
+    .replace(/\s+class=["'][^"']*bbc_[^"']*["']/gi, "");
+}
+
+function normalizeLegacyFontTags(html: string) {
+  return normalizeGeekhackHtml(html).replace(/<font([^>]*)>([\s\S]*?)<\/font>/gi, (_m, attrs, inner) => {
+    const colorMatch = String(attrs).match(/color\s*=\s*["']?([^"'\s>]+)/i);
+    const sizeMatch = String(attrs).match(/size\s*=\s*["']?([^"'\s>]+)/i);
+
+    const sizeMap: Record<string, string> = {
+      "1": "10px",
+      "2": "13px",
+      "3": "16px",
+      "4": "18px",
+      "5": "24px",
+      "6": "32px",
+      "7": "48px",
+    };
+
+    const styles: string[] = [];
+    if (colorMatch?.[1]) styles.push(`color:${colorMatch[1]}`);
+    if (sizeMatch?.[1]) {
+      const s = sizeMatch[1];
+      styles.push(`font-size:${sizeMap[s] || s}`);
+    }
+
+    return `<span style=\"${styles.join(";")}\">${inner}</span>`;
+  });
+}
+
+function normalizeColorForPicker(value?: string | null) {
+  if (!value) return DEFAULT_COLOR;
+  const v = value.trim().toLowerCase();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(v)) {
+    return v.length === 4
+      ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`
+      : v;
+  }
+  return DEFAULT_COLOR;
+}
+
+/**
+ * Parse an rgb()/rgba() string to a hex colour.
+ * Returns null on failure.
+ */
+function rgbToHex(rgb: string): string | null {
+  const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/);
+  if (!m) return null;
+  const [, r, g, b, a] = m;
+  // If fully transparent, return null so caller walks up the tree
+  if (a !== undefined && parseFloat(a) === 0) return null;
+  return (
+    "#" +
+    [r, g, b]
+      .map((v) => Number(v).toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
+/** Walk up the DOM tree to find the first ancestor with a non-transparent background */
+function getEffectiveBgColor(el: HTMLElement): string {
+  let current: HTMLElement | null = el;
+  while (current) {
+    const raw = getComputedStyle(current).backgroundColor;
+    const hex = rgbToHex(raw);
+    if (hex) return hex;
+    current = current.parentElement;
+  }
+  // Ultimate fallback: check if dark mode is active
+  if (document.documentElement.classList.contains("dark")) return "#0a0a0a";
+  return "#ffffff";
+}
 
 export function RichTextEditor({
   content = "",
@@ -54,8 +140,12 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const [fontSizeInput, setFontSizeInput] = useState(DEFAULT_FONT_SIZE);
   const [colorInput, setColorInput] = useState(DEFAULT_COLOR);
+  const [detectedBg, setDetectedBg] = useState("#ffffff");
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const lastColorApplyAtRef = useRef(0);
+  const normalizedContent = normalizeLegacyFontTags(content || "");
+  const prevContentRef = useRef(normalizedContent);
 
   const editor = useEditor({
     extensions: [
@@ -71,9 +161,17 @@ export function RichTextEditor({
           target: "_blank",
         },
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {
+          loading: "lazy",
+          decoding: "async",
+        },
+      }),
       Placeholder.configure({ placeholder }),
     ],
-    content,
+    content: normalizedContent,
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
@@ -86,6 +184,19 @@ export function RichTextEditor({
     },
   });
 
+  // Sync external content changes (e.g. from Geekhack import) into the editor
+  useEffect(() => {
+    if (!editor) return;
+    if (normalizedContent !== prevContentRef.current) {
+      prevContentRef.current = normalizedContent;
+      // Only update if meaningfully different from current editor content
+      const currentHtml = editor.getHTML();
+      if (normalizedContent !== currentHtml) {
+        editor.commands.setContent(normalizedContent, { emitUpdate: false });
+      }
+    }
+  }, [editor, normalizedContent]);
+
   useEffect(() => {
     if (!editor) return;
 
@@ -97,7 +208,7 @@ export function RichTextEditor({
       setFontSizeInput(normalizedSize || DEFAULT_FONT_SIZE);
 
       const activeColor = typeof attrs.color === "string" ? attrs.color : "";
-      setColorInput(activeColor || DEFAULT_COLOR);
+      setColorInput(normalizeColorForPicker(activeColor));
     };
 
     syncToolbarState();
@@ -109,6 +220,33 @@ export function RichTextEditor({
       editor.off("transaction", syncToolbarState);
     };
   }, [editor]);
+
+  // Detect the actual computed background colour of the editor content area
+  // so the contrast guard works in both light and dark mode.
+  useEffect(() => {
+    const el = editorContainerRef.current;
+    if (!el) return;
+
+    const readBg = () => {
+      setDetectedBg(getEffectiveBgColor(el));
+    };
+
+    readBg();
+
+    // Re-read when the theme changes (class on <html> toggles dark mode)
+    const observer = new MutationObserver(readBg);
+    const root = document.documentElement;
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+
+    // Also listen for system-level theme changes
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", readBg);
+
+    return () => {
+      observer.disconnect();
+      mq.removeEventListener("change", readBg);
+    };
+  }, []);
 
   if (!editor) return null;
 
@@ -333,6 +471,35 @@ export function RichTextEditor({
           />
         </div>
 
+        {/* Contrast guard */}
+        {(() => {
+          const ratio = contrastRatio(colorInput, detectedBg);
+          const passes = ratio != null && ratio >= WCAG_AA_THRESHOLD;
+          if (ratio != null && !passes) {
+            return (
+              <div
+                data-testid="contrast-warning"
+                className="flex items-center gap-1 rounded bg-yellow-100 px-2 py-0.5 text-xs text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300"
+                role="status"
+              >
+                <span>⚠ Low contrast ({ratio.toFixed(1)}:1)</span>
+                <button
+                  type="button"
+                  data-testid="contrast-reset"
+                  className="ml-1 underline hover:no-underline"
+                  onClick={() => {
+                    setColorInput(DEFAULT_COLOR);
+                    applyColor(DEFAULT_COLOR);
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         <Button
           type="button"
           variant="ghost"
@@ -362,7 +529,7 @@ export function RichTextEditor({
           </div>
         )}
       </div>
-      <div className={`prose dark:prose-invert max-w-none px-3 py-2 ${contentClassName ?? ""}`.trim()} style={contentStyle}>
+      <div ref={editorContainerRef} className={`prose dark:prose-invert max-w-none px-3 py-2 ${contentClassName ?? ""}`.trim()} style={contentStyle}>
         <EditorContent editor={editor} data-testid="rich-text-editor-content" />
       </div>
     </div>

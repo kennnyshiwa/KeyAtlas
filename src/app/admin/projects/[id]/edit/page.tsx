@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/shared/page-header";
 import { ProjectForm } from "@/components/projects/project-form";
+import { ProjectOwnershipTransfer } from "@/components/projects/project-ownership-transfer";
 
 export const metadata = {
   title: "Edit Project",
@@ -21,7 +22,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
         images: { orderBy: { order: "asc" } },
         links: true,
         vendor: true,
-        creator: { select: { id: true, name: true, image: true } },
+        creator: { select: { id: true, name: true, email: true, username: true, displayName: true, image: true } },
         projectVendors: true,
       },
     }),
@@ -38,6 +39,16 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
       <PageHeader
         title="Edit Project"
         description={`Editing "${project.title}"`}
+      />
+      <ProjectOwnershipTransfer
+        projectId={project.id}
+        currentOwner={{
+          id: project.creator.id,
+          name: project.creator.name,
+          email: project.creator.email,
+          username: project.creator.username,
+          displayName: project.creator.displayName,
+        }}
       />
       <ProjectForm project={project} vendors={vendors} />
     </div>

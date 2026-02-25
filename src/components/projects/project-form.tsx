@@ -19,8 +19,9 @@ import { CATEGORY_LABELS, STATUS_LABELS, PROFILE_OPTIONS } from "@/lib/constants
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
 import type { ProjectWithRelations } from "@/types";
-import { Plus, Trash2, Loader2, Eye } from "lucide-react";
+import { Plus, Trash2, Loader2, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
+import type { GeekhackPrefillPayload } from "@/lib/import/geekhack";
 
 const RichTextEditor = lazy(() =>
   import("@/components/editor/rich-text-editor").then((m) => ({
@@ -94,6 +95,61 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
   });
 
   const [tagInput, setTagInput] = useState("");
+  const [inlineImageChoice, setInlineImageChoice] = useState("none");
+
+  // Geekhack import
+  const [ghUrl, setGhUrl] = useState("");
+  const [ghImporting, setGhImporting] = useState(false);
+
+  const handleGeekhackImport = async () => {
+    const trimmed = ghUrl.trim();
+    if (!trimmed) {
+      toast.error("Please enter a Geekhack URL");
+      return;
+    }
+    setGhImporting(true);
+    try {
+      const res = await fetch("/api/import/geekhack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Import failed");
+        return;
+      }
+      const prefill: GeekhackPrefillPayload = data.prefill;
+      setFormData((prev) => ({
+        ...prev,
+        title: prefill.title || prev.title,
+        slug: prefill.title ? generateSlug(prefill.title) : prev.slug,
+        description: prefill.description || prev.description,
+        category: prefill.category || prev.category,
+        status: prefill.status || prev.status,
+        tags: Array.from(new Set([...prev.tags, ...prefill.tags])),
+        links: [
+          ...prev.links,
+          ...prefill.links.map((l) => ({ label: l.label, url: l.url, type: l.type as "GEEKHACK" })),
+        ],
+        images: [
+          ...prev.images,
+          ...prefill.images.map((img, i) => ({
+            url: img.url,
+            alt: img.alt ?? "",
+            order: prev.images.length + i,
+            linkUrl: null,
+            openInNewTab: true,
+          })),
+        ],
+      }));
+      toast.success(`Imported "${prefill.title}" from Geekhack`);
+    } catch {
+      toast.error("Network error – could not reach server");
+    } finally {
+      setGhImporting(false);
+    }
+  };
 
   const updateField = <K extends keyof ProjectFormData>(
     key: K,
@@ -179,6 +235,30 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
       nextImages[index] = { ...nextImages[index], alt: String(value) };
     }
     updateField("images", nextImages);
+  };
+
+  const escapeHtml = (value: string) =>
+    value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+
+  const galleryImagesForInlineInsert = formData.images
+    .map((image, index) => ({
+      index,
+      url: image.url?.trim() ?? "",
+      alt: image.alt?.trim() ?? "",
+    }))
+    .filter((image) => image.url.length > 0);
+
+  const buildInlineImageBlock = (image: { url: string; alt: string }) => {
+    const safeUrl = escapeHtml(image.url);
+    const safeAlt = escapeHtml(image.alt || "Project image");
+    const captionText = image.alt || "Project gallery image";
+
+    return `<figure class="project-inline-image" style="margin:1.5rem 0; text-align:center;"><img src="${safeUrl}" alt="${safeAlt}" loading="lazy" decoding="async" style="max-width:100%; height:auto; border-radius:0.5rem; display:inline-block;" /><figcaption style="margin-top:0.5rem; color:#6b7280; font-size:0.875rem;">${escapeHtml(captionText)}</figcaption></figure><p></p>`;
   };
 
   const saveProject = async (
@@ -269,6 +349,42 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {!isEditing && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Import from Geekhack</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Input
+                data-testid="geekhack-url-input"
+                placeholder="https://geekhack.org/index.php?topic=12345.0"
+                value={ghUrl}
+                onChange={(e) => setGhUrl(e.target.value)}
+                disabled={ghImporting}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleGeekhackImport}
+                disabled={ghImporting}
+                data-testid="geekhack-import-btn"
+              >
+                {ghImporting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Import
+              </Button>
+            </div>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Paste a Geekhack IC thread URL to auto-fill project fields.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
@@ -301,6 +417,56 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
                 content={formData.description ?? ""}
                 onChange={(html) => updateField("description", html)}
                 placeholder="Describe your project..."
+                toolbarExtra={({ editor }) => (
+                  <Select
+                    value={inlineImageChoice}
+                    onValueChange={(value) => {
+                      if (value === "none") {
+                        setInlineImageChoice("none");
+                        return;
+                      }
+
+                      const selectedImage = galleryImagesForInlineInsert.find(
+                        (image) => String(image.index) === value
+                      );
+
+                      if (!selectedImage) {
+                        toast.error("Selected gallery image is no longer available");
+                        setInlineImageChoice("none");
+                        return;
+                      }
+
+                      editor.chain().focus().insertContent(buildInlineImageBlock(selectedImage)).run();
+                      // Ensure parent form state is immediately synchronized with editor content.
+                      updateField("description", editor.getHTML());
+                      setInlineImageChoice("none");
+                    }}
+                  >
+                    <SelectTrigger
+                      className="h-8 w-44 text-xs"
+                      aria-label="Insert image"
+                      disabled={galleryImagesForInlineInsert.length === 0}
+                    >
+                      <SelectValue placeholder="Insert image" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" disabled>
+                        Insert image
+                      </SelectItem>
+                      {galleryImagesForInlineInsert.length === 0 ? (
+                        <SelectItem value="empty" disabled>
+                          Add gallery images first
+                        </SelectItem>
+                      ) : (
+                        galleryImagesForInlineInsert.map((image, idx) => (
+                          <SelectItem key={image.index} value={String(image.index)}>
+                            {image.alt || `Image ${idx + 1}`}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
               />
             </Suspense>
           </div>
