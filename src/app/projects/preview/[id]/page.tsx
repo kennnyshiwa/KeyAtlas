@@ -146,7 +146,16 @@ export default async function ProjectPreviewPage({ params, searchParams }: Previ
         <FavoriteButton projectId={project.id} />
         <CollectionButton projectId={project.id} />
         <FollowButton targetType="PROJECT" targetId={project.id} initialFollowing={isFollowing} size="sm" />
-        <ShareButton title={project.title} />
+        <ShareButton
+          title={project.title}
+          geekhack={{
+            status: project.status,
+            designer: project.designer,
+            descriptionHtml: project.description,
+            images: project.images,
+            links: project.links,
+          }}
+        />
         <ProjectAdminActions projectId={project.id} />
         {project.designer && (
           <>
