@@ -145,9 +145,7 @@ export default async function ProjectPreviewPage({ params, searchParams }: Previ
       <div className="flex flex-wrap items-center gap-2">
         <FavoriteButton projectId={project.id} />
         <CollectionButton projectId={project.id} />
-        {!isCreator && (
-          <FollowButton targetType="PROJECT" targetId={project.id} initialFollowing={isFollowing} size="sm" />
-        )}
+        <FollowButton targetType="PROJECT" targetId={project.id} initialFollowing={isFollowing} size="sm" />
         <ShareButton title={project.title} />
         <ProjectAdminActions projectId={project.id} />
         {project.designer && (

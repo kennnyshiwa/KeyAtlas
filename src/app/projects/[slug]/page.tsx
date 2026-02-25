@@ -181,7 +181,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       <div className="flex flex-wrap items-center gap-2">
         <FavoriteButton projectId={project.id} />
         <CollectionButton projectId={project.id} />
-        {session?.user && !isCreator && (
+        {session?.user && (
           <FollowButton targetType="PROJECT" targetId={project.id} initialFollowing={isFollowing} size="sm" />
         )}
         <ShareButton title={project.title} />
