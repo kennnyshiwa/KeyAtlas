@@ -215,7 +215,8 @@ export async function PUT(
 
       await dispatchNotification({
         recipients: followers.map((f) => f.userId),
-        actorId: session.user.id,
+        // Include self-notifications for project status changes so owners/admins
+        // who follow their own project still receive update emails.
         preferenceType: "PROJECT_UPDATES",
         notificationType: "PROJECT_STATUS_CHANGE",
         title: `${currentProject.title} status changed`,
