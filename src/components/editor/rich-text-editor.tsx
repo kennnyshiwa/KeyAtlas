@@ -46,8 +46,23 @@ interface RichTextEditorProps {
 const DEFAULT_FONT_SIZE = "16";
 const DEFAULT_COLOR = "#374151";
 
+function normalizeGeekhackHtml(html: string) {
+  return html
+    // Convert <div align="..."> to <p> (Tiptap doesn't support div)
+    .replace(/<div\s+align=["']([^"']+)["'][^>]*>/gi, '<p style="text-align:$1">')
+    .replace(/<\/div>/gi, "</p>")
+    // Convert bbc_size spans to inline font-size
+    .replace(/<span[^>]*class=["'][^"']*bbc_size[^"']*["'][^>]*style=["'][^"']*font-size:\s*([^;"']+)[^"']*["'][^>]*>/gi,
+      '<span style="font-size:$1">')
+    // Convert bbc_color spans to inline color
+    .replace(/<span[^>]*class=["'][^"']*bbc_color[^"']*["'][^>]*style=["'][^"']*color:\s*([^;"']+)[^"']*["'][^>]*>/gi,
+      '<span style="color:$1">')
+    // Strip remaining class attributes (bbc_ classes confuse Tiptap)
+    .replace(/\s+class=["'][^"']*bbc_[^"']*["']/gi, "");
+}
+
 function normalizeLegacyFontTags(html: string) {
-  return html.replace(/<font([^>]*)>([\s\S]*?)<\/font>/gi, (_m, attrs, inner) => {
+  return normalizeGeekhackHtml(html).replace(/<font([^>]*)>([\s\S]*?)<\/font>/gi, (_m, attrs, inner) => {
     const colorMatch = String(attrs).match(/color\s*=\s*["']?([^"'\s>]+)/i);
     const sizeMatch = String(attrs).match(/size\s*=\s*["']?([^"'\s>]+)/i);
 
@@ -88,15 +103,31 @@ function normalizeColorForPicker(value?: string | null) {
  * Returns null on failure.
  */
 function rgbToHex(rgb: string): string | null {
-  const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/);
   if (!m) return null;
-  const [, r, g, b] = m;
+  const [, r, g, b, a] = m;
+  // If fully transparent, return null so caller walks up the tree
+  if (a !== undefined && parseFloat(a) === 0) return null;
   return (
     "#" +
     [r, g, b]
       .map((v) => Number(v).toString(16).padStart(2, "0"))
       .join("")
   );
+}
+
+/** Walk up the DOM tree to find the first ancestor with a non-transparent background */
+function getEffectiveBgColor(el: HTMLElement): string {
+  let current: HTMLElement | null = el;
+  while (current) {
+    const raw = getComputedStyle(current).backgroundColor;
+    const hex = rgbToHex(raw);
+    if (hex) return hex;
+    current = current.parentElement;
+  }
+  // Ultimate fallback: check if dark mode is active
+  if (document.documentElement.classList.contains("dark")) return "#0a0a0a";
+  return "#ffffff";
 }
 
 export function RichTextEditor({
@@ -114,6 +145,7 @@ export function RichTextEditor({
   const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const lastColorApplyAtRef = useRef(0);
   const normalizedContent = normalizeLegacyFontTags(content || "");
+  const prevContentRef = useRef(normalizedContent);
 
   const editor = useEditor({
     extensions: [
@@ -152,6 +184,19 @@ export function RichTextEditor({
     },
   });
 
+  // Sync external content changes (e.g. from Geekhack import) into the editor
+  useEffect(() => {
+    if (!editor) return;
+    if (normalizedContent !== prevContentRef.current) {
+      prevContentRef.current = normalizedContent;
+      // Only update if meaningfully different from current editor content
+      const currentHtml = editor.getHTML();
+      if (normalizedContent !== currentHtml) {
+        editor.commands.setContent(normalizedContent, { emitUpdate: false });
+      }
+    }
+  }, [editor, normalizedContent]);
+
   useEffect(() => {
     if (!editor) return;
 
@@ -183,9 +228,7 @@ export function RichTextEditor({
     if (!el) return;
 
     const readBg = () => {
-      const raw = getComputedStyle(el).backgroundColor;
-      const hex = rgbToHex(raw);
-      if (hex) setDetectedBg(hex);
+      setDetectedBg(getEffectiveBgColor(el));
     };
 
     readBg();
