@@ -41,8 +41,6 @@ interface RichTextEditorProps {
   toolbarExtra?: ReactNode | ((ctx: { editor: Editor }) => ReactNode);
   contentClassName?: string;
   contentStyle?: CSSProperties;
-  /** Background colour (hex) used for contrast checking. Defaults to "#ffffff". */
-  bgColor?: string;
 }
 
 const DEFAULT_FONT_SIZE = "16";
@@ -85,6 +83,22 @@ function normalizeColorForPicker(value?: string | null) {
   return DEFAULT_COLOR;
 }
 
+/**
+ * Parse an rgb()/rgba() string to a hex colour.
+ * Returns null on failure.
+ */
+function rgbToHex(rgb: string): string | null {
+  const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return null;
+  const [, r, g, b] = m;
+  return (
+    "#" +
+    [r, g, b]
+      .map((v) => Number(v).toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
 export function RichTextEditor({
   content = "",
   onChange,
@@ -92,10 +106,11 @@ export function RichTextEditor({
   toolbarExtra,
   contentClassName,
   contentStyle,
-  bgColor = "#ffffff",
 }: RichTextEditorProps) {
   const [fontSizeInput, setFontSizeInput] = useState(DEFAULT_FONT_SIZE);
   const [colorInput, setColorInput] = useState(DEFAULT_COLOR);
+  const [detectedBg, setDetectedBg] = useState("#ffffff");
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const lastColorApplyAtRef = useRef(0);
   const normalizedContent = normalizeLegacyFontTags(content || "");
@@ -160,6 +175,35 @@ export function RichTextEditor({
       editor.off("transaction", syncToolbarState);
     };
   }, [editor]);
+
+  // Detect the actual computed background colour of the editor content area
+  // so the contrast guard works in both light and dark mode.
+  useEffect(() => {
+    const el = editorContainerRef.current;
+    if (!el) return;
+
+    const readBg = () => {
+      const raw = getComputedStyle(el).backgroundColor;
+      const hex = rgbToHex(raw);
+      if (hex) setDetectedBg(hex);
+    };
+
+    readBg();
+
+    // Re-read when the theme changes (class on <html> toggles dark mode)
+    const observer = new MutationObserver(readBg);
+    const root = document.documentElement;
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+
+    // Also listen for system-level theme changes
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", readBg);
+
+    return () => {
+      observer.disconnect();
+      mq.removeEventListener("change", readBg);
+    };
+  }, []);
 
   if (!editor) return null;
 
@@ -386,7 +430,7 @@ export function RichTextEditor({
 
         {/* Contrast guard */}
         {(() => {
-          const ratio = contrastRatio(colorInput, bgColor);
+          const ratio = contrastRatio(colorInput, detectedBg);
           const passes = ratio != null && ratio >= WCAG_AA_THRESHOLD;
           if (ratio != null && !passes) {
             return (
@@ -442,7 +486,7 @@ export function RichTextEditor({
           </div>
         )}
       </div>
-      <div className={`prose dark:prose-invert max-w-none px-3 py-2 ${contentClassName ?? ""}`.trim()} style={contentStyle}>
+      <div ref={editorContainerRef} className={`prose dark:prose-invert max-w-none px-3 py-2 ${contentClassName ?? ""}`.trim()} style={contentStyle}>
         <EditorContent editor={editor} data-testid="rich-text-editor-content" />
       </div>
     </div>
