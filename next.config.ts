@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "photos.kstj.us" },
       { protocol: "https", hostname: "i.ibb.co" },
       { protocol: "https", hostname: "bord.design" },
+      { protocol: "https", hostname: "neocities.org" },
+      { protocol: "https", hostname: "*.neocities.org" },
     ],
   },
 };
