@@ -119,8 +119,12 @@ export async function PUT(
   }
 
   // Optional explicit intent for draft/review/publish/preview while keeping legacy payload compatibility
-  if (intent === "draft" || intent === "review") {
+  if (intent === "draft") {
     data.published = false;
+  }
+  if (intent === "review") {
+    // When review is disabled, treat review intent as publish for everyone.
+    data.published = REQUIRE_PROJECT_REVIEW ? false : true;
   }
   if (intent === "publish" && isAdmin) {
     data.published = true;
