@@ -196,9 +196,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         )}
       </div>
 
-      <div className="grid gap-8 md:grid-cols-3">
-        <div className="space-y-8 md:col-span-2">
-          <ProjectSpecs project={project} />
+      <ProjectSpecs project={project} />
+
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="space-y-8 lg:col-span-2">
           <ProjectVendorsDisplay projectVendors={project.projectVendors} />
           {project.images.length > 0 && (
             <ProjectGallery images={project.images} />

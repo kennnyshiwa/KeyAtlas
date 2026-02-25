@@ -9,12 +9,24 @@ interface ProjectSpecsProps {
 }
 
 export function ProjectSpecs({ project }: ProjectSpecsProps) {
-  const widthClass = {
-    NARROW: "max-w-2xl",
-    MEDIUM: "max-w-3xl",
-    WIDE: "max-w-5xl",
-    FULL: "max-w-none",
-  }[project.descriptionMaxWidth ?? "MEDIUM"];
+  const alignClass = {
+    LEFT: "text-left",
+    CENTER: "text-center",
+    RIGHT: "text-right",
+  }[project.descriptionTextAlign ?? "LEFT"];
+
+  const fontClass = {
+    SMALL: "text-sm",
+    MEDIUM: "text-base",
+    LARGE: "text-lg",
+  }[project.descriptionFontScale ?? "MEDIUM"];
+
+  const widthClass = "max-w-none";
+
+  const safeColor =
+    project.descriptionTextColor && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(project.descriptionTextColor)
+      ? project.descriptionTextColor
+      : undefined;
 
   return (
     <div className="space-y-4">
@@ -24,7 +36,8 @@ export function ProjectSpecs({ project }: ProjectSpecsProps) {
           <RichTextRenderer
             content={project.description}
             unstyled
-            className={`${widthClass} space-y-3 leading-7`}
+            className={`${alignClass} ${fontClass} ${widthClass} space-y-3 leading-7 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_a]:underline [&_a]:underline-offset-2`}
+            style={{ color: safeColor }}
           />
         </div>
       )}
