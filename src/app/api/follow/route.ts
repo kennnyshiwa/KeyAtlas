@@ -68,6 +68,27 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Following a project acts as subscribing to project updates.
+  // If the user has no explicit preference yet, default email updates to ON.
+  if (targetType === "PROJECT") {
+    await prisma.notificationPreference.upsert({
+      where: {
+        userId_type: {
+          userId: session.user.id,
+          type: "PROJECT_UPDATES",
+        },
+      },
+      create: {
+        userId: session.user.id,
+        type: "PROJECT_UPDATES",
+        inApp: true,
+        email: true,
+      },
+      // Respect existing user choices (do not override if already configured)
+      update: {},
+    });
+  }
+
   if (targetType === "USER") {
     const actor = await prisma.user.findUnique({
       where: { id: session.user.id },

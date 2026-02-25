@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { projectFormSchema } from "@/lib/validations/project";
 import { indexProject, removeProjectFromIndex } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
+import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
+import { dispatchNotification } from "@/lib/notifications/service";
+import { STATUS_LABELS } from "@/lib/constants";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -80,13 +83,18 @@ export async function PUT(
 
   const isAdmin = session.user.role === "ADMIN";
 
-  // Non-admin users can only edit their own unpublished projects
+  // Non-admin users can only edit their own projects.
+  // When review is required they can only edit unpublished drafts;
+  // when review is disabled they can edit their own published projects too.
   if (!isAdmin) {
     const existing = await prisma.project.findUnique({
       where: { id },
       select: { creatorId: true, published: true },
     });
-    if (!existing || existing.creatorId !== session.user.id || existing.published) {
+    if (!existing || existing.creatorId !== session.user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+    if (REQUIRE_PROJECT_REVIEW && existing.published) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
   }
@@ -103,20 +111,31 @@ export async function PUT(
 
   const { images, links, projectVendors, ...data } = result.data;
 
-  // Non-admin users cannot publish or feature projects
+  // Non-admin users cannot feature projects.
+  // When REQUIRE_PROJECT_REVIEW is off, non-admin projects are auto-published.
   if (!isAdmin) {
-    data.published = false;
     data.featured = false;
+    data.published = REQUIRE_PROJECT_REVIEW ? false : true;
   }
 
   // Optional explicit intent for draft/review/publish/preview while keeping legacy payload compatibility
-  if (intent === "draft" || intent === "review") {
+  if (intent === "draft") {
     data.published = false;
+  }
+  if (intent === "review") {
+    // When review is disabled, treat review intent as publish for everyone.
+    data.published = REQUIRE_PROJECT_REVIEW ? false : true;
   }
   if (intent === "publish" && isAdmin) {
     data.published = true;
   }
   // intent=preview preserves payload published state (admins) while still saving latest edits.
+
+  // Fetch current project to detect status transitions
+  const currentProject = await prisma.project.findUnique({
+    where: { id },
+    select: { status: true, title: true, slug: true },
+  });
 
   const slugConflict = await prisma.project.findFirst({
     where: { slug: data.slug, NOT: { id } },
@@ -181,6 +200,33 @@ export async function PUT(
 
   if (project.published) {
     await indexProject(project);
+  }
+
+  // Notify followers on status change
+  if (currentProject && currentProject.status !== data.status) {
+    const followers = await prisma.follow.findMany({
+      where: { targetType: "PROJECT", targetId: id },
+      select: { userId: true },
+    });
+
+    if (followers.length > 0) {
+      const oldLabel = STATUS_LABELS[currentProject.status];
+      const newLabel = STATUS_LABELS[data.status];
+
+      await dispatchNotification({
+        recipients: followers.map((f) => f.userId),
+        // Include self-notifications for project status changes so owners/admins
+        // who follow their own project still receive update emails.
+        preferenceType: "PROJECT_UPDATES",
+        notificationType: "PROJECT_STATUS_CHANGE",
+        title: `${currentProject.title} status changed`,
+        message: `${currentProject.title} moved from ${oldLabel} to ${newLabel}.`,
+        link: `/projects/${currentProject.slug}`,
+        emailSubject: `${currentProject.title} is now ${newLabel}`,
+        emailHeading: `Status Update: ${currentProject.title}`,
+        emailCtaLabel: "View project",
+      });
+    }
   }
 
   return NextResponse.json(project);

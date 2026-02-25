@@ -5,6 +5,7 @@ import { projectFormSchema } from "@/lib/validations/project";
 import { indexProject } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -101,16 +102,21 @@ export async function POST(req: NextRequest) {
 
   const { images, links, projectVendors, ...data } = result.data;
 
-  // Non-admin users cannot publish or feature projects
+  // Non-admin users cannot feature projects.
+  // When REQUIRE_PROJECT_REVIEW is off, non-admin projects are auto-published.
   const isAdmin = session.user.role === "ADMIN";
   if (!isAdmin) {
-    data.published = false;
     data.featured = false;
+    data.published = REQUIRE_PROJECT_REVIEW ? false : true;
   }
 
   // Optional explicit intent for draft/review/publish/preview while keeping legacy payload compatibility
-  if (intent === "draft" || intent === "review") {
+  if (intent === "draft") {
     data.published = false;
+  }
+  if (intent === "review") {
+    // When review is disabled, treat review intent as publish for everyone.
+    data.published = REQUIRE_PROJECT_REVIEW ? false : true;
   }
   if (intent === "publish" && isAdmin) {
     data.published = true;

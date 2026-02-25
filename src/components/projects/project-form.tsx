@@ -314,8 +314,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
 
       if (intent === "draft") {
         toast.success("Draft saved");
-      } else if (intent === "review") {
-        toast.success("Project submitted for review");
       } else {
         toast.success(isEditing ? "Project updated and published" : "Project created and published");
       }
@@ -331,7 +329,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await saveProject(mode === "admin" ? "publish" : "review");
+    await saveProject("publish");
   };
 
   const handleSaveDraft = async () => {
@@ -955,9 +953,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {mode === "submit"
-            ? "Submit for Review"
-            : "Publish"}
+          Publish
         </Button>
       </div>
     </form>
