@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEffect, useRef, useState, useMemo, type ReactNode, type CSSProperties } from "react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
@@ -30,19 +31,59 @@ import {
   Undo,
   Redo,
 } from "lucide-react";
+import { contrastRatio, WCAG_AA_THRESHOLD, passesWcagAA } from "@/lib/color-contrast";
 import "./rich-text-editor.css";
 
 interface RichTextEditorProps {
   content?: string;
   onChange: (html: string) => void;
   placeholder?: string;
-  toolbarExtra?: ReactNode | ((ctx: { editor: ReturnType<typeof useEditor> }) => ReactNode);
+  toolbarExtra?: ReactNode | ((ctx: { editor: Editor }) => ReactNode);
   contentClassName?: string;
   contentStyle?: CSSProperties;
+  /** Background colour (hex) used for contrast checking. Defaults to "#ffffff". */
+  bgColor?: string;
 }
 
 const DEFAULT_FONT_SIZE = "16";
 const DEFAULT_COLOR = "#374151";
+
+function normalizeLegacyFontTags(html: string) {
+  return html.replace(/<font([^>]*)>([\s\S]*?)<\/font>/gi, (_m, attrs, inner) => {
+    const colorMatch = String(attrs).match(/color\s*=\s*["']?([^"'\s>]+)/i);
+    const sizeMatch = String(attrs).match(/size\s*=\s*["']?([^"'\s>]+)/i);
+
+    const sizeMap: Record<string, string> = {
+      "1": "10px",
+      "2": "13px",
+      "3": "16px",
+      "4": "18px",
+      "5": "24px",
+      "6": "32px",
+      "7": "48px",
+    };
+
+    const styles: string[] = [];
+    if (colorMatch?.[1]) styles.push(`color:${colorMatch[1]}`);
+    if (sizeMatch?.[1]) {
+      const s = sizeMatch[1];
+      styles.push(`font-size:${sizeMap[s] || s}`);
+    }
+
+    return `<span style=\"${styles.join(";")}\">${inner}</span>`;
+  });
+}
+
+function normalizeColorForPicker(value?: string | null) {
+  if (!value) return DEFAULT_COLOR;
+  const v = value.trim().toLowerCase();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(v)) {
+    return v.length === 4
+      ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`
+      : v;
+  }
+  return DEFAULT_COLOR;
+}
 
 export function RichTextEditor({
   content = "",
@@ -51,11 +92,13 @@ export function RichTextEditor({
   toolbarExtra,
   contentClassName,
   contentStyle,
+  bgColor = "#ffffff",
 }: RichTextEditorProps) {
   const [fontSizeInput, setFontSizeInput] = useState(DEFAULT_FONT_SIZE);
   const [colorInput, setColorInput] = useState(DEFAULT_COLOR);
   const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const lastColorApplyAtRef = useRef(0);
+  const normalizedContent = normalizeLegacyFontTags(content || "");
 
   const editor = useEditor({
     extensions: [
@@ -71,9 +114,17 @@ export function RichTextEditor({
           target: "_blank",
         },
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {
+          loading: "lazy",
+          decoding: "async",
+        },
+      }),
       Placeholder.configure({ placeholder }),
     ],
-    content,
+    content: normalizedContent,
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
@@ -97,7 +148,7 @@ export function RichTextEditor({
       setFontSizeInput(normalizedSize || DEFAULT_FONT_SIZE);
 
       const activeColor = typeof attrs.color === "string" ? attrs.color : "";
-      setColorInput(activeColor || DEFAULT_COLOR);
+      setColorInput(normalizeColorForPicker(activeColor));
     };
 
     syncToolbarState();
@@ -332,6 +383,35 @@ export function RichTextEditor({
             aria-label="Hex text color"
           />
         </div>
+
+        {/* Contrast guard */}
+        {(() => {
+          const ratio = contrastRatio(colorInput, bgColor);
+          const passes = ratio != null && ratio >= WCAG_AA_THRESHOLD;
+          if (ratio != null && !passes) {
+            return (
+              <div
+                data-testid="contrast-warning"
+                className="flex items-center gap-1 rounded bg-yellow-100 px-2 py-0.5 text-xs text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300"
+                role="status"
+              >
+                <span>⚠ Low contrast ({ratio.toFixed(1)}:1)</span>
+                <button
+                  type="button"
+                  data-testid="contrast-reset"
+                  className="ml-1 underline hover:no-underline"
+                  onClick={() => {
+                    setColorInput(DEFAULT_COLOR);
+                    applyColor(DEFAULT_COLOR);
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         <Button
           type="button"
