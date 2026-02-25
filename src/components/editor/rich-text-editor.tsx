@@ -529,7 +529,7 @@ export function RichTextEditor({
           </div>
         )}
       </div>
-      <div ref={editorContainerRef} className={`prose dark:prose-invert max-w-none px-3 py-2 ${contentClassName ?? ""}`.trim()} style={contentStyle}>
+      <div ref={editorContainerRef} className={`prose dark:prose-invert max-w-none w-full px-3 py-2 [&_.ProseMirror]:max-w-none ${contentClassName ?? ""}`.trim()} style={contentStyle}>
         <EditorContent editor={editor} data-testid="rich-text-editor-content" />
       </div>
     </div>

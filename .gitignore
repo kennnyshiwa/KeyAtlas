@@ -56,3 +56,4 @@ public/uploads/*
 docker-data/
 
 /src/generated/prisma
+tmp/
