@@ -185,6 +185,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           <FollowButton targetType="PROJECT" targetId={project.id} initialFollowing={isFollowing} size="sm" />
         )}
         <ShareButton title={project.title} />
+        {isCreator && (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/projects/submit/${project.id}/edit`}>Edit</Link>
+          </Button>
+        )}
         <ProjectAdminActions projectId={project.id} />
         {project.designer && (
           <>

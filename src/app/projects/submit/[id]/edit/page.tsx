@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProjectForm } from "@/components/projects/project-form";
 import { PageHeader } from "@/components/shared/page-header";
+import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 
 export const metadata = {
   title: "Edit Submission",
@@ -42,16 +43,20 @@ export default async function EditSubmissionPage({ params }: EditSubmissionPageP
     notFound();
   }
 
-  // Only the creator can edit, and only if unpublished
-  if (project.creatorId !== session.user.id || project.published) {
+  // Only the creator can edit.
+  // If review is required, lock published projects; otherwise allow editing published projects.
+  if (project.creatorId !== session.user.id) {
+    redirect("/profile");
+  }
+  if (REQUIRE_PROJECT_REVIEW && project.published) {
     redirect("/profile");
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Edit Submission"
-        description="Update your project submission before it's reviewed."
+        title="Edit Project"
+        description="Update your project details."
       />
       <ProjectForm project={project} mode="submit" vendors={vendors} />
     </div>
