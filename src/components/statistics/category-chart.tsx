@@ -3,13 +3,14 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Keep category palette visually distinct from status chart colors
 const COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-  "oklch(0.65 0.18 240)",
+  "hsl(333 72% 52%)", // pink
+  "hsl(196 82% 45%)", // cyan
+  "hsl(160 68% 40%)", // emerald
+  "hsl(276 63% 52%)", // violet
+  "hsl(28 88% 54%)",  // orange
+  "hsl(48 92% 50%)",  // amber
 ];
 
 interface CategoryChartProps {
