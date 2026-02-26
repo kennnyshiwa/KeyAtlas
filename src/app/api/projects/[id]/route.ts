@@ -7,6 +7,8 @@ import { slugify } from "@/lib/slug";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 import { dispatchNotification } from "@/lib/notifications/service";
 import { STATUS_LABELS } from "@/lib/constants";
+import { rateLimit, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
+import { logProjectChanges } from "@/lib/project-change-log";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -99,6 +101,10 @@ export async function PUT(
     }
   }
 
+  // Rate limit
+  const rateLimited = rateLimit(session.user.id, "project:update", RATE_LIMIT_PROJECT_UPDATE);
+  if (rateLimited) return rateLimited;
+
   const body = await req.json();
   const result = projectFormSchema.safeParse(body);
 
@@ -110,6 +116,14 @@ export async function PUT(
   }
 
   const { images, links, projectVendors, ...data } = result.data;
+
+  // Vendor required for GROUP_BUY status
+  if (data.status === "GROUP_BUY" && projectVendors.length === 0) {
+    return NextResponse.json(
+      { error: "At least one vendor is required for Group Buy projects." },
+      { status: 400 }
+    );
+  }
 
   // Normalize slug to URL-safe ASCII to prevent 404s from Unicode slugs
   data.slug = slugify(data.slug) || slugify(data.title) || `project-${Date.now()}`;
@@ -134,10 +148,10 @@ export async function PUT(
   }
   // intent=preview preserves payload published state (admins) while still saving latest edits.
 
-  // Fetch current project to detect status transitions
+  // Fetch current project to detect status transitions and log changes
   const currentProject = await prisma.project.findUnique({
     where: { id },
-    select: { status: true, title: true, slug: true },
+    select: { status: true, title: true, slug: true, category: true, profile: true, designer: true, vendorId: true },
   });
 
   const slugConflict = await prisma.project.findFirst({
@@ -167,6 +181,11 @@ export async function PUT(
     storeLink?: string;
     endDate?: Date | null;
   }>;
+
+  // Log meaningful field changes
+  if (currentProject) {
+    await logProjectChanges(id, session.user.id, currentProject as Record<string, unknown>, data as Record<string, unknown>);
+  }
 
   const project = await prisma.$transaction(async (tx) => {
     await tx.projectImage.deleteMany({ where: { projectId: id } });

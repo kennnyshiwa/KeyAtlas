@@ -6,6 +6,7 @@ import { indexProject } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
+import { rateLimit, RATE_LIMIT_PROJECT_CREATE } from "@/lib/rate-limit";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -88,6 +89,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  // Rate limit
+  const rateLimited = rateLimit(session.user.id, "project:create", RATE_LIMIT_PROJECT_CREATE);
+  if (rateLimited) return rateLimited;
+
   const { searchParams } = new URL(req.url);
   const intent = searchParams.get("intent");
   const body = await req.json();
@@ -101,6 +106,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { images, links, projectVendors, ...data } = result.data;
+
+  // Vendor required for GROUP_BUY status
+  if (data.status === "GROUP_BUY" && projectVendors.length === 0) {
+    return NextResponse.json(
+      { error: "At least one vendor is required for Group Buy projects." },
+      { status: 400 }
+    );
+  }
 
   // Normalize slug to URL-safe ASCII to prevent 404s from Unicode slugs
   data.slug = slugify(data.slug) || slugify(data.title) || `project-${Date.now()}`;

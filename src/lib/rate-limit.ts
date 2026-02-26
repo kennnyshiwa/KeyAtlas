@@ -98,3 +98,21 @@ export const RATE_LIMIT_FORUM_POST_CREATE: RateLimitConfig = {
   limit: 12,
   window: 300,
 };
+
+/** Project creation — 5 projects / hour */
+export const RATE_LIMIT_PROJECT_CREATE: RateLimitConfig = {
+  limit: 5,
+  window: 3600,
+};
+
+/** Project update — 20 updates / 15 minutes */
+export const RATE_LIMIT_PROJECT_UPDATE: RateLimitConfig = {
+  limit: 20,
+  window: 900,
+};
+
+/** Project report — 5 reports / hour */
+export const RATE_LIMIT_PROJECT_REPORT: RateLimitConfig = {
+  limit: 5,
+  window: 3600,
+};

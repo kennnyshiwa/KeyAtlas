@@ -16,13 +16,15 @@ import { UpdateTimeline } from "@/components/updates/update-timeline";
 import { SoundTestSection } from "@/components/projects/sound-test-section";
 import { ShareButton } from "@/components/social/share-button";
 import { FollowButton } from "@/components/social/follow-button";
+import { ReportButton } from "@/components/projects/report-button";
+import { ProjectChangeLog } from "@/components/projects/project-changelog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
-import { stripHtml } from "@/lib/strip-html";
+import { buildEmbedDescription } from "@/lib/embed-description";
 
 export const dynamic = "force-dynamic";
 
@@ -71,10 +73,7 @@ export async function generateMetadata({
   const siteUrl = getSiteUrl();
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
   const title = project.metaTitle?.trim() || project.title || SITE_NAME;
-  const description =
-    project.metaDescription?.trim() ||
-    (project.description ? stripHtml(project.description).slice(0, 160) : null) ||
-    `${project.title} on ${SITE_NAME}`;
+  const description = buildEmbedDescription(project);
   const primaryImage =
     project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;
 
@@ -147,10 +146,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   const siteUrl = getSiteUrl();
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
-  const description =
-    project.metaDescription?.trim() ||
-    (project.description ? stripHtml(project.description).slice(0, 160) : null) ||
-    `${project.title} on ${SITE_NAME}`;
+  const description = buildEmbedDescription(project);
   const primaryImage =
     project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;
   const jsonLd = {
@@ -200,6 +196,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             <Link href={`/projects/submit/${project.id}/edit`}>Edit</Link>
           </Button>
         )}
+        {session?.user && <ReportButton projectId={project.id} />}
         <ProjectAdminActions projectId={project.id} />
         {project.designer && (
           <>
@@ -222,6 +219,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         </div>
         <div className="space-y-8">
           <ProjectTimeline project={project} />
+          <ProjectChangeLog projectId={project.id} />
         </div>
       </div>
 
