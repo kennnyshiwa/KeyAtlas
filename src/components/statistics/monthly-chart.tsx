@@ -31,7 +31,7 @@ export function MonthlyChart({ data }: MonthlyChartProps) {
               <Tooltip />
               <Bar
                 dataKey="count"
-                fill="hsl(var(--chart-1))"
+                fill="var(--chart-1)"
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>

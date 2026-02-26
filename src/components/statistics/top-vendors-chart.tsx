@@ -38,7 +38,7 @@ export function TopVendorsChart({ data }: TopVendorsChartProps) {
               <Tooltip />
               <Bar
                 dataKey="count"
-                fill="hsl(var(--chart-3))"
+                fill="var(--chart-3)"
                 radius={[0, 4, 4, 0]}
               />
             </BarChart>
