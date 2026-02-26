@@ -11,6 +11,7 @@ import { Eye, Pencil, Plus } from "lucide-react";
 import { ApiKeyManager } from "@/components/profile/api-key-manager";
 import { ApiDocs } from "@/components/profile/api-docs";
 import { ProfileSettings } from "@/components/profile/profile-settings";
+import { WatchlistManager } from "@/components/profile/watchlist-manager";
 import type { ProjectListItem } from "@/types";
 
 interface ApiKeyInfo {
@@ -39,7 +40,7 @@ interface ProfileTabsProps {
   collection: ProjectListItem[];
   apiKeys: ApiKeyInfo[];
   user: ProfileUser;
-  defaultTab?: "projects" | "favorites" | "collection" | "api" | "settings";
+  defaultTab?: "projects" | "favorites" | "collection" | "watchlists" | "api" | "settings";
 }
 
 export function ProfileTabs({ projects, favorites, collection, apiKeys, user, defaultTab = "projects" }: ProfileTabsProps) {
@@ -54,6 +55,9 @@ export function ProfileTabs({ projects, favorites, collection, apiKeys, user, de
         </TabsTrigger>
         <TabsTrigger value="collection">
           Collection ({collection.length})
+        </TabsTrigger>
+        <TabsTrigger value="watchlists">
+          Watchlists
         </TabsTrigger>
         <TabsTrigger value="api">
           API
@@ -146,6 +150,9 @@ export function ProfileTabs({ projects, favorites, collection, apiKeys, user, de
             description="Add projects to your collection to track them here."
           />
         )}
+      </TabsContent>
+      <TabsContent value="watchlists" className="mt-4">
+        <WatchlistManager />
       </TabsContent>
       <TabsContent value="api" className="mt-4 space-y-6">
         <ApiKeyManager initialKeys={apiKeys} />

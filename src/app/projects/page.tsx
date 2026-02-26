@@ -5,6 +5,7 @@ import { ProjectSearch } from "@/components/projects/project-search";
 import { ProjectStatusTabs } from "@/components/projects/project-status-tabs";
 import { ProjectViewWrapper } from "@/components/projects/project-view-wrapper";
 import { AdvancedFilters } from "@/components/projects/advanced-filters";
+import { SaveFilterButton } from "@/components/projects/save-filter-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -101,7 +102,10 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Suspense>
-          <AdvancedFilters vendors={allVendors} />
+          <div className="flex items-center gap-2">
+            <AdvancedFilters vendors={allVendors} />
+            <SaveFilterButton />
+          </div>
         </Suspense>
         <div className="w-full sm:w-72">
           <Suspense>

@@ -128,6 +128,7 @@ model User {
   changeLogs        ProjectChangeLog[] @relation("UserChangeLogs")
   reports           ProjectReport[]    @relation("UserReports")
   resolvedReports   ProjectReport[]    @relation("ResolvedReports")
+  savedFilters      SavedFilter[]      @relation("UserSavedFilters")
 
   @@map("users")
 }
@@ -496,6 +497,7 @@ enum NotificationType {
   NEW_FORUM_THREAD
   GB_STARTING
   GB_ENDING
+  WATCHLIST_MATCH
 }
 
 model Notification {
@@ -521,6 +523,7 @@ enum NotificationPreferenceType {
   PROJECT_UPDATES
   PROJECT_COMMENTS
   NEW_FOLLOWERS
+  WATCHLIST_MATCHES
 }
 
 model NotificationPreference {
@@ -655,6 +658,40 @@ model ProjectChangeLog {
 
   @@index([projectId, createdAt])
   @@map("project_change_logs")
+}
+
+// ─── Saved Filters / Watchlists ──────────────────────────────
+
+model SavedFilter {
+  id        String   @id @default(cuid())
+  name      String
+  criteria  Json     // { status?, category?, profile?, designer?, vendor?, shipped?, tags?, q? }
+  notify    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation("UserSavedFilters", fields: [userId], references: [id], onDelete: Cascade)
+
+  watchlistNotifications WatchlistNotification[]
+
+  @@index([userId])
+  @@index([notify])
+  @@map("saved_filters")
+}
+
+model WatchlistNotification {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+
+  savedFilterId String
+  savedFilter   SavedFilter @relation(fields: [savedFilterId], references: [id], onDelete: Cascade)
+  projectId     String
+  userId        String
+
+  @@unique([savedFilterId, projectId, userId])
+  @@index([userId, projectId])
+  @@map("watchlist_notifications")
 }
 
 // ─── Reports ─────────────────────────────────────────────────
