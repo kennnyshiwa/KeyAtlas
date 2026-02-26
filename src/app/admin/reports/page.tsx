@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminReportsPage() {
   const reports = await prisma.projectReport.findMany({
     include: {
-      project: { select: { id: true, title: true, slug: true } },
+      project: { select: { id: true, title: true, slug: true, published: true } },
       reporter: { select: { id: true, name: true, username: true } },
       resolvedBy: { select: { id: true, name: true, username: true } },
     },
@@ -62,9 +62,11 @@ export default async function AdminReportsPage() {
                   </p>
                 )}
               </div>
-              {report.status === "OPEN" && (
-                <ReportActions reportId={report.id} />
-              )}
+              <ReportActions
+                reportId={report.id}
+                status={report.status}
+                canRestore={Boolean(report.project?.id) && report.project?.published === false}
+              />
             </div>
           </div>
         ))}
