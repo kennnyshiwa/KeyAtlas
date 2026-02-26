@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { rateLimit, RATE_LIMIT_GUIDE_CREATE } from "@/lib/rate-limit";
 
 const guideSchema = z.object({
   title: z.string().min(3).max(200),
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = rateLimit(session.user.id, "guides:create", RATE_LIMIT_GUIDE_CREATE);
+  if (limited) return limited;
 
   const body = await req.json();
   const parsed = guideSchema.safeParse(body);

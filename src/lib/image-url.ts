@@ -6,7 +6,6 @@ export const IMAGE_EXTENSIONS = [
   ".webp",
   ".gif",
   ".avif",
-  ".svg",
 ];
 
 /**

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getStorageProvider } from "@/lib/storage";
+import { validateImageBuffer } from "@/lib/security/upload-validation";
 import crypto from "crypto";
 import path from "path";
 
@@ -41,6 +42,16 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Validate magic bytes — don't trust client MIME alone
+  const validation = validateImageBuffer(buffer, ALLOWED_TYPES);
+  if (!validation.valid) {
+    return NextResponse.json(
+      { error: validation.error },
+      { status: 400 }
+    );
+  }
+
   const ext = path.extname(file.name) || ".jpg";
   const filename = `${crypto.randomUUID()}${ext}`;
 

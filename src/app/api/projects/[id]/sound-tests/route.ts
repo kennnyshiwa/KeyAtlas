@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { rateLimit, RATE_LIMIT_SOUND_TEST_CREATE } from "@/lib/rate-limit";
 
 const soundTestSchema = z.object({
   url: z.string().url(),
@@ -17,6 +18,9 @@ export async function POST(
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = rateLimit(session.user.id, "sound-tests:create", RATE_LIMIT_SOUND_TEST_CREATE);
+  if (limited) return limited;
 
   const { id } = await params;
   const project = await prisma.project.findUnique({

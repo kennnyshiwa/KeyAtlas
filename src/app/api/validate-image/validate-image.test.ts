@@ -9,7 +9,7 @@ describe("looksLikeImageUrl", () => {
     "/photo.webp",
     "/photo.gif",
     "/photo.avif",
-    "/icon.svg",
+
   ])("accepts %s", (path) => {
     expect(looksLikeImageUrl(path)).toBe(true);
   });
@@ -17,7 +17,7 @@ describe("looksLikeImageUrl", () => {
   it("accepts mixed-case extensions", () => {
     expect(looksLikeImageUrl("/photo.PNG")).toBe(true);
     expect(looksLikeImageUrl("/photo.JpG")).toBe(true);
-    expect(looksLikeImageUrl("/photo.SVG")).toBe(true);
+    expect(looksLikeImageUrl("/photo.AVIF")).toBe(true);
   });
 
   it("accepts paths with querystrings", () => {
@@ -48,7 +48,7 @@ describe("looksLikeImageUrl", () => {
 
   it("IMAGE_EXTENSIONS includes all expected formats", () => {
     expect(IMAGE_EXTENSIONS).toEqual(
-      expect.arrayContaining([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".svg"])
+      expect.arrayContaining([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"])
     );
   });
 });
