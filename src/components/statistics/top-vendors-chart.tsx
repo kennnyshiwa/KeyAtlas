@@ -3,6 +3,7 @@
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -14,6 +15,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 interface TopVendorsChartProps {
   data: { name: string; count: number }[];
 }
+
+const VENDOR_COLORS = [
+  "hsl(220 78% 56%)",
+  "hsl(145 62% 46%)",
+  "hsl(43 86% 54%)",
+  "hsl(283 62% 56%)",
+  "hsl(20 86% 56%)",
+  "hsl(156 66% 42%)",
+  "hsl(348 74% 54%)",
+  "hsl(194 78% 46%)",
+  "hsl(265 58% 56%)",
+  "hsl(34 88% 52%)",
+];
 
 export function TopVendorsChart({ data }: TopVendorsChartProps) {
   if (data.length === 0) return null;
@@ -36,11 +50,11 @@ export function TopVendorsChart({ data }: TopVendorsChartProps) {
                 className="text-xs"
               />
               <Tooltip />
-              <Bar
-                dataKey="count"
-                fill="var(--chart-3)"
-                radius={[0, 4, 4, 0]}
-              />
+              <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                {data.map((_, index) => (
+                  <Cell key={`vendor-cell-${index}`} fill={VENDOR_COLORS[index % VENDOR_COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
