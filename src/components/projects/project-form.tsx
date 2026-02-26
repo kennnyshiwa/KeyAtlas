@@ -657,9 +657,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
               vendorId: pv.vendorId,
               region: pv.region ?? "",
               storeLink: pv.storeLink ?? "",
-              endDate: pv.endDate
-                ? new Date(pv.endDate).toISOString().split("T")[0]
-                : "",
               customVendorName: (pv as { customVendorName?: string | null }).customVendorName ?? "",
             }))}
             onChange={(entries) =>
@@ -669,7 +666,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
                   vendorId: e.vendorId,
                   region: e.region,
                   storeLink: e.storeLink,
-                  endDate: e.endDate ? new Date(e.endDate) : null,
                   customVendorName: e.customVendorName || null,
                 }))
               )

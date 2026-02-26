@@ -16,7 +16,6 @@ export interface ProjectVendorEntry {
   vendorId: string;
   region: string;
   storeLink: string;
-  endDate: string;
   customVendorName?: string;
 }
 
@@ -38,7 +37,6 @@ export function VendorMultiSelect({
         vendorId: "",
         region: "",
         storeLink: "",
-        endDate: "",
         customVendorName: "",
       },
     ]);
@@ -125,14 +123,7 @@ export function VendorMultiSelect({
                 placeholder="https://..."
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">End Date</Label>
-              <Input
-                type="date"
-                value={entry.endDate}
-                onChange={(e) => updateEntry(i, "endDate", e.target.value)}
-              />
-            </div>
+
           </div>
           <div className="flex justify-end">
             <Button
