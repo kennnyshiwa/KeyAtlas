@@ -9,8 +9,9 @@ const ALLOWED_TYPES = [
   "image/png",
   "image/webp",
   "image/gif",
+  "image/avif",
 ];
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE = 15 * 1024 * 1024; // 15MB
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -27,14 +28,14 @@ export async function POST(req: NextRequest) {
 
   if (!ALLOWED_TYPES.includes(file.type)) {
     return NextResponse.json(
-      { error: "Invalid file type. Allowed: JPEG, PNG, WebP, GIF" },
+      { error: "Invalid file type. Allowed: JPEG, PNG, WebP, GIF, AVIF" },
       { status: 400 }
     );
   }
 
   if (file.size > MAX_SIZE) {
     return NextResponse.json(
-      { error: "File too large. Maximum size is 5MB" },
+      { error: "File too large. Maximum size is 15MB" },
       { status: 400 }
     );
   }

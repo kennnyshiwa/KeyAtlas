@@ -40,12 +40,15 @@ export function ImageUpload({
           body: formData,
         });
 
-        if (!res.ok) throw new Error("Upload failed");
-
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error || "Upload failed");
+        }
         onChange(data.url);
       } catch (error) {
         console.error("Upload error:", error);
+        const message = error instanceof Error ? error.message : "Upload failed";
+        setUrlError(message);
       } finally {
         setIsUploading(false);
       }
@@ -150,47 +153,50 @@ export function ImageUpload({
       </div>
 
       {mode === "upload" ? (
-        <div
-          className={cn(
-            "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors",
-            isDragging
-              ? "border-primary bg-primary/5"
-              : "border-muted-foreground/25 hover:border-primary/50"
-          )}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-          onClick={() => document.getElementById(inputId)?.click()}
-        >
-          <input
-            id={inputId}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          {isUploading ? (
-            <div className="text-muted-foreground flex flex-col items-center gap-2">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              <span className="text-sm">Uploading...</span>
-            </div>
-          ) : (
-            <div className="text-muted-foreground flex flex-col items-center gap-2">
-              {isDragging ? (
-                <ImageIcon className="h-8 w-8" />
-              ) : (
-                <Upload className="h-8 w-8" />
-              )}
-              <span className="text-sm">
-                {isDragging ? "Drop image here" : "Click or drag to upload"}
-              </span>
-              <span className="text-xs">PNG, JPG, WebP, GIF up to 5MB</span>
-            </div>
-          )}
-        </div>
+        <>
+          <div
+            className={cn(
+              "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors",
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-muted-foreground/25 hover:border-primary/50"
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById(inputId)?.click()}
+          >
+            <input
+              id={inputId}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {isUploading ? (
+              <div className="text-muted-foreground flex flex-col items-center gap-2">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <span className="text-sm">Uploading...</span>
+              </div>
+            ) : (
+              <div className="text-muted-foreground flex flex-col items-center gap-2">
+                {isDragging ? (
+                  <ImageIcon className="h-8 w-8" />
+                ) : (
+                  <Upload className="h-8 w-8" />
+                )}
+                <span className="text-sm">
+                  {isDragging ? "Drop image here" : "Click or drag to upload"}
+                </span>
+                <span className="text-xs">PNG, JPG, WebP, GIF, AVIF up to 15MB</span>
+              </div>
+            )}
+          </div>
+          {urlError && <p className="text-destructive text-sm">{urlError}</p>}
+        </>
       ) : (
         <div className="space-y-2">
           <div className="flex gap-2">
