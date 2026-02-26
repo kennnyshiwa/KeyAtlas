@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { projectUpdateFormSchema } from "@/lib/validations/project-update";
 import { dispatchNotification } from "@/lib/notifications/service";
+import { rateLimit, RATE_LIMIT_PROJECT_UPDATE_CREATE } from "@/lib/rate-limit";
 
 export async function GET(
   _req: NextRequest,
@@ -26,6 +27,9 @@ export async function POST(
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
+
+  const limited = rateLimit(session.user.id, "updates:create", RATE_LIMIT_PROJECT_UPDATE_CREATE);
+  if (limited) return limited;
 
   const { id } = await params;
 

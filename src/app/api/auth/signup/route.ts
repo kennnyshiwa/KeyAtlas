@@ -4,14 +4,28 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, normalizeEmail, validatePasswordStrength } from "@/lib/password";
 import { sendVerificationEmail } from "@/lib/mail";
+import { rateLimit, RATE_LIMIT_SIGNUP } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/security/turnstile";
 
 const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   displayName: z.string().max(50).optional().nullable(),
+  turnstileToken: z.string().optional().nullable(),
 });
 
+// Generic success message used for both new and existing accounts
+// to prevent account enumeration.
+const SUCCESS_MSG = "If this email is not already registered, you will receive a verification link shortly.";
+
 export async function POST(req: NextRequest) {
+  // IP-based rate limiting
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+  const rateLimited = rateLimit(ip, "auth:signup", RATE_LIMIT_SIGNUP);
+  if (rateLimited) return rateLimited;
+
   const body = await req.json().catch(() => null);
   const parsed = signupSchema.safeParse(body);
   if (!parsed.success) {
@@ -21,7 +35,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, password, displayName } = parsed.data;
+  const { email, password, displayName, turnstileToken } = parsed.data;
+
+  // Turnstile verification
+  const turnstileResult = await verifyTurnstile(turnstileToken, ip);
+  if (!turnstileResult.success) {
+    return NextResponse.json(
+      { error: turnstileResult.error || "Verification failed" },
+      { status: 400 }
+    );
+  }
+
   const normalizedEmail = normalizeEmail(email);
 
   const passwordError = validatePasswordStrength(password);
@@ -29,12 +53,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: passwordError }, { status: 400 });
   }
 
+  // Check for existing account — return same generic response to prevent enumeration
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
-    return NextResponse.json(
-      { error: "An account with this email already exists. Please sign in instead." },
-      { status: 409 }
-    );
+    return NextResponse.json({
+      success: true,
+      message: SUCCESS_MSG,
+    });
   }
 
   const passwordHash = await hashPassword(password.trim());
@@ -74,6 +99,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    message: "Account created. Check your email for a verification link.",
+    message: SUCCESS_MSG,
   });
 }

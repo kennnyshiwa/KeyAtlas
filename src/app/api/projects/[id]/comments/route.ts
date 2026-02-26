@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { commentFormSchema } from "@/lib/validations/comment";
 import { dispatchNotification } from "@/lib/notifications/service";
+import { rateLimit, RATE_LIMIT_COMMENT_CREATE } from "@/lib/rate-limit";
 
 export async function GET(
   _req: NextRequest,
@@ -41,6 +42,9 @@ export async function POST(
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
+
+  const limited = rateLimit(session.user.id, "comments:create", RATE_LIMIT_COMMENT_CREATE);
+  if (limited) return limited;
 
   const { id } = await params;
   const body = await req.json();

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/service";
 import { followTargetExists } from "@/lib/follow/targets";
+import { rateLimit, RATE_LIMIT_FOLLOW } from "@/lib/rate-limit";
 
 const followSchema = z.object({
   targetType: z.enum(["USER", "PROJECT", "VENDOR", "FORUM_THREAD", "FORUM_CATEGORY"]),
@@ -15,6 +16,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = rateLimit(session.user.id, "follow", RATE_LIMIT_FOLLOW);
+  if (limited) return limited;
 
   let body: unknown;
   try {

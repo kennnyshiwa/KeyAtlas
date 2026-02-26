@@ -116,3 +116,39 @@ export const RATE_LIMIT_PROJECT_REPORT: RateLimitConfig = {
   limit: 5,
   window: 3600,
 };
+
+/** Comment creation — 10 comments / 5 minutes */
+export const RATE_LIMIT_COMMENT_CREATE: RateLimitConfig = {
+  limit: 10,
+  window: 300,
+};
+
+/** Follow/unfollow — 30 actions / 5 minutes */
+export const RATE_LIMIT_FOLLOW: RateLimitConfig = {
+  limit: 30,
+  window: 300,
+};
+
+/** Guide creation — 3 guides / hour */
+export const RATE_LIMIT_GUIDE_CREATE: RateLimitConfig = {
+  limit: 3,
+  window: 3600,
+};
+
+/** Sound test creation — 10 / hour */
+export const RATE_LIMIT_SOUND_TEST_CREATE: RateLimitConfig = {
+  limit: 10,
+  window: 3600,
+};
+
+/** Project update creation — 10 / hour */
+export const RATE_LIMIT_PROJECT_UPDATE_CREATE: RateLimitConfig = {
+  limit: 10,
+  window: 3600,
+};
+
+/** Signup — 5 attempts / 15 minutes per IP */
+export const RATE_LIMIT_SIGNUP: RateLimitConfig = {
+  limit: 5,
+  window: 900,
+};

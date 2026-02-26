@@ -244,12 +244,36 @@ export async function fetchGeekhackThread(topicUrl: string): Promise<ExtractedTh
     throw new Error("Please enter a valid Geekhack topic URL.");
   }
 
+  // SSRF protection: validate URL does not resolve to internal addresses
+  const { assertSafeUrl } = await import("@/lib/security/ssrf-guard");
+  await assertSafeUrl(topic.normalizedUrl);
+
   const res = await fetch(topic.normalizedUrl, {
-    redirect: "follow",
+    redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
     headers: {
       "user-agent": "KeyVault Importer/1.0 (+https://geekhack.org)",
     },
   });
+
+  // Handle redirects with SSRF re-validation
+  if ([301, 302, 303, 307, 308].includes(res.status)) {
+    const location = res.headers.get("location");
+    if (!location) throw new Error("Redirect with no location header");
+    const redirectUrl = new URL(location, topic.normalizedUrl).toString();
+    await assertSafeUrl(redirectUrl);
+    const redirectRes = await fetch(redirectUrl, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "user-agent": "KeyVault Importer/1.0 (+https://geekhack.org)" },
+    });
+    if (!redirectRes.ok) {
+      throw new Error(`Failed to fetch Geekhack thread after redirect (${redirectRes.status})`);
+    }
+    const finalUrl = redirectRes.url || redirectUrl;
+    const html = await redirectRes.text();
+    return parseThread(topic, finalUrl, html);
+  }
 
   if (!res.ok) {
     throw new Error(`Failed to fetch Geekhack thread (${res.status} ${res.statusText})`);
@@ -257,7 +281,14 @@ export async function fetchGeekhackThread(topicUrl: string): Promise<ExtractedTh
 
   const finalUrl = res.url || topic.normalizedUrl;
   const html = await res.text();
+  return parseThread(topic, finalUrl, html);
+}
 
+function parseThread(
+  topic: { normalizedUrl: string; topicId: string },
+  finalUrl: string,
+  html: string
+): ExtractedThread {
   const title = extractTitle(html);
   const posts = extractPosts(html);
   const op = posts[0] ?? null;

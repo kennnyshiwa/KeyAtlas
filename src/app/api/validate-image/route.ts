@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { looksLikeImageUrl, IMAGE_EXTENSIONS } from "@/lib/image-url";
+import { safeFetch } from "@/lib/security/ssrf-guard";
 
 const ALLOWED_CONTENT_TYPES = [
   "image/jpeg",
@@ -8,7 +9,6 @@ const ALLOWED_CONTENT_TYPES = [
   "image/webp",
   "image/gif",
   "image/avif",
-  "image/svg+xml",
 ];
 
 export async function POST(req: NextRequest) {
@@ -51,13 +51,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // HEAD request to verify it's actually an image
+  // HEAD request to verify it's actually an image (with SSRF protection)
   try {
-    const res = await fetch(url, {
-      method: "HEAD",
-      signal: AbortSignal.timeout(5000),
-      redirect: "follow",
-    });
+    const res = await safeFetch(url, { method: "HEAD", timeoutMs: 5000 });
 
     if (!res.ok) {
       return NextResponse.json(
@@ -69,7 +65,7 @@ export async function POST(req: NextRequest) {
     const contentType = res.headers.get("content-type")?.split(";")[0]?.trim();
     if (!contentType || !ALLOWED_CONTENT_TYPES.includes(contentType)) {
       return NextResponse.json(
-        { error: "URL does not point to a valid image (JPEG, PNG, WebP, GIF, AVIF, SVG)" },
+        { error: "URL does not point to a valid image (JPEG, PNG, WebP, GIF, AVIF)" },
         { status: 400 }
       );
     }
