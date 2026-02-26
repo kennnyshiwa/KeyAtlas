@@ -18,7 +18,6 @@ export interface ProjectVendorEntry {
   storeLink: string;
   endDate: string;
   customVendorName?: string;
-  customVendorWebsite?: string;
 }
 
 interface VendorMultiSelectProps {
@@ -41,7 +40,6 @@ export function VendorMultiSelect({
         storeLink: "",
         endDate: "",
         customVendorName: "",
-        customVendorWebsite: "",
       },
     ]);
   };
@@ -107,16 +105,7 @@ export function VendorMultiSelect({
                     placeholder="Vendor name"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">New vendor website (optional)</Label>
-                  <Input
-                    value={entry.customVendorWebsite ?? ""}
-                    onChange={(e) =>
-                      updateEntry(i, "customVendorWebsite", e.target.value)
-                    }
-                    placeholder="https://vendor.com"
-                  />
-                </div>
+
               </>
             )}
 

@@ -661,7 +661,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
                 ? new Date(pv.endDate).toISOString().split("T")[0]
                 : "",
               customVendorName: (pv as { customVendorName?: string | null }).customVendorName ?? "",
-              customVendorWebsite: (pv as { customVendorWebsite?: string | null }).customVendorWebsite ?? "",
             }))}
             onChange={(entries) =>
               updateField(
@@ -672,7 +671,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
                   storeLink: e.storeLink,
                   endDate: e.endDate ? new Date(e.endDate) : null,
                   customVendorName: e.customVendorName || null,
-                  customVendorWebsite: e.customVendorWebsite || null,
                 }))
               )
             }
