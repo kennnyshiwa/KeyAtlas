@@ -10,6 +10,7 @@ type SmartImageProps = {
   sizes?: string;
   loading?: "lazy" | "eager";
   priority?: boolean;
+  quality?: number;
 };
 
 const TRUSTED_HOSTS = new Set([
@@ -50,12 +51,12 @@ function getImageMode(src: string): "next" | "direct" {
   }
 }
 
-export function SmartImage({ src, alt, className, fill, width, height, sizes, loading = "lazy", priority = false }: SmartImageProps) {
+export function SmartImage({ src, alt, className, fill, width, height, sizes, loading = "lazy", priority = false, quality }: SmartImageProps) {
   const mode = getImageMode(src);
 
   if (mode === "next") {
     if (fill) {
-      return <Image src={src} alt={alt} fill className={className} sizes={sizes} priority={priority} />;
+      return <Image src={src} alt={alt} fill className={className} sizes={sizes} priority={priority} quality={quality} />;
     }
     return (
       <Image
@@ -66,6 +67,7 @@ export function SmartImage({ src, alt, className, fill, width, height, sizes, lo
         className={className}
         sizes={sizes}
         priority={priority}
+        quality={quality}
       />
     );
   }
@@ -78,7 +80,7 @@ export function SmartImage({ src, alt, className, fill, width, height, sizes, lo
         alt={alt}
         className={className}
         loading={loading}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "inherit" }}
       />
     );
   }

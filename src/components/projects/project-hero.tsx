@@ -13,14 +13,15 @@ export function ProjectHero({ project }: ProjectHeroProps) {
   return (
     <div className="space-y-4">
       {project.heroImage && (
-        <div className="relative aspect-[16/9] overflow-hidden rounded-lg">
+        <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-black/5 dark:bg-white/5">
           <SmartImage
             src={project.heroImage}
             alt={project.title}
             fill
-            className="object-cover"
+            className="object-contain"
             priority
-            sizes="(max-width: 1200px) 100vw, 1200px"
+            quality={90}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
           />
         </div>
       )}

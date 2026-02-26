@@ -111,6 +111,9 @@ export async function PUT(
 
   const { images, links, projectVendors, ...data } = result.data;
 
+  // Normalize slug to URL-safe ASCII to prevent 404s from Unicode slugs
+  data.slug = slugify(data.slug) || slugify(data.title) || `project-${Date.now()}`;
+
   // Non-admin users cannot feature projects.
   // When REQUIRE_PROJECT_REVIEW is off, non-admin projects are auto-published.
   if (!isAdmin) {
