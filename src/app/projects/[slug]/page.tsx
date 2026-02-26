@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
+import { stripHtml } from "@/lib/strip-html";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,7 @@ export async function generateMetadata({
   const title = project.metaTitle?.trim() || project.title || SITE_NAME;
   const description =
     project.metaDescription?.trim() ||
-    project.description?.slice(0, 160)?.trim() ||
+    (project.description ? stripHtml(project.description).slice(0, 160) : null) ||
     `${project.title} on ${SITE_NAME}`;
   const primaryImage =
     project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;
@@ -148,7 +149,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
   const description =
     project.metaDescription?.trim() ||
-    project.description?.slice(0, 160)?.trim() ||
+    (project.description ? stripHtml(project.description).slice(0, 160) : null) ||
     `${project.title} on ${SITE_NAME}`;
   const primaryImage =
     project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;

@@ -16,15 +16,14 @@ import { Calendar } from "lucide-react";
 import { SmartImage } from "@/components/shared/smart-image";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
+import { stripHtml } from "@/lib/strip-html";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
 function summarizeGuide(content: string | null | undefined, title: string) {
-  const plain = content
-    ? content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
-    : "";
+  const plain = content ? stripHtml(content) : "";
   return plain.slice(0, 160) || `${title} on ${SITE_NAME}`;
 }
 

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
+import { stripHtml } from "@/lib/strip-html";
 import { ProjectHero } from "@/components/projects/project-hero";
 import { ProjectGallery } from "@/components/projects/project-gallery";
 import { ProjectSpecs } from "@/components/projects/project-specs";
@@ -106,7 +107,7 @@ export default async function ProjectPreviewPage({ params, searchParams }: Previ
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
   const description =
     project.metaDescription?.trim() ||
-    project.description?.slice(0, 160)?.trim() ||
+    (project.description ? stripHtml(project.description).slice(0, 160) : null) ||
     `${project.title} on ${SITE_NAME}`;
   const primaryImage =
     project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;
