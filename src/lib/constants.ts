@@ -32,18 +32,19 @@ export const STATUS_COLORS: Record<ProjectStatus, string> = {
 };
 
 export const PROFILE_OPTIONS = [
-  "Cherry",
-  "SA",
-  "KAT",
-  "MT3",
-  "DSA",
-  "XDA",
-  "MDA",
   "ASA",
-  "KAM",
+  "Cherry",
   "DCS",
+  "DSA",
+  "DSS",
+  "KAM",
+  "KAT",
+  "MDA",
+  "MT3",
   "OEM",
   "Other",
+  "SA",
+  "XDA",
 ] as const;
 
 export const CATEGORY_COLORS: Record<ProjectCategory, string> = {

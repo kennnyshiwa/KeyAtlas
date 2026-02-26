@@ -77,6 +77,17 @@ enum ProjectDescriptionMaxWidth {
   FULL
 }
 
+model KeycapProfile {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, name])
+  @@map("keycap_profiles")
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?

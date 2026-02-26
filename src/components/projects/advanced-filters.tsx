@@ -28,6 +28,9 @@ export function AdvancedFilters({ vendors }: AdvancedFiltersProps) {
   const [profiles, setProfiles] = useState<string[]>(
     searchParams.get("profile")?.split(",").filter(Boolean) ?? []
   );
+  const [profileOptions, setProfileOptions] = useState<string[]>(
+    [...PROFILE_OPTIONS].sort((a, b) => a.localeCompare(b))
+  );
   const [designerQuery, setDesignerQuery] = useState(
     searchParams.get("designer") ?? ""
   );
@@ -46,6 +49,30 @@ export function AdvancedFilters({ vendors }: AdvancedFiltersProps) {
     shipped;
 
   const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfiles() {
+      try {
+        const res = await fetch("/api/keycap-profiles", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const rawOptions: unknown[] = Array.isArray(data?.profiles) ? data.profiles : [];
+        const options = rawOptions.filter((p: unknown): p is string => typeof p === "string");
+        if (!cancelled && options.length > 0) {
+          setProfileOptions(Array.from(new Set<string>(options)).sort((a, b) => a.localeCompare(b)));
+        }
+      } catch {
+        // keep fallback
+      }
+    }
+
+    loadProfiles();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -144,7 +171,7 @@ export function AdvancedFilters({ vendors }: AdvancedFiltersProps) {
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Profile</h4>
             <div className="grid grid-cols-2 gap-2">
-              {PROFILE_OPTIONS.map((p) => (
+              {profileOptions.map((p) => (
                 <label key={p} className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={profiles.includes(p)}

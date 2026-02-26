@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,11 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
   const router = useRouter();
   const isEditing = !!project;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [heroImageError, setHeroImageError] = useState(false);
+  const heroCardRef = useRef<HTMLDivElement | null>(null);
+  const [profileOptions, setProfileOptions] = useState<string[]>(
+    [...PROFILE_OPTIONS].sort((a, b) => a.localeCompare(b))
+  );
 
   const [formData, setFormData] = useState<ProjectFormData>({
     title: project?.title ?? "",
@@ -100,6 +105,30 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
   // Geekhack import
   const [ghUrl, setGhUrl] = useState("");
   const [ghImporting, setGhImporting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfiles() {
+      try {
+        const res = await fetch("/api/keycap-profiles", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const rawProfiles: unknown[] = Array.isArray(data?.profiles) ? data.profiles : [];
+        const profiles = rawProfiles.filter((p: unknown): p is string => typeof p === "string");
+        if (!cancelled && profiles.length > 0) {
+          setProfileOptions(Array.from(new Set<string>(profiles)).sort((a, b) => a.localeCompare(b)));
+        }
+      } catch {
+        // keep fallback PROFILE_OPTIONS
+      }
+    }
+
+    loadProfiles();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleGeekhackImport = async () => {
     const trimmed = ghUrl.trim();
@@ -265,6 +294,14 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
     intent: "draft" | "review" | "publish" | "preview",
     options?: { redirectToPreview?: boolean }
   ) => {
+    if (intent === "publish" && !(formData.heroImage ?? "").trim()) {
+      setHeroImageError(true);
+      toast.error("Hero image is required to publish");
+      heroCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    setHeroImageError(false);
     setIsSubmitting(true);
 
     try {
@@ -408,6 +445,97 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
               />
             </div>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(v) =>
+                  updateField("category", v as ProjectFormData["category"])
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(v) =>
+                  updateField("status", v as ProjectFormData["status"])
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Keycap Profile</Label>
+              <Select
+                value={formData.profile ?? "none"}
+                onValueChange={(v) =>
+                  updateField("profile", v === "none" ? null : v)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No profile</SelectItem>
+                  {profileOptions.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="designer">Designer</Label>
+              <Input
+                id="designer"
+                value={formData.designer ?? ""}
+                onChange={(e) => updateField("designer", e.target.value || null)}
+                placeholder="Designer name"
+                maxLength={100}
+              />
+            </div>
+          </div>
+
+          {mode === "admin" && (
+            <div className="flex items-end">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.shipped}
+                  onChange={(e) => updateField("shipped", e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-sm">Shipped</span>
+              </label>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Description</Label>
             <Suspense fallback={<div className="border-input h-[168px] animate-pulse rounded-md border" />}>
@@ -469,96 +597,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
             </Suspense>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(v) =>
-                  updateField("category", v as ProjectFormData["category"])
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(v) =>
-                  updateField("status", v as ProjectFormData["status"])
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Keycap Profile</Label>
-              <Select
-                value={formData.profile ?? "none"}
-                onValueChange={(v) =>
-                  updateField("profile", v === "none" ? null : v)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No profile" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No profile</SelectItem>
-                  {PROFILE_OPTIONS.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {mode === "admin" && (
-              <div className="flex items-end">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.shipped}
-                    onChange={(e) => updateField("shipped", e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Shipped</span>
-                </label>
-              </div>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="designer">Designer</Label>
-            <Input
-              id="designer"
-              value={formData.designer ?? ""}
-              onChange={(e) =>
-                updateField("designer", e.target.value || null)
-              }
-              placeholder="Designer name"
-              maxLength={100}
-            />
-          </div>
         </CardContent>
       </Card>
 
@@ -708,15 +746,23 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </CardContent>
       </Card>
 
-      <Card>
+      <Card ref={heroCardRef} className={heroImageError ? "border-destructive ring-destructive/20 ring-2" : undefined}>
         <CardHeader>
           <CardTitle>Hero Image</CardTitle>
+          {heroImageError && (
+            <p className="text-destructive text-sm">Hero image is required before publishing.</p>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <ImageUpload
             value={formData.heroImage ?? undefined}
-            onChange={(url) => updateField("heroImage", url)}
-            onRemove={() => updateField("heroImage", null)}
+            onChange={(url) => {
+              updateField("heroImage", url);
+              if (url?.trim()) setHeroImageError(false);
+            }}
+            onRemove={() => {
+              updateField("heroImage", null);
+            }}
           />
         </CardContent>
       </Card>
