@@ -217,7 +217,7 @@ export function ImageUpload({
             <p className="text-destructive text-sm">{urlError}</p>
           )}
           <p className="text-muted-foreground text-xs">
-            Supported: Imgur, Reddit, Discord, Twitter, Unsplash, Shopify, Postimg, Geekhack, kstj, ibb, bord.design
+            Paste any direct image URL (PNG, JPG, WebP, GIF, AVIF, SVG)
           </p>
         </div>
       )}

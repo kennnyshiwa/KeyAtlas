@@ -1,31 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { looksLikeImageUrl, IMAGE_EXTENSIONS } from "@/lib/image-url";
 
 const ALLOWED_CONTENT_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
-];
-
-const ALLOWED_HOSTS = [
-  "i.imgur.com",
-  "imgur.com",
-  "i.redd.it",
-  "preview.redd.it",
-  "cdn.discordapp.com",
-  "media.discordapp.net",
-  "pbs.twimg.com",
-  "lh3.googleusercontent.com",
-  "picsum.photos",
-  "fastly.picsum.photos",
-  "i.postimg.cc",
-  "images.unsplash.com",
-  "cdn.shopify.com",
-  "geekhack.org",
-  "photos.kstj.us",
-  "i.ibb.co",
-  "bord.design",
+  "image/avif",
+  "image/svg+xml",
 ];
 
 export async function POST(req: NextRequest) {
@@ -56,11 +39,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Check against allowlist
-  if (!ALLOWED_HOSTS.includes(parsed.hostname)) {
+  // Check that the URL path looks like an image file
+  if (!looksLikeImageUrl(parsed.pathname)) {
     return NextResponse.json(
       {
-        error: `Host not allowed. Supported: ${ALLOWED_HOSTS.join(", ")}`,
+        error:
+          "URL does not look like an image. Supported extensions: " +
+          IMAGE_EXTENSIONS.join(", "),
       },
       { status: 400 }
     );
@@ -84,7 +69,7 @@ export async function POST(req: NextRequest) {
     const contentType = res.headers.get("content-type")?.split(";")[0]?.trim();
     if (!contentType || !ALLOWED_CONTENT_TYPES.includes(contentType)) {
       return NextResponse.json(
-        { error: "URL does not point to a valid image (JPEG, PNG, WebP, GIF)" },
+        { error: "URL does not point to a valid image (JPEG, PNG, WebP, GIF, AVIF, SVG)" },
         { status: 400 }
       );
     }
