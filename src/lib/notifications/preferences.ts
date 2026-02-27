@@ -6,6 +6,7 @@ export const NOTIFICATION_PREFERENCE_TYPES: NotificationPreferenceType[] = [
   "PROJECT_UPDATES",
   "PROJECT_COMMENTS",
   "NEW_FOLLOWERS",
+  "WATCHLIST_MATCHES",
 ];
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: Record<
@@ -17,6 +18,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: Record<
   PROJECT_UPDATES: { inApp: true, email: false },
   PROJECT_COMMENTS: { inApp: true, email: false },
   NEW_FOLLOWERS: { inApp: true, email: false },
+  WATCHLIST_MATCHES: { inApp: true, email: true },
 };
 
 export function buildNotificationPreferencesView(stored: NotificationPreference[]) {

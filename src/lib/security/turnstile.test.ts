@@ -14,14 +14,14 @@ describe("verifyTurnstile", () => {
 
   it("allows in development when secret key is not configured", async () => {
     delete process.env.TURNSTILE_SECRET_KEY;
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     const result = await verifyTurnstile("any-token");
     expect(result.success).toBe(true);
   });
 
   it("rejects in production when secret key is not configured", async () => {
     delete process.env.TURNSTILE_SECRET_KEY;
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     const result = await verifyTurnstile("any-token");
     expect(result.success).toBe(false);
     expect(result.error).toContain("not configured");

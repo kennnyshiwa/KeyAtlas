@@ -24,10 +24,9 @@ declare global {
   }
 }
 
-const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-
 export function SignUpForm() {
   const router = useRouter();
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +36,29 @@ export function SignUpForm() {
   const widgetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!TURNSTILE_SITE_KEY || !turnstileRef.current) return;
+    let cancelled = false;
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/turnstile/config', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data?.siteKey === 'string') {
+          setTurnstileSiteKey(data.siteKey);
+        }
+      } catch {
+        // no-op
+      }
+    }
+
+    loadConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!turnstileSiteKey || !turnstileRef.current) return;
 
     // Load Turnstile script if not already loaded
     if (!document.querySelector('script[src*="turnstile"]')) {
@@ -53,13 +74,13 @@ export function SignUpForm() {
     function renderWidget() {
       if (!window.turnstile || !turnstileRef.current || widgetIdRef.current) return;
       widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
-        sitekey: TURNSTILE_SITE_KEY!,
+        sitekey: turnstileSiteKey,
         callback: (token: string) => setTurnstileToken(token),
         "expired-callback": () => setTurnstileToken(null),
         "error-callback": () => setTurnstileToken(null),
       });
     }
-  }, []);
+  }, [turnstileSiteKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +154,7 @@ export function SignUpForm() {
           Use at least 8 characters, including upper/lowercase letters, a number, and a special character.
         </p>
       </div>
-      {TURNSTILE_SITE_KEY && (
+      {turnstileSiteKey && (
         <div ref={turnstileRef} className="flex justify-center" />
       )}
       <Button type="submit" className="w-full" disabled={loading}>
