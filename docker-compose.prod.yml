@@ -1,6 +1,6 @@
 services:
   app:
-    image: ${APP_IMAGE:-ghcr.io/your-org/keyatlas:latest}
+    image: ghcr.io/kennnyshiwa/keyatlas:latest
     restart: unless-stopped
     depends_on:
       postgres:
