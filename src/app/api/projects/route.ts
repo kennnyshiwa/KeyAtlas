@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { projectFormSchema } from "@/lib/validations/project";
 import { indexProject } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
+import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 import { rateLimit, RATE_LIMIT_PROJECT_CREATE } from "@/lib/rate-limit";
@@ -201,6 +202,21 @@ export async function POST(req: NextRequest) {
   // Only index published projects in Meilisearch
   if (project.published) {
     await indexProject(project);
+
+    // Fire-and-forget watchlist notifications
+    notifyWatchlistMatches({
+      id: project.id,
+      title: data.title,
+      slug: project.slug,
+      category: data.category,
+      status: data.status,
+      profile: data.profile ?? null,
+      designer: data.designer ?? null,
+      vendorId: primaryVendorId,
+      shipped: data.shipped ?? false,
+      tags: data.tags ?? [],
+      creatorId: session.user.id,
+    }).catch((err) => console.error("Watchlist notification error:", err));
   }
 
   return NextResponse.json(project, { status: 201 });

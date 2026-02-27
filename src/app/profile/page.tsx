@@ -22,7 +22,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const params = await searchParams;
   const tab = params.tab;
   const defaultTab =
-    tab === "settings" || tab === "api" || tab === "favorites" || tab === "collection"
+    tab === "settings" || tab === "api" || tab === "favorites" || tab === "collection" || tab === "watchlists"
       ? tab
       : "projects";
   const session = await auth();

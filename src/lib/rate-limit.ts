@@ -99,9 +99,9 @@ export const RATE_LIMIT_FORUM_POST_CREATE: RateLimitConfig = {
   window: 300,
 };
 
-/** Project creation — 5 projects / hour */
+/** Project creation — 3 projects / hour (anti-spam) */
 export const RATE_LIMIT_PROJECT_CREATE: RateLimitConfig = {
-  limit: 5,
+  limit: 3,
   window: 3600,
 };
 
