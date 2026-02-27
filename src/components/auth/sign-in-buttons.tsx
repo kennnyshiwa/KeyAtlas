@@ -2,9 +2,31 @@
 
 import { Button } from "@/components/ui/button";
 
-function oauthSignIn(provider: "discord" | "google") {
-  const params = new URLSearchParams({ provider, callbackUrl: "/" });
-  window.location.href = `/api/auth/signin?${params.toString()}`;
+async function oauthSignIn(provider: "discord" | "google") {
+  const res = await fetch("/api/auth/csrf");
+  if (!res.ok) return;
+
+  const data = (await res.json()) as { csrfToken?: string };
+  if (!data.csrfToken) return;
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = `/api/auth/signin/${provider}`;
+
+  const csrfInput = document.createElement("input");
+  csrfInput.type = "hidden";
+  csrfInput.name = "csrfToken";
+  csrfInput.value = data.csrfToken;
+  form.appendChild(csrfInput);
+
+  const callbackInput = document.createElement("input");
+  callbackInput.type = "hidden";
+  callbackInput.name = "callbackUrl";
+  callbackInput.value = "/";
+  form.appendChild(callbackInput);
+
+  document.body.appendChild(form);
+  form.submit();
 }
 
 export function SignInButtons() {
