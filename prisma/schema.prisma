@@ -521,6 +521,7 @@ enum NotificationPreferenceType {
   PROJECT_UPDATES
   PROJECT_COMMENTS
   NEW_FOLLOWERS
+  WATCHLIST_MATCHES
 }
 
 model NotificationPreference {
