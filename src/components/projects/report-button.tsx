@@ -54,7 +54,7 @@ export function ReportButton({ projectId }: ReportButtonProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-muted-foreground">
+        <Button variant="outline" size="sm">
           <Flag className="mr-1 h-4 w-4" />
           Report
         </Button>
