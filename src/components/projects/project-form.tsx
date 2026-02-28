@@ -640,11 +640,22 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
             </div>
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
-              <Input
+              <select
                 id="currency"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={formData.currency}
                 onChange={(e) => updateField("currency", e.target.value)}
-              />
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="CAD">CAD (C$)</option>
+                <option value="AUD">AUD (A$)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="KRW">KRW (₩)</option>
+                <option value="CNY">CNY (¥)</option>
+                <option value="SGD">SGD (S$)</option>
+              </select>
             </div>
           </div>
         </CardContent>
