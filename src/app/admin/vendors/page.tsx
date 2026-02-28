@@ -13,7 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, CheckCircle } from "lucide-react";
+import { Plus, Pencil, CheckCircle, Trash2 } from "lucide-react";
+import { VendorDeleteButton } from "@/components/admin/vendor-delete-button";
 
 export const metadata = {
   title: "Manage Vendors",
@@ -79,6 +80,7 @@ export default async function AdminVendorsPage() {
                       <Pencil className="h-4 w-4" />
                     </Link>
                   </Button>
+                  <VendorDeleteButton vendorId={vendor.id} vendorName={vendor.name} />
                 </div>
               </TableCell>
             </TableRow>
