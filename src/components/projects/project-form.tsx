@@ -607,29 +607,33 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="priceMin">Price Min (cents)</Label>
+              <Label htmlFor="priceMin">Price Min ($)</Label>
               <Input
                 id="priceMin"
                 type="number"
-                value={formData.priceMin ?? ""}
+                step="0.01"
+                placeholder="0.00"
+                value={formData.priceMin != null ? (formData.priceMin / 100).toFixed(2) : ""}
                 onChange={(e) =>
                   updateField(
                     "priceMin",
-                    e.target.value ? Number(e.target.value) : null
+                    e.target.value ? Math.round(Number(e.target.value) * 100) : null
                   )
                 }
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="priceMax">Price Max (cents)</Label>
+              <Label htmlFor="priceMax">Price Max ($)</Label>
               <Input
                 id="priceMax"
                 type="number"
-                value={formData.priceMax ?? ""}
+                step="0.01"
+                placeholder="0.00"
+                value={formData.priceMax != null ? (formData.priceMax / 100).toFixed(2) : ""}
                 onChange={(e) =>
                   updateField(
                     "priceMax",
-                    e.target.value ? Number(e.target.value) : null
+                    e.target.value ? Math.round(Number(e.target.value) * 100) : null
                   )
                 }
               />
