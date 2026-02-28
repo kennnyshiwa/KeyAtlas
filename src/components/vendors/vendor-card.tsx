@@ -20,17 +20,17 @@ export function VendorCard({ vendor }: VendorCardProps) {
     <Link href={`/vendors/${vendor.slug}`}>
       <Card className="group h-full transition-shadow hover:shadow-lg">
         <CardContent className="flex items-start gap-4 p-4">
-          <div className="bg-muted flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+          <div className="bg-muted flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg">
             {vendor.logo ? (
               <SmartImage
                 src={vendor.logo}
                 alt={vendor.name}
-                width={56}
-                height={56}
-                className="h-full w-full object-cover"
+                width={80}
+                height={80}
+                className="h-full w-full object-contain"
               />
             ) : (
-              <Store className="text-muted-foreground h-6 w-6" />
+              <Store className="text-muted-foreground h-8 w-8" />
             )}
           </div>
           <div className="min-w-0 flex-1">
