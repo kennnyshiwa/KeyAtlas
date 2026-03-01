@@ -23,26 +23,49 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   const startOfMonth = new Date(year, month - 1, 1);
   const endOfMonth = new Date(year, month, 0, 23, 59, 59);
 
-  const projects = await prisma.project.findMany({
-    where: {
-      published: true,
-      OR: [
-        { icDate: { gte: startOfMonth, lte: endOfMonth } },
-        { gbStartDate: { gte: startOfMonth, lte: endOfMonth } },
-        { gbEndDate: { gte: startOfMonth, lte: endOfMonth } },
-      ],
-    },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      status: true,
-      icDate: true,
-      gbStartDate: true,
-      gbEndDate: true,
-    },
-    orderBy: { title: "asc" },
-  });
+  // Determine the quarter for the viewed month
+  const quarter = Math.ceil(month / 3);
+  const quarterLabel = `Q${quarter} ${year}`;
+
+  const [projects, deliveryProjects] = await Promise.all([
+    prisma.project.findMany({
+      where: {
+        published: true,
+        OR: [
+          { icDate: { gte: startOfMonth, lte: endOfMonth } },
+          { gbStartDate: { gte: startOfMonth, lte: endOfMonth } },
+          { gbEndDate: { gte: startOfMonth, lte: endOfMonth } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        status: true,
+        icDate: true,
+        gbStartDate: true,
+        gbEndDate: true,
+      },
+      orderBy: { title: "asc" },
+    }),
+    prisma.project.findMany({
+      where: {
+        published: true,
+        estimatedDelivery: { contains: quarterLabel, mode: "insensitive" },
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        status: true,
+        category: true,
+        estimatedDelivery: true,
+        heroImage: true,
+        vendor: { select: { name: true } },
+      },
+      orderBy: { title: "asc" },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -54,6 +77,8 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
         projects={projects}
         year={year}
         month={month}
+        deliveryProjects={deliveryProjects}
+        quarterLabel={quarterLabel}
       />
     </div>
   );

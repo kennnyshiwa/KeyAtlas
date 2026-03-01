@@ -14,8 +14,11 @@ import {
   subMonths,
 } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { CalendarDayCell } from "./calendar-day-cell";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package } from "lucide-react";
+import Link from "next/link";
 
 interface CalendarProject {
   id: string;
@@ -27,10 +30,23 @@ interface CalendarProject {
   gbEndDate: Date | null;
 }
 
+interface DeliveryProject {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  category: string;
+  estimatedDelivery: string | null;
+  heroImage: string | null;
+  vendor: { name: string } | null;
+}
+
 interface CalendarViewProps {
   projects: CalendarProject[];
   year: number;
   month: number;
+  deliveryProjects?: DeliveryProject[];
+  quarterLabel?: string;
 }
 
 type CalendarEvent = {
@@ -38,7 +54,7 @@ type CalendarEvent = {
   type: "ic" | "gb-start" | "gb-end";
 };
 
-export function CalendarView({ projects, year, month }: CalendarViewProps) {
+export function CalendarView({ projects, year, month, deliveryProjects = [], quarterLabel }: CalendarViewProps) {
   const router = useRouter();
   const date = new Date(year, month - 1, 1);
 
@@ -131,6 +147,62 @@ export function CalendarView({ projects, year, month }: CalendarViewProps) {
           GB End
         </div>
       </div>
+
+      {quarterLabel && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Expected Deliveries — {quarterLabel}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {deliveryProjects.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                No projects with estimated delivery in {quarterLabel}.
+              </p>
+            ) : (
+              <div className="divide-y">
+                {deliveryProjects.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/projects/${p.slug}`}
+                    className="hover:bg-muted/50 flex items-center gap-4 py-3 transition-colors first:pt-0 last:pb-0"
+                  >
+                    {p.heroImage ? (
+                      <img
+                        src={p.heroImage}
+                        alt={p.title}
+                        className="h-12 w-12 rounded-md object-cover"
+                      />
+                    ) : (
+                      <div className="bg-muted flex h-12 w-12 items-center justify-center rounded-md">
+                        <Package className="text-muted-foreground h-5 w-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{p.title}</p>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Badge variant="outline" className="text-xs">
+                          {p.status.replace(/_/g, " ")}
+                        </Badge>
+                        {p.vendor && (
+                          <span className="text-muted-foreground truncate text-xs">
+                            {p.vendor.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-muted-foreground shrink-0 text-sm">
+                      {p.estimatedDelivery}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

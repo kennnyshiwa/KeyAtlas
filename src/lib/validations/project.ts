@@ -40,7 +40,7 @@ export const projectFormSchema = z.object({
   icDate: z.coerce.date().optional().nullable(),
   gbStartDate: z.coerce.date().optional().nullable(),
   gbEndDate: z.coerce.date().optional().nullable(),
-  estimatedDelivery: z.coerce.date().optional().nullable(),
+  estimatedDelivery: z.string().optional().nullable(),
   profile: z.string().max(50).optional().nullable(),
   shipped: z.boolean().default(false),
   designer: z.string().max(100).optional().nullable(),

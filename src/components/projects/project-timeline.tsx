@@ -8,7 +8,8 @@ interface ProjectTimelineProps {
 
 interface TimelineEntry {
   label: string;
-  date: Date;
+  date?: Date;
+  text?: string;
 }
 
 export function ProjectTimeline({ project }: ProjectTimelineProps) {
@@ -17,7 +18,7 @@ export function ProjectTimeline({ project }: ProjectTimelineProps) {
   if (project.icDate) entries.push({ label: "Interest Check", date: project.icDate });
   if (project.gbStartDate) entries.push({ label: "Group Buy Start", date: project.gbStartDate });
   if (project.gbEndDate) entries.push({ label: "Group Buy End", date: project.gbEndDate });
-  if (project.estimatedDelivery) entries.push({ label: "Estimated Delivery", date: project.estimatedDelivery });
+  if (project.estimatedDelivery) entries.push({ label: "Estimated Delivery", text: project.estimatedDelivery });
 
   if (entries.length === 0) return null;
 
@@ -33,7 +34,7 @@ export function ProjectTimeline({ project }: ProjectTimelineProps) {
             <div>
               <p className="text-sm font-medium">{entry.label}</p>
               <p className="text-muted-foreground text-sm">
-                {formatDate(entry.date)}
+                {entry.text ?? (entry.date ? formatDate(entry.date) : "—")}
               </p>
             </div>
           </div>

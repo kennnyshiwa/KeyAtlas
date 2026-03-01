@@ -108,7 +108,7 @@ export function ComparePageClient({ initialIds }: ComparePageClientProps) {
     {
       label: "Est. Delivery",
       render: (p) =>
-        p.estimatedDelivery ? formatDate(new Date(p.estimatedDelivery)) : "—",
+        p.estimatedDelivery ?? "—",
     },
   ];
 

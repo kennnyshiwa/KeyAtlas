@@ -284,7 +284,7 @@ model Project {
   icDate            DateTime?
   gbStartDate       DateTime?
   gbEndDate         DateTime?
-  estimatedDelivery DateTime?
+  estimatedDelivery String?
   featured          Boolean         @default(false)
   published         Boolean         @default(false)
   metaTitle         String?

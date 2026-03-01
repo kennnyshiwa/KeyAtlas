@@ -44,6 +44,52 @@ interface ProjectFormProps {
   showSectionNav?: boolean;
 }
 
+function PriceInput({ id, valueCents, onValueCents }: { id: string; valueCents: number | null | undefined; onValueCents: (v: number | null) => void }) {
+  const [display, setDisplay] = useState(valueCents != null ? (valueCents / 100).toString() : "");
+  const initialized = useRef(false);
+
+  // Sync from parent only on mount or when valueCents changes externally
+  useEffect(() => {
+    if (!initialized.current) {
+      initialized.current = true;
+      return;
+    }
+    // Only sync if the input isn't focused (external change)
+    if (document.activeElement?.id !== id) {
+      setDisplay(valueCents != null ? (valueCents / 100).toString() : "");
+    }
+  }, [valueCents, id]);
+
+  return (
+    <Input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      placeholder="0.00"
+      value={display}
+      onChange={(e) => {
+        const raw = e.target.value;
+        // Allow empty, digits, one decimal point
+        if (raw !== "" && !/^\d*\.?\d{0,2}$/.test(raw)) return;
+        setDisplay(raw);
+        if (raw === "" || raw === ".") {
+          onValueCents(null);
+        } else {
+          onValueCents(Math.round(Number(raw) * 100));
+        }
+      }}
+      onBlur={() => {
+        // Format nicely on blur
+        if (valueCents != null) {
+          setDisplay((valueCents / 100).toFixed(2));
+        } else {
+          setDisplay("");
+        }
+      }}
+    />
+  );
+}
+
 export function ProjectForm({ project, vendors = [], mode = "admin", showSectionNav: showSectionNavProp }: ProjectFormProps) {
   const router = useRouter();
   const isEditing = !!project;
@@ -72,7 +118,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
     icDate: project?.icDate ?? null,
     gbStartDate: project?.gbStartDate ?? null,
     gbEndDate: project?.gbEndDate ?? null,
-    estimatedDelivery: project?.estimatedDelivery ?? null,
+    estimatedDelivery: project?.estimatedDelivery ?? "",
     profile: project?.profile ?? null,
     shipped: project?.shipped ?? false,
     designer: project?.designer ?? "",
@@ -638,34 +684,18 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="priceMin">Price Min ($)</Label>
-              <Input
+              <PriceInput
                 id="priceMin"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.priceMin != null ? (formData.priceMin / 100).toFixed(2) : ""}
-                onChange={(e) =>
-                  updateField(
-                    "priceMin",
-                    e.target.value ? Math.round(Number(e.target.value) * 100) : null
-                  )
-                }
+                valueCents={formData.priceMin}
+                onValueCents={(cents) => updateField("priceMin", cents)}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="priceMax">Price Max ($)</Label>
-              <Input
+              <PriceInput
                 id="priceMax"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.priceMax != null ? (formData.priceMax / 100).toFixed(2) : ""}
-                onChange={(e) =>
-                  updateField(
-                    "priceMax",
-                    e.target.value ? Math.round(Number(e.target.value) * 100) : null
-                  )
-                }
+                valueCents={formData.priceMax}
+                onValueCents={(cents) => updateField("priceMax", cents)}
               />
             </div>
             <div className="space-y-2">
@@ -774,12 +804,13 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
               <Label htmlFor="estimatedDelivery">Est. Delivery</Label>
               <Input
                 id="estimatedDelivery"
-                type="date"
-                value={formatDateForInput(formData.estimatedDelivery)}
+                type="text"
+                placeholder="Q3 2026"
+                value={formData.estimatedDelivery ?? ""}
                 onChange={(e) =>
                   updateField(
                     "estimatedDelivery",
-                    e.target.value ? new Date(e.target.value) : null
+                    e.target.value || null
                   )
                 }
               />
