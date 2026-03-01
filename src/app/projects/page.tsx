@@ -6,6 +6,7 @@ import { ProjectStatusTabs } from "@/components/projects/project-status-tabs";
 import { ProjectViewWrapper } from "@/components/projects/project-view-wrapper";
 import { AdvancedFilters } from "@/components/projects/advanced-filters";
 import { SaveFilterButton } from "@/components/projects/save-filter-button";
+import { ProjectSort } from "@/components/projects/project-sort";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ interface ProjectsPageProps {
     designer?: string;
     vendor?: string;
     shipped?: string;
+    sort?: string;
   }>;
 }
 
@@ -69,6 +71,16 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     }),
   };
 
+  const sortOptions: Record<string, object> = {
+    newest: { createdAt: "desc" },
+    oldest: { createdAt: "asc" },
+    "a-z": { title: "asc" },
+    "z-a": { title: "desc" },
+    "most-followed": { favorites: { _count: "desc" } },
+    updated: { updatedAt: "desc" },
+  };
+  const orderBy = sortOptions[params.sort ?? ""] ?? sortOptions.newest;
+
   const [projects, total, allVendors] = await Promise.all([
     prisma.project.findMany({
       where,
@@ -76,7 +88,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
         vendor: { select: { name: true, slug: true } },
         _count: { select: { favorites: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: offset,
       take: limit,
     }),
@@ -107,10 +119,15 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
             <SaveFilterButton />
           </div>
         </Suspense>
-        <div className="w-full sm:w-72">
+        <div className="flex items-center gap-2">
           <Suspense>
-            <ProjectSearch />
+            <ProjectSort />
           </Suspense>
+          <div className="w-full sm:w-72">
+            <Suspense>
+              <ProjectSearch />
+            </Suspense>
+          </div>
         </div>
       </div>
 

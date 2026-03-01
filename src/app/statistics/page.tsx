@@ -37,24 +37,24 @@ export default async function StatisticsPage() {
     prisma.project.groupBy({
       by: ["category"],
       where: { published: true },
-      _count: true,
+      _count: { _all: true },
     }),
     prisma.project.groupBy({
       by: ["status"],
       where: { published: true },
-      _count: true,
+      _count: { _all: true },
     }),
     prisma.project.groupBy({
       by: ["designer"],
       where: { published: true, designer: { not: null } },
-      _count: true,
+      _count: { _all: true },
       orderBy: { _count: { designer: "desc" } },
       take: 10,
     }),
     prisma.project.groupBy({
       by: ["vendorId"],
       where: { published: true, vendorId: { not: null } },
-      _count: true,
+      _count: { _all: true },
       orderBy: { _count: { vendorId: "desc" } },
       take: 10,
     }),
@@ -93,22 +93,22 @@ export default async function StatisticsPage() {
 
   const categoryChartData = categoryData.map((c) => ({
     name: CATEGORY_LABELS[c.category],
-    value: c._count,
+    value: c._count._all,
   }));
 
   const statusChartData = statusData.map((s) => ({
     name: STATUS_LABELS[s.status],
-    value: s._count,
+    value: s._count._all,
   }));
 
   const topDesignersData = designerData.map((d) => ({
     name: d.designer ?? "Unknown",
-    count: d._count,
+    count: d._count._all,
   }));
 
   const topVendorsData = vendorData.map((v) => ({
     name: vendorNameMap.get(v.vendorId!) ?? "Unknown",
-    count: v._count,
+    count: v._count._all,
   }));
 
   return (
