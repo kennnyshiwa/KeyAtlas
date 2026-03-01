@@ -346,28 +346,7 @@ export function GalleryStudio({ images, onChange }: GalleryStudioProps) {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <Label>Image link URL (optional)</Label>
-                  <Input
-                    value={selectedImage.linkUrl ?? ""}
-                    onChange={(event) => updateSelectedImage({ linkUrl: event.target.value.trim() || null })}
-                    placeholder="https://example.com"
-                  />
-                </div>
 
-                <label className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    checked={selectedImage.openInNewTab ?? true}
-                    onChange={(event) => updateSelectedImage({ openInNewTab: event.target.checked })}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Open image link in new tab</span>
-                </label>
-
-                <p className="text-muted-foreground text-xs">
-                  Caption is not supported by the current backend schema, so alt text is used for accessibility and display hints.
-                </p>
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <Button type="button" variant="outline" onClick={() => moveSelected(-1)} disabled={selectedIndex === 0}>
