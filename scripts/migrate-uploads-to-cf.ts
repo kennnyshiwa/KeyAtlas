@@ -94,7 +94,7 @@ async function updateAllReferences(oldUrl: string, newUrl: string) {
   // Update gallery images
   await prisma.projectImage.updateMany({ where: { url: oldUrl }, data: { url: newUrl } });
   // Update vendor logos
-  await prisma.vendor.updateMany({ where: { logoUrl: oldUrl }, data: { logoUrl: newUrl } });
+  await prisma.vendor.updateMany({ where: { logo: oldUrl }, data: { logo: newUrl } });
 }
 
 function guessContentType(filename: string): string {
