@@ -90,8 +90,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  // Rate limit
-  const rateLimited = await rateLimit(session.user.id, "project:create", RATE_LIMIT_PROJECT_CREATE);
+  // Rate limit (admins bypass)
+  const isAdminUser = session.user.role === "ADMIN";
+  const rateLimited = await rateLimit(session.user.id, "project:create", RATE_LIMIT_PROJECT_CREATE, { skipIfAdmin: isAdminUser });
   if (rateLimited) return rateLimited;
 
   const { searchParams } = new URL(req.url);

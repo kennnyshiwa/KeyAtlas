@@ -117,8 +117,10 @@ function handleRedisUnavailable(error: unknown): null {
 export async function rateLimit(
   userId: string,
   endpoint: string,
-  config: RateLimitConfig
+  config: RateLimitConfig,
+  options?: { skipIfAdmin?: boolean }
 ): Promise<NextResponse | null> {
+  if (options?.skipIfAdmin) return null;
   const redis = getRedisClient();
 
   if (!redis) {

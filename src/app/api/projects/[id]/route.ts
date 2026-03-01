@@ -102,7 +102,7 @@ export async function PUT(
   }
 
   // Rate limit
-  const rateLimited = await rateLimit(session.user.id, "project:update", RATE_LIMIT_PROJECT_UPDATE);
+  const rateLimited = await rateLimit(session.user.id, "project:update", RATE_LIMIT_PROJECT_UPDATE, { skipIfAdmin: isAdmin });
   if (rateLimited) return rateLimited;
 
   const body = await req.json();
