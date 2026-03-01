@@ -24,6 +24,7 @@ export default async function HomePage() {
     recentProjects,
     endingSoonProjects,
     newICProjects,
+    newGBProjects,
     trendingProjects,
     recentlyUpdatedProjects,
   ] = await Promise.all([
@@ -53,6 +54,16 @@ export default async function HomePage() {
       where: {
         published: true,
         status: "INTEREST_CHECK",
+        createdAt: { gte: fourteenDaysAgo },
+      },
+      include: { vendor: { select: { name: true, slug: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    }),
+    prisma.project.findMany({
+      where: {
+        published: true,
+        status: "GROUP_BUY",
         createdAt: { gte: fourteenDaysAgo },
       },
       include: { vendor: { select: { name: true, slug: true } } },
@@ -163,6 +174,24 @@ export default async function HomePage() {
             </Button>
           </div>
           <ProjectGrid projects={newICProjects} />
+        </section>
+      )}
+
+      {/* New Group Buys */}
+      {newGBProjects.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold tracking-tight">
+              New Group Buys
+            </h2>
+            <Button variant="ghost" asChild>
+              <Link href="/projects?status=GROUP_BUY">
+                View all
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <ProjectGrid projects={newGBProjects} />
         </section>
       )}
 

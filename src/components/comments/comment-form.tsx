@@ -2,7 +2,7 @@
 
 import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { ImagePlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const RichTextEditor = lazy(() =>
@@ -62,6 +62,26 @@ export function CommentForm({
           content={content}
           onChange={setContent}
           placeholder={parentId ? "Write a reply..." : "Write a comment..."}
+          toolbarExtra={({ editor }) => (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const url = window.prompt("Paste image URL (https://...)");
+                if (!url) return;
+                const trimmed = url.trim();
+                if (!/^https?:\/\//i.test(trimmed)) {
+                  toast.error("Please enter a valid image URL starting with http:// or https://");
+                  return;
+                }
+                editor.chain().focus().setImage({ src: trimmed }).run();
+              }}
+            >
+              <ImagePlus className="mr-1 h-4 w-4" />
+              Image URL
+            </Button>
+          )}
         />
       </Suspense>
       <div className="flex justify-end gap-2">

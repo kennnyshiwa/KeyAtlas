@@ -38,11 +38,12 @@ interface ProjectFormProps {
       endDate: Date | null;
     }[];
   };
-  vendors?: { id: string; name: string }[];
+  vendors?: { id: string; name: string; regionsServed?: string[]; storefrontUrl?: string | null }[];
   mode?: "admin" | "submit";
+  showSectionNav?: boolean;
 }
 
-export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFormProps) {
+export function ProjectForm({ project, vendors = [], mode = "admin", showSectionNav: showSectionNavProp }: ProjectFormProps) {
   const router = useRouter();
   const isEditing = !!project;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -382,8 +383,65 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
     return new Date(date).toISOString().split("T")[0];
   };
 
+  const sections = [
+    { id: "basic-info", label: "Basic Info" },
+    { id: "pricing", label: "Pricing" },
+    { id: "vendors", label: "Vendors" },
+    { id: "timeline", label: "Timeline" },
+    { id: "hero-image", label: "Hero Image" },
+    { id: "gallery", label: "Gallery" },
+    { id: "tags", label: "Tags" },
+    { id: "links", label: "Links" },
+    ...(mode === "admin" ? [{ id: "settings", label: "Settings" }] : []),
+  ];
+
+  const [activeSection, setActiveSection] = useState("basic-info");
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length > 0) {
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
+    );
+
+    sections.forEach((s) => {
+      const el = document.getElementById(s.id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const showSectionNav = showSectionNavProp ?? mode === "submit";
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="flex items-start gap-8">
+      {showSectionNav && (
+        <nav className="sticky top-24 hidden w-56 shrink-0 self-start lg:block">
+          <div className="max-h-[calc(100vh-7rem)] space-y-1 overflow-auto">
+            {sections.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={`block w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                  activeSection === s.id
+                    ? "bg-primary text-primary-foreground font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+                onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+      <form onSubmit={handleSubmit} className="min-w-0 flex-1 space-y-6">
       {!isEditing && (
         <Card>
           <CardHeader>
@@ -420,7 +478,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </Card>
       )}
 
-      <Card>
+      <Card id="basic-info">
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
         </CardHeader>
@@ -600,7 +658,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="pricing">
         <CardHeader>
           <CardTitle>Pricing</CardTitle>
         </CardHeader>
@@ -661,19 +719,22 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="vendors">
         <CardHeader>
           <CardTitle>Vendors (Regional)</CardTitle>
         </CardHeader>
         <CardContent>
           <VendorMultiSelect
             vendors={vendors}
-            value={(formData.projectVendors ?? []).map((pv) => ({
-              vendorId: pv.vendorId,
-              region: pv.region ?? "",
-              storeLink: pv.storeLink ?? "",
-              customVendorName: (pv as { customVendorName?: string | null }).customVendorName ?? "",
-            }))}
+            value={(formData.projectVendors ?? []).map((pv) => {
+              const vendorDefaults = vendors.find((v) => v.id === pv.vendorId);
+              return {
+                vendorId: pv.vendorId,
+                region: (pv.region ?? "") || (vendorDefaults?.regionsServed?.join(", ") ?? ""),
+                storeLink: (pv.storeLink ?? "") || (vendorDefaults?.storefrontUrl ?? ""),
+                customVendorName: (pv as { customVendorName?: string | null }).customVendorName ?? "",
+              };
+            })}
             onChange={(entries) =>
               updateField(
                 "projectVendors",
@@ -689,7 +750,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="timeline">
         <CardHeader>
           <CardTitle>Timeline</CardTitle>
         </CardHeader>
@@ -777,7 +838,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
       </Card>
 
 
-      <Card>
+      <Card id="gallery">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             Gallery Images
@@ -838,7 +899,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="tags">
         <CardHeader>
           <CardTitle>Tags</CardTitle>
         </CardHeader>
@@ -877,7 +938,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="links">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             Links
@@ -941,7 +1002,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
       </Card>
 
       {mode === "admin" && (
-        <Card>
+        <Card id="settings">
           <CardHeader>
             <CardTitle>Settings</CardTitle>
           </CardHeader>
@@ -1012,5 +1073,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin" }: ProjectFo
         </Button>
       </div>
     </form>
+    </div>
   );
 }

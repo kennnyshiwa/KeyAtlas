@@ -16,7 +16,7 @@ export default async function SubmitProjectPage() {
   }
 
   const vendors = await prisma.vendor.findMany({
-    select: { id: true, name: true },
+    select: { id: true, name: true, regionsServed: true, storefrontUrl: true },
     orderBy: { name: "asc" },
   });
 

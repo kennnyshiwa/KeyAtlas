@@ -84,7 +84,7 @@ export default async function AdminProjectsPage() {
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/admin/projects/${project.id}/edit`}>
+                      <Link href={`/projects/admin-edit/${project.id}`}>
                         <Pencil className="h-4 w-4" />
                       </Link>
                     </Button>

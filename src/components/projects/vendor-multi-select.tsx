@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +21,7 @@ export interface ProjectVendorEntry {
 }
 
 interface VendorMultiSelectProps {
-  vendors: { id: string; name: string }[];
+  vendors: { id: string; name: string; regionsServed?: string[]; storefrontUrl?: string | null }[];
   value: ProjectVendorEntry[];
   onChange: (value: ProjectVendorEntry[]) => void;
 }
@@ -30,6 +31,26 @@ export function VendorMultiSelect({
   value,
   onChange,
 }: VendorMultiSelectProps) {
+  useEffect(() => {
+    let changed = false;
+    const hydrated = value.map((entry) => {
+      if (!entry.vendorId || entry.vendorId === "__new__") return entry;
+      const vendor = vendors.find((v) => v.id === entry.vendorId);
+      if (!vendor) return entry;
+
+      const nextRegion = entry.region?.trim() ? entry.region : (vendor.regionsServed?.join(", ") ?? "");
+      const nextStoreLink = entry.storeLink?.trim() ? entry.storeLink : (vendor.storefrontUrl ?? "");
+
+      if (nextRegion !== entry.region || nextStoreLink !== entry.storeLink) {
+        changed = true;
+        return { ...entry, region: nextRegion, storeLink: nextStoreLink };
+      }
+      return entry;
+    });
+
+    if (changed) onChange(hydrated);
+  }, [value, vendors, onChange]);
+
   const addEntry = () => {
     onChange([
       ...value,
@@ -49,6 +70,17 @@ export function VendorMultiSelect({
   ) => {
     const updated = [...value];
     updated[index] = { ...updated[index], [field]: val };
+
+    // Auto-populate region and store link when vendor is selected
+    if (field === "vendorId" && val && val !== "none" && val !== "__new__") {
+      const vendor = vendors.find((v) => v.id === val);
+      if (vendor) {
+        // Always sync defaults when vendor changes (works for edit + create flows)
+        updated[index].region = vendor.regionsServed?.join(", ") ?? "";
+        updated[index].storeLink = vendor.storefrontUrl ?? "";
+      }
+    }
+
     onChange(updated);
   };
 
