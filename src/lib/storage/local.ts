@@ -1,6 +1,6 @@
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
-import type { StorageProvider } from "./index";
+import type { StorageProvider, StorageUploadMetadata } from "./index";
 
 export class LocalStorage implements StorageProvider {
   private uploadDir: string;
@@ -12,7 +12,8 @@ export class LocalStorage implements StorageProvider {
   async upload(
     file: Buffer,
     filename: string,
-    _contentType: string
+    _contentType: string,
+    _metadata?: StorageUploadMetadata
   ): Promise<string> {
     const dir = path.join(process.cwd(), this.uploadDir);
     await mkdir(dir, { recursive: true });

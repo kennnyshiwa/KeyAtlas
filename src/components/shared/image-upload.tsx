@@ -23,6 +23,8 @@ export function ImageUpload({
   const [mode, setMode] = useState<"upload" | "url">("upload");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<"uploading" | "processing">("uploading");
   const [urlInput, setUrlInput] = useState("");
   const [urlError, setUrlError] = useState("");
   const [isValidating, setIsValidating] = useState(false);
@@ -31,19 +33,41 @@ export function ImageUpload({
   const handleUpload = useCallback(
     async (file: File) => {
       setIsUploading(true);
+      setUploadProgress(0);
+      setUploadPhase("uploading");
       try {
-        const formData = new FormData();
-        formData.append("file", file);
+        const data = await new Promise<{ url: string }>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/upload");
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              setUploadProgress(pct);
+              if (pct >= 100) setUploadPhase("processing");
+            }
+          };
+
+          xhr.onload = () => {
+            try {
+              const json = JSON.parse(xhr.responseText);
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(json);
+              } else {
+                reject(new Error(json?.error || "Upload failed"));
+              }
+            } catch {
+              reject(new Error("Upload failed"));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error("Upload failed"));
+
+          const formData = new FormData();
+          formData.append("file", file);
+          xhr.send(formData);
         });
 
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data?.error || "Upload failed");
-        }
         onChange(data.url);
       } catch (error) {
         console.error("Upload error:", error);
@@ -51,6 +75,7 @@ export function ImageUpload({
         setUrlError(message);
       } finally {
         setIsUploading(false);
+        setUploadProgress(0);
       }
     },
     [onChange]
@@ -177,9 +202,21 @@ export function ImageUpload({
               onChange={handleFileChange}
             />
             {isUploading ? (
-              <div className="text-muted-foreground flex flex-col items-center gap-2">
+              <div className="text-muted-foreground flex w-full flex-col items-center gap-2 px-4">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                <span className="text-sm">Uploading...</span>
+                <span className="text-sm">
+                  {uploadPhase === "uploading" ? `Uploading... ${uploadProgress}%` : "Processing image..."}
+                </span>
+                <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+                  {uploadPhase === "uploading" ? (
+                    <div
+                      className="bg-primary h-full rounded-full transition-all duration-200"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  ) : (
+                    <div className="bg-primary h-full w-full animate-pulse rounded-full" />
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-muted-foreground flex flex-col items-center gap-2">
@@ -191,7 +228,7 @@ export function ImageUpload({
                 <span className="text-sm">
                   {isDragging ? "Drop image here" : "Click or drag to upload"}
                 </span>
-                <span className="text-xs">PNG, JPG, WebP, GIF, AVIF up to 15MB</span>
+                <span className="text-xs">PNG, JPG, WebP, GIF, AVIF up to 20MB</span>
               </div>
             )}
           </div>

@@ -15,6 +15,10 @@ services:
       NODE_ENV: production
       PORT: 3000
       UPLOAD_DIR: ${UPLOAD_DIR:-public/uploads}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_ACCOUNT_HASH: ${CLOUDFLARE_ACCOUNT_HASH:-}
       DATABASE_URL: ${DATABASE_URL:-postgresql://keyatlas:${POSTGRES_PASSWORD:-keyatlas}@postgres:5432/${POSTGRES_DB:-keyatlas}?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MEILISEARCH_HOST: ${MEILISEARCH_HOST:-http://meilisearch:7700}

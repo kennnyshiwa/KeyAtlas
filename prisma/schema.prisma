@@ -129,6 +129,7 @@ model User {
   reports           ProjectReport[]    @relation("UserReports")
   resolvedReports   ProjectReport[]    @relation("ResolvedReports")
   savedFilters      SavedFilter[]      @relation("UserSavedFilters")
+  imageAssets       ImageAsset[]       @relation("UserImageAssets")
 
   @@map("users")
 }
@@ -722,4 +723,18 @@ model ProjectReport {
   @@index([projectId])
   @@index([reporterId])
   @@map("project_reports")
+}
+
+model ImageAsset {
+  id          String   @id @default(cuid())
+  sha256      String   @unique
+  url         String
+  bytes       Int
+  contentType String
+  uploaderId  String
+  uploader    User     @relation("UserImageAssets", fields: [uploaderId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([uploaderId])
+  @@map("image_assets")
 }

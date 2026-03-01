@@ -31,6 +31,7 @@ export function GalleryStudio({ images, onChange }: GalleryStudioProps) {
   const [urlInput, setUrlInput] = useState("");
   const [urlListInput, setUrlListInput] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percent: 0, phase: "uploading" as "uploading" | "processing" });
   const [isAddingUrls, setIsAddingUrls] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -148,23 +149,48 @@ export function GalleryStudio({ images, onChange }: GalleryStudioProps) {
     if (files.length === 0) return;
 
     setIsUploading(true);
+    setUploadProgress({ current: 0, total: files.length, percent: 0, phase: "uploading" });
     try {
       const uploaded: string[] = [];
 
-      for (const file of files) {
-        const body = new FormData();
-        body.append("file", file);
+      for (let i = 0; i < files.length; i++) {
+        setUploadProgress((prev) => ({ ...prev, current: i + 1 }));
+        const file = files[i];
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body,
+        const url = await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/upload");
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const filePercent = Math.round((e.loaded / e.total) * 100);
+              const overallPercent = Math.round(((i + filePercent / 100) / files.length) * 100);
+              const phase = filePercent >= 100 ? "processing" : "uploading";
+              setUploadProgress((prev) => ({ ...prev, percent: overallPercent, phase }));
+            }
+          };
+
+          xhr.onload = () => {
+            try {
+              const json = JSON.parse(xhr.responseText);
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(json.url);
+              } else {
+                reject(new Error(json?.error || `Upload failed for ${file.name}`));
+              }
+            } catch {
+              reject(new Error(`Upload failed for ${file.name}`));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error(`Upload failed for ${file.name}`));
+
+          const body = new FormData();
+          body.append("file", file);
+          xhr.send(body);
         });
 
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data?.error || `Upload failed for ${file.name}`);
-        }
-        uploaded.push(data.url);
+        uploaded.push(url);
       }
 
       const nextImages = [
@@ -253,9 +279,30 @@ export function GalleryStudio({ images, onChange }: GalleryStudioProps) {
           />
           <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
             <Upload className="mr-1 h-4 w-4" />
-            {isUploading ? "Uploading..." : "Upload images"}
+            {isUploading
+              ? uploadProgress.phase === "processing"
+                ? `Processing ${uploadProgress.current}/${uploadProgress.total}...`
+                : `Uploading ${uploadProgress.current}/${uploadProgress.total}...`
+              : "Upload images"}
           </Button>
         </div>
+        {isUploading && (
+          <div className="space-y-1">
+            <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+              {uploadProgress.phase === "processing" && uploadProgress.percent >= 99 ? (
+                <div className="bg-primary h-full w-full animate-pulse rounded-full" />
+              ) : (
+                <div
+                  className="bg-primary h-full rounded-full transition-all duration-200"
+                  style={{ width: `${uploadProgress.percent}%` }}
+                />
+              )}
+            </div>
+            <p className="text-muted-foreground text-xs text-center">
+              {uploadProgress.phase === "processing" ? "Processing on Cloudflare..." : `${uploadProgress.percent}%`}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2 rounded-lg border p-4">

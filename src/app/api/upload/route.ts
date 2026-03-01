@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { validateImageBuffer } from "@/lib/security/upload-validation";
 import crypto from "crypto";
@@ -12,7 +13,7 @@ const ALLOWED_TYPES = [
   "image/gif",
   "image/avif",
 ];
-const MAX_SIZE = 15 * 1024 * 1024; // 15MB
+const MAX_SIZE = 20 * 1024 * 1024; // 20MB (Cloudflare Images limit)
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   if (file.size > MAX_SIZE) {
     return NextResponse.json(
-      { error: "File too large. Maximum size is 15MB" },
+      { error: "File too large. Maximum size is 20MB" },
       { status: 400 }
     );
   }
@@ -52,11 +53,32 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Content-hash dedup: if we've seen this exact image before, return existing URL
+  const sha256 = crypto.createHash("sha256").update(buffer).digest("hex");
+  const existing = await prisma.imageAsset.findUnique({ where: { sha256 } });
+  if (existing) {
+    return NextResponse.json({ url: existing.url, deduplicated: true });
+  }
+
   const ext = path.extname(file.name) || ".jpg";
   const filename = `${crypto.randomUUID()}${ext}`;
 
   const storage = getStorageProvider();
-  const url = await storage.upload(buffer, filename, file.type);
+  const url = await storage.upload(buffer, filename, file.type, {
+    userId: session.user.id,
+    originalFilename: file.name,
+  });
+
+  // Store hash → URL mapping for future dedup
+  await prisma.imageAsset.create({
+    data: {
+      sha256,
+      url,
+      bytes: buffer.length,
+      contentType: file.type,
+      uploaderId: session.user.id,
+    },
+  });
 
   return NextResponse.json({ url });
 }
