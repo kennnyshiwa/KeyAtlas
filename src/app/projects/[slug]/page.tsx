@@ -213,15 +213,16 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="space-y-8 lg:col-span-2">
           <ProjectVendorsDisplay projectVendors={project.projectVendors} />
-          {project.images.length > 0 && (
-            <ProjectGallery images={project.images} />
-          )}
         </div>
         <div className="space-y-8">
           <ProjectTimeline project={project} />
           <ProjectChangeLog projectId={project.id} />
         </div>
       </div>
+
+      {project.images.length > 0 && (
+        <ProjectGallery images={project.images} />
+      )}
 
       {project.category === "KEYBOARDS" && (
         <SoundTestSection

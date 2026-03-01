@@ -29,7 +29,7 @@ export function ProjectGallery({ images }: ProjectGalleryProps) {
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-semibold">Gallery</h2>
-      <div className="relative aspect-[16/9] overflow-hidden rounded-lg">
+      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg bg-black/5 dark:bg-white/5">
         {selected.linkUrl ? (
           <a
             href={selected.linkUrl}
@@ -41,8 +41,8 @@ export function ProjectGallery({ images }: ProjectGalleryProps) {
               src={selected.url}
               alt={selected.alt ?? "Project image"}
               fill
-              className="object-cover"
-              sizes="(max-width: 1200px) 100vw, 800px"
+              className="object-contain"
+              sizes="100vw"
             />
           </a>
         ) : (
@@ -50,8 +50,8 @@ export function ProjectGallery({ images }: ProjectGalleryProps) {
             src={selected.url}
             alt={selected.alt ?? "Project image"}
             fill
-            className="object-cover"
-            sizes="(max-width: 1200px) 100vw, 800px"
+            className="object-contain"
+            sizes="100vw"
           />
         )}
 
@@ -93,7 +93,7 @@ export function ProjectGallery({ images }: ProjectGalleryProps) {
                 src={image.url}
                 alt={image.alt ?? "Thumbnail"}
                 fill
-                className="object-cover"
+                className="object-contain"
                 sizes="96px"
               />
             </button>
