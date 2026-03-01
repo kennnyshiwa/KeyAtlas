@@ -51,9 +51,9 @@ export default async function StatisticsPage() {
       orderBy: { _count: { designer: "desc" } },
       take: 10,
     }),
-    prisma.project.groupBy({
+    prisma.projectVendor.groupBy({
       by: ["vendorId"],
-      where: { published: true, vendorId: { not: null } },
+      where: { project: { published: true } },
       _count: { _all: true },
       orderBy: { _count: { vendorId: "desc" } },
       take: 10,
