@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(user.id, "v1:vendors", RATE_LIMIT_REFERENCE);
+  const limited = await rateLimit(user.id, "v1:vendors", RATE_LIMIT_REFERENCE);
   if (limited) return limited;
 
   const vendors = await prisma.vendor.findMany({

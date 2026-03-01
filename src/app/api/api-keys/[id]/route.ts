@@ -12,7 +12,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(session.user.id, "api-keys:revoke", RATE_LIMIT_KEY_MGMT);
+  const limited = await rateLimit(session.user.id, "api-keys:revoke", RATE_LIMIT_KEY_MGMT);
   if (limited) return limited;
 
   const { id } = await params;

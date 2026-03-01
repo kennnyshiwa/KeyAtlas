@@ -19,7 +19,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(session.user.id, "sound-tests:create", RATE_LIMIT_SOUND_TEST_CREATE);
+  const limited = await rateLimit(session.user.id, "sound-tests:create", RATE_LIMIT_SOUND_TEST_CREATE);
   if (limited) return limited;
 
   const { id } = await params;

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(session.user.id, "follow", RATE_LIMIT_FOLLOW);
+  const limited = await rateLimit(session.user.id, "follow", RATE_LIMIT_FOLLOW);
   if (limited) return limited;
 
   let body: unknown;

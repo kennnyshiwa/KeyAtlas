@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(session.user.id, "guides:create", RATE_LIMIT_GUIDE_CREATE);
+  const limited = await rateLimit(session.user.id, "guides:create", RATE_LIMIT_GUIDE_CREATE);
   if (limited) return limited;
 
   const body = await req.json();

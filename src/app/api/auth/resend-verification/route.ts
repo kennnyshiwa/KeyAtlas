@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedEmail = normalizeEmail(parsed.data.email);
-  const rateLimited = rateLimit(normalizedEmail, "resend-verification", RESEND_RATE_LIMIT);
+  const rateLimited = await rateLimit(normalizedEmail, "resend-verification", RESEND_RATE_LIMIT);
   if (rateLimited) return rateLimited;
 
   const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });

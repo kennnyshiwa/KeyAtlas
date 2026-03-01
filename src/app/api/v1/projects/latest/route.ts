@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(user.id, "v1:projects:latest", RATE_LIMIT_LATEST);
+  const limited = await rateLimit(user.id, "v1:projects:latest", RATE_LIMIT_LATEST);
   if (limited) return limited;
 
   const { searchParams } = new URL(req.url);

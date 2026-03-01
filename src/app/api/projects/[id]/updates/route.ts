@@ -28,7 +28,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const limited = rateLimit(session.user.id, "updates:create", RATE_LIMIT_PROJECT_UPDATE_CREATE);
+  const limited = await rateLimit(session.user.id, "updates:create", RATE_LIMIT_PROJECT_UPDATE_CREATE);
   if (limited) return limited;
 
   const { id } = await params;

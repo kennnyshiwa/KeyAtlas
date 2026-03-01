@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(session.user.id, "api-keys:create", RATE_LIMIT_KEY_MGMT);
+  const limited = await rateLimit(session.user.id, "api-keys:create", RATE_LIMIT_KEY_MGMT);
   if (limited) return limited;
 
   const body = await req.json();
@@ -54,7 +54,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(session.user.id, "api-keys:list", RATE_LIMIT_KEY_MGMT);
+  const limited = await rateLimit(session.user.id, "api-keys:list", RATE_LIMIT_KEY_MGMT);
   if (limited) return limited;
 
   const keys = await prisma.apiKey.findMany({

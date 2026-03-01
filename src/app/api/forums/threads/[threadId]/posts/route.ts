@@ -20,7 +20,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const limited = rateLimit(session.user.id, "forum:create-post", RATE_LIMIT_FORUM_POST_CREATE);
+  const limited = await rateLimit(session.user.id, "forum:create-post", RATE_LIMIT_FORUM_POST_CREATE);
   if (limited) return limited;
 
   const { threadId } = await params;

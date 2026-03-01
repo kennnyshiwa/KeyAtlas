@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") ||
     "unknown";
-  const rateLimited = rateLimit(ip, "auth:signup", RATE_LIMIT_SIGNUP);
+  const rateLimited = await rateLimit(ip, "auth:signup", RATE_LIMIT_SIGNUP);
   if (rateLimited) return rateLimited;
 
   const body = await req.json().catch(() => null);

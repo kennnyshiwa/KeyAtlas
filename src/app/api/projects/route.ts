@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Rate limit
-  const rateLimited = rateLimit(session.user.id, "project:create", RATE_LIMIT_PROJECT_CREATE);
+  const rateLimited = await rateLimit(session.user.id, "project:create", RATE_LIMIT_PROJECT_CREATE);
   if (rateLimited) return rateLimited;
 
   const { searchParams } = new URL(req.url);
