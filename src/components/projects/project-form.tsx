@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/shared/image-upload";
-import { VendorMultiSelect, type ProjectVendorEntry } from "@/components/projects/vendor-multi-select";
+import { GalleryStudio } from "@/components/projects/gallery-studio";
+import { VendorMultiSelect } from "@/components/projects/vendor-multi-select";
 import { CATEGORY_LABELS, STATUS_LABELS, PROFILE_OPTIONS } from "@/lib/constants";
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
@@ -234,39 +235,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
     );
   };
 
-  const addEmptyImage = () => {
-    updateField("images", [
-      ...formData.images,
-      { url: "", alt: "", order: formData.images.length, linkUrl: null, openInNewTab: true },
-    ]);
-  };
-
-  const removeImage = (index: number) => {
-    updateField(
-      "images",
-      formData.images.filter((_, i) => i !== index)
-    );
-  };
-
-  const updateImage = (
-    index: number,
-    field: "url" | "alt" | "linkUrl" | "openInNewTab",
-    value: string | boolean
-  ) => {
-    const nextImages = [...formData.images];
-    if (field === "openInNewTab") {
-      nextImages[index] = { ...nextImages[index], openInNewTab: Boolean(value) };
-    } else if (field === "linkUrl") {
-      const normalized = typeof value === "string" && value.trim() ? value.trim() : null;
-      nextImages[index] = { ...nextImages[index], linkUrl: normalized };
-    } else if (field === "url") {
-      nextImages[index] = { ...nextImages[index], url: String(value) };
-    } else {
-      nextImages[index] = { ...nextImages[index], alt: String(value) };
-    }
-    updateField("images", nextImages);
-  };
-
   const escapeHtml = (value: string) =>
     value
       .replaceAll("&", "&amp;")
@@ -319,6 +287,10 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
             : intent === "draft" || intent === "review"
               ? false
               : Boolean(formData.published),
+        images: (formData.images ?? []).map((image, index) => ({
+          ...image,
+          order: index,
+        })),
         projectVendors: (formData.projectVendors ?? []).filter((pv) => pv.vendorId),
       };
 
@@ -840,62 +812,16 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
 
       <Card id="gallery">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Gallery Images
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addEmptyImage}
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              Add Image
-            </Button>
-          </CardTitle>
+          <CardTitle>Gallery Studio</CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Build your gallery visually: upload multiple images, paste one or many URLs, preview, reorder, and edit image metadata.
+          </p>
         </CardHeader>
         <CardContent>
-          {formData.images.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No gallery images</p>
-          ) : (
-            <div className="space-y-4">
-              {formData.images.map((img, i) => (
-                <div key={i} className="space-y-3 rounded-md border p-3">
-                  <ImageUpload
-                    value={img.url || undefined}
-                    onChange={(url) => updateImage(i, "url", url)}
-                    onRemove={() => removeImage(i)}
-                  />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label>Alt text (optional)</Label>
-                      <Input
-                        value={img.alt ?? ""}
-                        onChange={(e) => updateImage(i, "alt", e.target.value)}
-                        placeholder="Describe this image"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Image link URL (optional)</Label>
-                      <Input
-                        value={img.linkUrl ?? ""}
-                        onChange={(e) => updateImage(i, "linkUrl", e.target.value)}
-                        placeholder="https://example.com"
-                      />
-                    </div>
-                  </div>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={img.openInNewTab ?? true}
-                      onChange={(e) => updateImage(i, "openInNewTab", e.target.checked)}
-                      className="rounded"
-                    />
-                    <span className="text-sm">Open in new tab</span>
-                  </label>
-                </div>
-              ))}
-            </div>
-          )}
+          <GalleryStudio
+            images={formData.images}
+            onChange={(images) => updateField("images", images)}
+          />
         </CardContent>
       </Card>
 
