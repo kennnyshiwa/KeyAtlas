@@ -57,3 +57,5 @@ docker-data/
 
 /src/generated/prisma
 tmp/
+SECURITY_REVIEW_2026-02-26.md
+reddit-post-draft.md
