@@ -525,7 +525,14 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
                 value={formData.slug}
                 onChange={(e) => updateField("slug", e.target.value)}
                 required
+                readOnly={isEditing}
+                className={isEditing ? "bg-muted cursor-not-allowed" : undefined}
               />
+              <p className="text-muted-foreground text-xs">
+                {isEditing
+                  ? "The slug cannot be changed after creation."
+                  : "This becomes the permanent URL for your project (e.g. keyatlas.io/projects/your-slug)."}
+              </p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
