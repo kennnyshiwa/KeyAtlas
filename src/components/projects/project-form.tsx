@@ -503,7 +503,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </Card>
       )}
 
-      <Card id="basic-info">
+      <Card id="basic-info" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
         </CardHeader>
@@ -690,7 +690,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card id="pricing">
+      <Card id="pricing" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Pricing</CardTitle>
         </CardHeader>
@@ -735,7 +735,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card id="vendors">
+      <Card id="vendors" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Vendors (Regional)</CardTitle>
         </CardHeader>
@@ -766,7 +766,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card id="timeline">
+      <Card id="timeline" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Timeline</CardTitle>
         </CardHeader>
@@ -833,7 +833,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card id="hero-image" ref={heroCardRef} className={heroImageError ? "border-destructive ring-destructive/20 ring-2" : undefined}>
+      <Card id="hero-image" ref={heroCardRef} className={`scroll-mt-24 ${heroImageError ? "border-destructive ring-destructive/20 ring-2" : ""}`}>
         <CardHeader>
           <CardTitle>Hero Image</CardTitle>
           {heroImageError && (
@@ -855,7 +855,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
       </Card>
 
 
-      <Card id="gallery">
+      <Card id="gallery" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Gallery Studio</CardTitle>
           <p className="text-muted-foreground text-sm">
@@ -870,7 +870,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card id="tags">
+      <Card id="tags" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Tags</CardTitle>
         </CardHeader>
@@ -909,7 +909,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card id="links">
+      <Card id="links" className="scroll-mt-24">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             Links
@@ -973,7 +973,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
       </Card>
 
       {mode === "admin" && (
-        <Card id="settings">
+        <Card id="settings" className="scroll-mt-24">
           <CardHeader>
             <CardTitle>Settings</CardTitle>
           </CardHeader>
