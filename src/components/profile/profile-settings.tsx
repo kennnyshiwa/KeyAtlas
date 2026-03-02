@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { formatDate } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,7 +142,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                 {user.email || "No email"}
               </p>
               <p className="text-muted-foreground text-xs">
-                Member since {new Date(user.createdAt).toLocaleDateString()}
+                Member since {formatDate(user.createdAt)}
               </p>
             </div>
           </div>
@@ -193,7 +194,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                 />
               </div>
               <p className="text-muted-foreground text-xs">
-                Your unique URL: keyatlas.com/users/{username || "username"}
+                Your unique URL: keyatlas.io/users/{username || "username"}
               </p>
             </div>
           </div>

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, User, ExternalLink } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 export const metadata = {
   title: "My Profile",
@@ -141,7 +142,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             <div className="text-muted-foreground mt-1 flex gap-3 text-xs">
               <span>{followerCount} followers</span>
               <span>{followingCount} following</span>
-              <span>Joined {new Date(user.createdAt).toLocaleDateString()}</span>
+              <span>Joined {formatDate(user.createdAt)}</span>
             </div>
           </div>
         </div>
