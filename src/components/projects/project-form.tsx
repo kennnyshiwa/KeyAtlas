@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { GalleryStudio } from "@/components/projects/gallery-studio";
 import { VendorMultiSelect } from "@/components/projects/vendor-multi-select";
+import { ProjectOwnershipTransfer } from "@/components/projects/project-ownership-transfer";
 import { CATEGORY_LABELS, STATUS_LABELS, PROFILE_OPTIONS } from "@/lib/constants";
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
@@ -984,6 +985,16 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
                 <span className="text-sm">Featured</span>
               </label>
             </div>
+            {project?.id && project?.creator?.id && (
+              <ProjectOwnershipTransfer
+                projectId={project.id}
+                currentOwner={{
+                  id: project.creator.id,
+                  name: project.creator.name ?? null,
+                }}
+              />
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="metaTitle">Meta Title</Label>

@@ -10,10 +10,10 @@ import { toast } from "sonner";
 
 interface OwnerInfo {
   id: string;
-  name: string | null;
-  email: string | null;
-  username: string | null;
-  displayName: string | null;
+  name?: string | null;
+  email?: string | null;
+  username?: string | null;
+  displayName?: string | null;
 }
 
 interface ProjectOwnershipTransferProps {
