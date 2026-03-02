@@ -497,7 +497,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
               </Button>
             </div>
             <p className="text-muted-foreground mt-1 text-xs">
-              Paste a Geekhack IC thread URL to auto-fill project fields.
+              Paste a Geekhack IC/GB thread URL to auto-fill project fields.
             </p>
           </CardContent>
         </Card>
