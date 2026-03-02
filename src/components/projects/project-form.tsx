@@ -452,7 +452,13 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
                     ? "bg-primary text-primary-foreground font-medium"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
-                onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                onClick={() => {
+                  const el = document.getElementById(s.id);
+                  if (!el) return;
+                  el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  el.classList.add("ring-2", "ring-primary/50");
+                  setTimeout(() => el.classList.remove("ring-2", "ring-primary/50"), 1500);
+                }}
               >
                 {s.label}
               </button>
@@ -820,7 +826,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card ref={heroCardRef} className={heroImageError ? "border-destructive ring-destructive/20 ring-2" : undefined}>
+      <Card id="hero-image" ref={heroCardRef} className={heroImageError ? "border-destructive ring-destructive/20 ring-2" : undefined}>
         <CardHeader>
           <CardTitle>Hero Image</CardTitle>
           {heroImageError && (
