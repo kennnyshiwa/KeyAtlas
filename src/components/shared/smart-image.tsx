@@ -80,7 +80,7 @@ export function SmartImage({ src, alt, className, fill, width, height, sizes, lo
         alt={alt}
         className={className}
         loading={loading}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "inherit" }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
       />
     );
   }
