@@ -23,6 +23,26 @@ export async function GET(req: NextRequest) {
       bio: true,
       role: true,
       createdAt: true,
+      projects: {
+        where: { published: true },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          status: true,
+          heroImage: true,
+          priceMin: true,
+          priceMax: true,
+          currency: true,
+          tags: true,
+          gbStartDate: true,
+          gbEndDate: true,
+          estimatedDelivery: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      },
       _count: {
         select: {
           projects: true,
@@ -37,15 +57,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { _count, ...rest } = profile;
+  const { _count, projects, ...rest } = profile;
 
   return NextResponse.json({
     data: {
       ...rest,
-      avatar: rest.image,
-      projectCount: _count.projects,
-      followerCount: _count.followers,
-      followingCount: _count.following,
+      avatar_url: rest.image,
+      projects: projects.map((p) => ({
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        description: null,
+        status: p.status,
+        hero_image_url: p.heroImage,
+        category: null,
+        category_id: null,
+        designer: null,
+        pricing: {
+          min_price: p.priceMin,
+          max_price: p.priceMax,
+          currency: p.currency,
+        },
+        vendors: [],
+        gallery: [],
+        timeline: [],
+        comments: [],
+        tags: p.tags ?? [],
+        links: [],
+        estimated_delivery: p.estimatedDelivery,
+        gb_start_date: p.gbStartDate,
+        gb_end_date: p.gbEndDate,
+        follow_count: 0,
+        favorite_count: 0,
+        is_following: false,
+        is_favorited: false,
+        is_featured: false,
+        created_at: p.createdAt,
+        updated_at: p.updatedAt,
+      })),
+      project_count: _count.projects,
+      follower_count: _count.followers,
+      following_count: _count.following,
     },
   });
 }
