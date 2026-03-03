@@ -7,12 +7,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const limited = await rateLimit(user.id, "v1:forums:threads", RATE_LIMIT_LIST);
+  const user = await authenticateApiKey(req).catch(() => null);
+  const rateLimitKey = user?.id ?? (req.headers.get("x-forwarded-for") ?? "anon");
+  const limited = await rateLimit(rateLimitKey, "v1:forums:threads", RATE_LIMIT_LIST);
   if (limited) return limited;
 
   const { slug } = await params;

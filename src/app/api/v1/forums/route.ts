@@ -4,12 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_REFERENCE } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const limited = await rateLimit(user.id, "v1:forums", RATE_LIMIT_REFERENCE);
+  const user = await authenticateApiKey(req).catch(() => null);
+  const rateLimitKey = user?.id ?? (req.headers.get("x-forwarded-for") ?? "anon");
+  const limited = await rateLimit(rateLimitKey, "v1:forums", RATE_LIMIT_REFERENCE);
   if (limited) return limited;
 
   const categories = await prisma.forumCategory.findMany({
