@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
   if (!code || !state) return errorRedirect("Missing code or state");
 
   const [provider] = state.split(":");
-  const baseUrl = process.env.NEXTAUTH_URL || new URL("/", req.url).origin;
+  const baseUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL || process.env.APP_URL || new URL("/", req.url).origin;
   const redirectUri = `${baseUrl}/api/auth/mobile/callback`;
 
   let email: string | null = null;

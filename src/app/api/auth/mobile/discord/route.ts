@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   }
 
   const state = randomBytes(32).toString("hex");
-  const baseUrl = process.env.NEXTAUTH_URL || new URL("/", req.url).origin;
+  const baseUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL || process.env.APP_URL || new URL("/", req.url).origin;
   const redirectUri = `${baseUrl}/api/auth/mobile/callback`;
 
   const params = new URLSearchParams({
