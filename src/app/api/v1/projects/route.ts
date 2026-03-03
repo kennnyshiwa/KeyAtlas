@@ -68,13 +68,58 @@ export async function GET(req: NextRequest) {
   ]);
 
   const data = projects.map((p) => ({
-    ...p,
-    vendorName: p.vendor?.name ?? null,
-    vendor: undefined,
+    id: p.id,
+    title: p.title,
+    slug: p.slug,
+    description: null,
+    status: p.status,
+    hero_image_url: p.heroImage,
+    category: null,
+    category_id: null,
+    designer: null,
+    pricing: {
+      min_price: p.priceMin,
+      max_price: p.priceMax,
+      currency: p.currency,
+    },
+    vendors: p.vendor
+      ? [
+          {
+            id: `${p.id}-vendor`,
+            vendor: {
+              id: "",
+              name: p.vendor.name,
+              slug: "",
+              logo_url: null,
+            },
+            url: null,
+            region: null,
+          },
+        ]
+      : [],
+    gallery: [],
+    timeline: [],
+    comments: [],
+    tags: p.tags ?? [],
+    links: [],
+    estimated_delivery: null,
+    gb_start_date: p.gbStartDate,
+    gb_end_date: p.gbEndDate,
+    follow_count: 0,
+    favorite_count: 0,
+    is_following: false,
+    is_favorited: false,
+    is_featured: false,
+    created_at: p.createdAt,
+    updated_at: p.createdAt,
   }));
 
   return NextResponse.json({
     data,
+    total,
+    page,
+    page_size: limit,
+    has_more: page * limit < total,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
