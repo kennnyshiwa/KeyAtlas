@@ -5,12 +5,12 @@ import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
 export async function GET(req: NextRequest) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Public read — optionally authenticated for personalized results later
+  const user = await authenticateApiKey(req).catch(() => null);
 
-  const limited = await rateLimit(user.id, "v1:projects", RATE_LIMIT_LIST);
+  // Rate-limit by user id if authenticated, otherwise by IP
+  const rateLimitKey = user?.id ?? (req.headers.get("x-forwarded-for") ?? "anon");
+  const limited = await rateLimit(rateLimitKey, "v1:projects", RATE_LIMIT_LIST);
   if (limited) return limited;
 
   const { searchParams } = new URL(req.url);

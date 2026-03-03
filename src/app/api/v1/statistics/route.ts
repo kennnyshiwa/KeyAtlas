@@ -5,12 +5,9 @@ import { rateLimit, RATE_LIMIT_REFERENCE } from "@/lib/rate-limit";
 import { subMonths, format } from "date-fns";
 
 export async function GET(req: NextRequest) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await authenticateApiKey(req).catch(() => null);
 
-  const limited = await rateLimit(user.id, "v1:statistics", RATE_LIMIT_REFERENCE);
+  const limited = await rateLimit(user?.id ?? (req.headers.get("x-forwarded-for") ?? "anon"), "v1:statistics", RATE_LIMIT_REFERENCE);
   if (limited) return limited;
 
   const [

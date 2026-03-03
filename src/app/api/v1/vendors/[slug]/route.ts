@@ -7,12 +7,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await authenticateApiKey(req).catch(() => null);
 
-  const limited = await rateLimit(user.id, "v1:vendors:detail", RATE_LIMIT_DETAIL);
+  const limited = await rateLimit(user?.id ?? (req.headers.get("x-forwarded-for") ?? "anon"), "v1:vendors:detail", RATE_LIMIT_DETAIL);
   if (limited) return limited;
 
   const { slug } = await params;
