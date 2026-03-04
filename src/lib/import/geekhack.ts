@@ -43,14 +43,65 @@ export interface GeekhackPrefillPayload {
   }>;
 }
 
-function decodeHtmlEntities(input: string) {
+function fixCommonMojibake(input: string) {
   return input
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/â€™/g, "’")
+    .replace(/â€˜/g, "‘")
+    .replace(/â€œ/g, "“")
+    .replace(/â€/g, "”")
+    .replace(/â€“/g, "–")
+    .replace(/â€”/g, "—")
+    .replace(/â€¦/g, "…")
+    .replace(/Â /g, " ")
+    .replace(/Â/g, "");
+}
+
+function decodeHtmlEntities(input: string) {
+  return fixCommonMojibake(
+    input
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;|&apos;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+  );
+}
+
+function extractCharset(source: string | null) {
+  if (!source) return null;
+  const m = source.match(/charset\s*=\s*["']?([a-z0-9_\-]+)/i);
+  return m?.[1]?.toLowerCase() ?? null;
+}
+
+function decodeGeekhackHtml(res: Response, bytes: Uint8Array) {
+  const contentTypeCharset = extractCharset(res.headers.get("content-type"));
+  const sniff = new TextDecoder("utf-8").decode(bytes.subarray(0, Math.min(bytes.length, 8192)));
+  const metaCharset =
+    extractCharset(sniff.match(/<meta[^>]+charset=[^>]+>/i)?.[0] ?? null) ??
+    extractCharset(sniff.match(/<meta[^>]+content=["'][^"']*charset=[^"']*["'][^>]*>/i)?.[0] ?? null);
+
+  const preferred = contentTypeCharset || metaCharset || "utf-8";
+
+  const decodeWith = (charset: string) => {
+    try {
+      return new TextDecoder(charset).decode(bytes);
+    } catch {
+      return null;
+    }
+  };
+
+  let decoded = decodeWith(preferred) ?? decodeWith("utf-8") ?? "";
+
+  // If preferred decode still has replacement chars, windows-1252 often fixes Geekhack punctuation
+  if (decoded.includes("�")) {
+    const win1252 = decodeWith("windows-1252");
+    if (win1252 && win1252.split("�").length < decoded.split("�").length) {
+      decoded = win1252;
+    }
+  }
+
+  return fixCommonMojibake(decoded);
 }
 
 function stripTags(html: string) {
@@ -271,7 +322,8 @@ export async function fetchGeekhackThread(topicUrl: string): Promise<ExtractedTh
       throw new Error(`Failed to fetch Geekhack thread after redirect (${redirectRes.status})`);
     }
     const finalUrl = redirectRes.url || redirectUrl;
-    const html = await redirectRes.text();
+    const htmlBytes = new Uint8Array(await redirectRes.arrayBuffer());
+    const html = decodeGeekhackHtml(redirectRes, htmlBytes);
     return parseThread(topic, finalUrl, html);
   }
 
@@ -280,7 +332,8 @@ export async function fetchGeekhackThread(topicUrl: string): Promise<ExtractedTh
   }
 
   const finalUrl = res.url || topic.normalizedUrl;
-  const html = await res.text();
+  const htmlBytes = new Uint8Array(await res.arrayBuffer());
+  const html = decodeGeekhackHtml(res, htmlBytes);
   return parseThread(topic, finalUrl, html);
 }
 
