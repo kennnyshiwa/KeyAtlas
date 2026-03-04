@@ -71,13 +71,16 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     }),
   };
 
-  const sortOptions: Record<string, object> = {
+  const sortOptions: Record<string, object | object[]> = {
     newest: { createdAt: "desc" },
     oldest: { createdAt: "asc" },
     "a-z": { title: "asc" },
     "z-a": { title: "desc" },
     "most-followed": { favorites: { _count: "desc" } },
     updated: { updatedAt: "desc" },
+    "gb-newest": [{ gbStartDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    "gb-oldest": [{ gbStartDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    "gb-ending": [{ gbEndDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
   };
   const orderBy = sortOptions[params.sort ?? ""] ?? sortOptions.newest;
 
