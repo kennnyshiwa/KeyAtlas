@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit, RATE_LIMIT_DETAIL } from "@/lib/rate-limit";
+import { rateLimit, RATE_LIMIT_DETAIL, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
+import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
 export async function GET(
   req: NextRequest,
@@ -103,4 +104,57 @@ export async function GET(
   };
 
   return NextResponse.json({ data });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const user = await authenticateApiKey(req);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const limited = await rateLimit(user.id, "v1:projects:update", RATE_LIMIT_PROJECT_UPDATE);
+  if (limited) return limited;
+
+  const { slug } = await params;
+  const existing = await prisma.project.findUnique({
+    where: { slug },
+    select: { id: true, creatorId: true },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
+  const isAdmin = dbUser?.role === "ADMIN";
+  if (!isAdmin && existing.creatorId !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json();
+
+  const updated = await prisma.project.update({
+    where: { id: existing.id },
+    data: {
+      title: body.title,
+      description: body.description ?? null,
+      status: (body.status as ProjectStatus) ?? undefined,
+      category: (body.category_id as ProjectCategory) ?? undefined,
+      heroImage: body.hero_image_url ?? undefined,
+      estimatedDelivery: body.estimated_delivery ?? null,
+      priceMin: typeof body.min_price === "number" ? body.min_price : null,
+      priceMax: typeof body.max_price === "number" ? body.max_price : null,
+      gbStartDate: body.gb_start_date ? new Date(body.gb_start_date) : null,
+      gbEndDate: body.gb_end_date ? new Date(body.gb_end_date) : null,
+    },
+    select: { id: true, slug: true, updatedAt: true },
+  });
+
+  return NextResponse.json({ data: updated });
 }
