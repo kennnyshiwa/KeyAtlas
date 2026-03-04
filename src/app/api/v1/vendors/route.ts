@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
       id: true,
       name: true,
       slug: true,
+      logo: true,
+      description: true,
       storefrontUrl: true,
       verified: true,
       regionsServed: true,
@@ -27,10 +29,12 @@ export async function GET(req: NextRequest) {
     id: v.id,
     name: v.name,
     slug: v.slug,
-    storefrontUrl: v.storefrontUrl,
+    description: v.description,
+    logo_url: v.logo,
+    website_url: v.storefrontUrl,
+    regions: v.regionsServed,
     verified: v.verified,
-    regionsServed: v.regionsServed,
-    projectCount: v._count.projectVendors,
+    project_count: v._count.projectVendors,
   }));
 
   return NextResponse.json({ data });
