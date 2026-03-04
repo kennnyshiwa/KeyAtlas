@@ -22,6 +22,11 @@ export async function GET(
         orderBy: { order: "asc" },
       },
       links: { select: { id: true, label: true, url: true, type: true } },
+      updates: {
+        select: { id: true, title: true, content: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      },
+      creator: { select: { id: true, username: true, name: true, image: true } },
       projectVendors: {
         include: { vendor: { select: { name: true } } },
       },
@@ -42,7 +47,13 @@ export async function GET(
     hero_image_url: project.heroImage,
     category: null,
     category_id: null,
-    designer: null,
+    designer: {
+      id: project.creator.id,
+      username: project.creator.username,
+      name: project.creator.name,
+      image: project.creator.image,
+      role: "USER",
+    },
     pricing: {
       min_price: project.priceMin,
       max_price: project.priceMax,
@@ -66,6 +77,12 @@ export async function GET(
       position: img.order,
     })),
     timeline: [],
+    updates: project.updates.map((u) => ({
+      id: u.id,
+      title: u.title,
+      content: u.content,
+      created_at: u.createdAt,
+    })),
     comments: [],
     tags: project.tags ?? [],
     links: project.links.map((link) => ({
