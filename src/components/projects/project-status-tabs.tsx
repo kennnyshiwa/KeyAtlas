@@ -11,6 +11,7 @@ const tabs = [
   { label: "Production", value: "PRODUCTION" },
   { label: "In Stock", value: "IN_STOCK" },
   { label: "Extras", value: "EXTRAS" },
+  { label: "Completed", value: "COMPLETED" },
 ] as const;
 
 export function ProjectStatusTabs() {
