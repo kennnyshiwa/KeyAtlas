@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_REFERENCE } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const limited = await rateLimit(user.id, "v1:vendors", RATE_LIMIT_REFERENCE);
+  const limited = await rateLimit(
+    req.headers.get("x-forwarded-for") ?? "anon",
+    "v1:vendors",
+    RATE_LIMIT_REFERENCE,
+  );
   if (limited) return limited;
 
   const vendors = await prisma.vendor.findMany({
