@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "@/lib/notifications/preferences";
 import { getSiteUrl } from "@/lib/site";
 import { sendNotificationEmail } from "@/lib/notifications/email";
+import { sendAPNSNotification } from "@/lib/notifications/apns";
 
 interface NotificationDispatchInput {
   recipients: string[];
@@ -36,6 +37,10 @@ export async function dispatchNotification(input: NotificationDispatchInput) {
         select: { inApp: true, email: true },
         take: 1,
       },
+      pushDevices: {
+        where: { enabled: true, platform: "ios" },
+        select: { token: true },
+      },
     },
   });
 
@@ -52,6 +57,19 @@ export async function dispatchNotification(input: NotificationDispatchInput) {
           link: input.link,
         },
       });
+
+      for (const device of user.pushDevices) {
+        try {
+          await sendAPNSNotification({
+            token: device.token,
+            title: input.title,
+            body: input.message,
+            link: input.link,
+          });
+        } catch (error) {
+          console.error("Failed to send APNS push", error);
+        }
+      }
     }
 
     if (pref.email && user.email) {

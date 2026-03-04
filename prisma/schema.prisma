@@ -118,6 +118,7 @@ model User {
   following     Follow[]       @relation("FollowSource")
   notifications Notification[] @relation("UserNotifications")
   notificationPreferences NotificationPreference[]
+  pushDevices   PushDevice[]
   forumThreads  ForumThread[]
   forumPosts    ForumPost[]
   buildGuides   BuildGuide[]
@@ -541,6 +542,25 @@ model NotificationPreference {
   @@unique([userId, type])
   @@index([userId])
   @@map("notification_preferences")
+}
+
+model PushDevice {
+  id            String   @id @default(cuid())
+  platform      String
+  token         String   @unique
+  appBundleId   String?
+  appVersion    String?
+  deviceName    String?
+  enabled       Boolean  @default(true)
+  lastSeenAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, platform])
+  @@map("push_devices")
 }
 
 // ─── Forums ──────────────────────────────────────────────────
