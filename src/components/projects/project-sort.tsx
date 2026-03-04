@@ -12,6 +12,9 @@ import {
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
+  { value: "gb-newest", label: "GB date (newest)" },
+  { value: "gb-oldest", label: "GB date (oldest)" },
+  { value: "gb-ending", label: "GB ending soon" },
   { value: "a-z", label: "A → Z" },
   { value: "z-a", label: "Z → A" },
   { value: "most-followed", label: "Most followed" },

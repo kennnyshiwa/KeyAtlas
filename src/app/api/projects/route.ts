@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category") as ProjectCategory | null;
   const status = searchParams.get("status") as ProjectStatus | null;
   const featured = searchParams.get("featured");
+  const sort = searchParams.get("sort");
   const offset = (page - 1) * limit;
 
   const where = {
@@ -63,13 +64,42 @@ export async function GET(req: NextRequest) {
     ...(featured === "true" && { featured: true }),
   };
 
+  // Build orderBy from sort param
+  type OrderBy = Record<string, "asc" | "desc">;
+  let orderBy: OrderBy | OrderBy[];
+  switch (sort) {
+    case "oldest":
+      orderBy = { createdAt: "asc" };
+      break;
+    case "a-z":
+      orderBy = { title: "asc" };
+      break;
+    case "z-a":
+      orderBy = { title: "desc" };
+      break;
+    case "updated":
+      orderBy = { updatedAt: "desc" };
+      break;
+    case "gb-newest":
+      orderBy = [{ gbStartDate: "desc" }, { createdAt: "desc" }];
+      break;
+    case "gb-oldest":
+      orderBy = [{ gbStartDate: "asc" }, { createdAt: "asc" }];
+      break;
+    case "gb-ending":
+      orderBy = [{ gbEndDate: "asc" }, { createdAt: "desc" }];
+      break;
+    default:
+      orderBy = { createdAt: "desc" };
+  }
+
   const [projects, total] = await Promise.all([
     prisma.project.findMany({
       where,
       include: {
         vendor: { select: { name: true, slug: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: offset,
       take: limit,
     }),
