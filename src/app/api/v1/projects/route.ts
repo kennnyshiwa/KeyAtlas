@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
-  const limit = Math.min(Math.max(1, Number(searchParams.get("limit") ?? "20")), 50);
+  const requestedLimit = searchParams.get("limit") ?? searchParams.get("page_size") ?? "20";
+  const limit = Math.min(Math.max(1, Number(requestedLimit)), 50);
   const category = searchParams.get("category") as ProjectCategory | null;
   const status = searchParams.get("status") as ProjectStatus | null;
   const q = searchParams.get("q");
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
   const featured = searchParams.get("featured");
   const designer = searchParams.get("designer");
   const offset = (page - 1) * limit;
+  const sort = searchParams.get("sort");
 
   const where = {
     published: true,
@@ -36,6 +38,45 @@ export async function GET(req: NextRequest) {
     ...(featured === "true" && { featured: true }),
     ...(designer && { designer: { contains: designer, mode: "insensitive" as const } }),
   };
+
+  type OrderBy = Record<string, "asc" | "desc">;
+  let orderBy: OrderBy | OrderBy[];
+  switch (sort) {
+    case "oldest":
+      orderBy = { createdAt: "asc" };
+      break;
+    case "a-z":
+      orderBy = { title: "asc" };
+      break;
+    case "z-a":
+      orderBy = { title: "desc" };
+      break;
+    case "updated":
+    case "recently_updated":
+      orderBy = { updatedAt: "desc" };
+      break;
+    case "gb-newest":
+    case "gb_newest":
+      Object.assign(where, { gbStartDate: { not: null } });
+      orderBy = [{ gbStartDate: "desc" }, { createdAt: "desc" }];
+      break;
+    case "gb-oldest":
+    case "gb_oldest":
+      Object.assign(where, { gbStartDate: { not: null } });
+      orderBy = [{ gbStartDate: "asc" }, { createdAt: "asc" }];
+      break;
+    case "gb-ending":
+    case "gb_ending":
+      Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
+      orderBy = [{ gbEndDate: "asc" }, { createdAt: "desc" }];
+      break;
+    case "most-followed":
+    case "most_followed":
+      orderBy = { createdAt: "desc" }; // TODO: add follow relation count to sort when available
+      break;
+    default:
+      orderBy = { createdAt: "desc" };
+  }
 
   const [projects, total] = await Promise.all([
     prisma.project.findMany({
@@ -58,9 +99,10 @@ export async function GET(req: NextRequest) {
         gbEndDate: true,
         icDate: true,
         createdAt: true,
+        updatedAt: true,
         vendor: { select: { name: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: offset,
       take: limit,
     }),
@@ -111,7 +153,7 @@ export async function GET(req: NextRequest) {
     is_favorited: false,
     is_featured: false,
     created_at: p.createdAt,
-    updated_at: p.createdAt,
+    updated_at: p.updatedAt,
   }));
 
   return NextResponse.json({
