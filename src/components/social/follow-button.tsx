@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,9 +20,11 @@ export function FollowButton({
 }: FollowButtonProps) {
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
+  const busyRef = useRef(false);
 
-  async function handleToggle() {
-    if (loading) return;
+  const handleToggle = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setLoading(true);
     try {
       const res = await fetch("/api/follow", {
@@ -43,8 +45,9 @@ export function FollowButton({
       toast.error("Failed to update follow");
     } finally {
       setLoading(false);
+      busyRef.current = false;
     }
-  }
+  }, [targetType, targetId]);
 
   return (
     <Button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
@@ -21,6 +21,7 @@ export function FavoriteButton({
   const [count, setCount] = useState(initialCount);
   const [isFavorited, setIsFavorited] = useState(initialFavorited);
   const [isLoading, setIsLoading] = useState(false);
+  const busyRef = useRef(false);
 
   useEffect(() => {
     fetch(`/api/favorites/${projectId}`)
@@ -32,8 +33,9 @@ export function FavoriteButton({
       .catch(() => {});
   }, [projectId]);
 
-  const toggle = async () => {
-    if (!session?.user || isLoading) return;
+  const toggle = useCallback(async () => {
+    if (!session?.user || busyRef.current) return;
+    busyRef.current = true;
 
     const wasFavorited = isFavorited;
 
@@ -55,8 +57,9 @@ export function FavoriteButton({
       setCount((c) => (wasFavorited ? c + 1 : c - 1));
     } finally {
       setIsLoading(false);
+      busyRef.current = false;
     }
-  };
+  }, [session?.user, isFavorited, projectId]);
 
   return (
     <Button
