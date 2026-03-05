@@ -27,7 +27,10 @@ export function ProjectAdminActions({ projectId }: ProjectAdminActionsProps) {
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  if (session?.user?.role !== "ADMIN") {
+  const isAdmin = session?.user?.role === "ADMIN";
+  const isMod = session?.user?.role === "MODERATOR";
+
+  if (!isAdmin && !isMod) {
     return null;
   }
 
@@ -64,38 +67,40 @@ export function ProjectAdminActions({ projectId }: ProjectAdminActionsProps) {
           Edit
         </Link>
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="destructive" size="sm">
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-            Delete
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete project?</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. The project and all its data will be
-              permanently deleted.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+      {isAdmin && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="destructive" size="sm">
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Delete
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete project?</DialogTitle>
+              <DialogDescription>
+                This action cannot be undone. The project and all its data will be
+                permanently deleted.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
