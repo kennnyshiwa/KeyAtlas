@@ -32,9 +32,7 @@ export function FavoriteButton({
       .catch(() => {});
   }, [projectId]);
 
-  const toggle = async (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const toggle = async () => {
     if (!session?.user || isLoading) return;
 
     const wasFavorited = isFavorited;

@@ -21,9 +21,7 @@ export function FollowButton({
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
 
-  async function handleToggle(e: React.MouseEvent | React.TouchEvent) {
-    e.preventDefault();
-    e.stopPropagation();
+  async function handleToggle() {
     if (loading) return;
     setLoading(true);
     try {
