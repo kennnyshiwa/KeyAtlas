@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { LayoutDashboard, FolderKanban, Store, ArrowLeft, Users, Tags, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -10,12 +11,14 @@ const adminLinks = [
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/vendors", label: "Vendors", icon: Store },
   { href: "/admin/keycap-profiles", label: "Keycap Profiles", icon: Tags },
-  { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/users", label: "Users", icon: Users, adminOnly: true },
   { href: "/admin/reports", label: "Reports", icon: Flag },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
 
   return (
     <aside className="hidden w-64 shrink-0 border-r md:block">
@@ -28,7 +31,7 @@ export function AdminSidebar() {
           Back to site
         </Link>
         <nav className="flex flex-col gap-1">
-          {adminLinks.map((link) => {
+          {adminLinks.filter((link) => !link.adminOnly || isAdmin).map((link) => {
             const Icon = link.icon;
             const isActive =
               link.href === "/admin"

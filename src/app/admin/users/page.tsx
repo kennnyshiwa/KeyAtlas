@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { UserRole } from "@/generated/prisma/client";
 import { PageHeader } from "@/components/shared/page-header";
@@ -15,6 +17,10 @@ export default async function AdminUsersPage({
 }: {
   searchParams: Promise<{ q?: string; role?: string; status?: string; page?: string }>;
 }) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    redirect("/admin");
+  }
   const params = await searchParams;
   const q = params.q?.trim() || "";
   const role = params.role && Object.values(UserRole).includes(params.role as UserRole)

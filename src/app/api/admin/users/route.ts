@@ -13,7 +13,7 @@ const querySchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const access = await requireAdminSession({ allowModeratorReadOnly: true });
+  const access = await requireAdminSession();
   if (!access.ok) {
     return NextResponse.json({ error: access.error, message: access.message }, { status: access.status });
   }

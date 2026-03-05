@@ -6,7 +6,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
-  const access = await requireAdminSession({ allowModeratorReadOnly: true });
+  const access = await requireAdminSession();
   if (!access.ok) {
     return NextResponse.json({ error: access.error, message: access.message }, { status: access.status });
   }
@@ -48,7 +48,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
-  const access = await requireAdminSession({ allowModeratorReadOnly: true });
+  const access = await requireAdminSession();
   if (!access.ok) {
     return NextResponse.json({ error: access.error, message: access.message }, { status: access.status });
   }
