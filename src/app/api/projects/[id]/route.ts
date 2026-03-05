@@ -83,7 +83,8 @@ export async function PUT(
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const isStaff = session.user.role === "ADMIN" || session.user.role === "MODERATOR";
+  const isAdmin = session.user.role === "ADMIN";
+  const isStaff = isAdmin || session.user.role === "MODERATOR";
 
   // Staff can edit any project. Regular users can only edit their own.
   // When review is required, non-staff can only edit unpublished drafts.
