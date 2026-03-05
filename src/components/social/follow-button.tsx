@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,13 +19,33 @@ export function FollowButton({
   initialFollowing,
   size = "default",
 }: FollowButtonProps) {
+  const { data: session } = useSession();
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
-  const busyRef = useRef(false);
+  const lastTouchRef = useRef(0);
 
-  const handleToggle = useCallback(async () => {
-    if (busyRef.current) return;
-    busyRef.current = true;
+  // Fetch actual follow state client-side to handle mobile session issues
+  useEffect(() => {
+    if (!session?.user) return;
+    fetch(`/api/follow/status?targetType=${targetType}&targetId=${targetId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) setFollowing(data.following);
+      })
+      .catch(() => {});
+  }, [session?.user, targetType, targetId]);
+
+  async function handleToggle(e: React.MouseEvent | React.TouchEvent) {
+    // Prevent double-fire: if click follows a recent touch, skip it
+    if (e.type === "touchend") {
+      lastTouchRef.current = Date.now();
+      e.preventDefault(); // prevent subsequent click synthesis
+    }
+    if (e.type === "click" && Date.now() - lastTouchRef.current < 500) {
+      return;
+    }
+
+    if (loading) return;
     setLoading(true);
     try {
       const res = await fetch("/api/follow", {
@@ -45,9 +66,8 @@ export function FollowButton({
       toast.error("Failed to update follow");
     } finally {
       setLoading(false);
-      busyRef.current = false;
     }
-  }, [targetType, targetId]);
+  }
 
   return (
     <Button
@@ -55,7 +75,8 @@ export function FollowButton({
       size={size}
       className="touch-manipulation"
       onClick={handleToggle}
-      disabled={loading}
+      onTouchEnd={handleToggle}
+      disabled={loading || !session?.user}
     >
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

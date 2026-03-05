@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
@@ -21,7 +21,7 @@ export function FavoriteButton({
   const [count, setCount] = useState(initialCount);
   const [isFavorited, setIsFavorited] = useState(initialFavorited);
   const [isLoading, setIsLoading] = useState(false);
-  const busyRef = useRef(false);
+  const lastTouchRef = useRef(0);
 
   useEffect(() => {
     fetch(`/api/favorites/${projectId}`)
@@ -33,9 +33,17 @@ export function FavoriteButton({
       .catch(() => {});
   }, [projectId]);
 
-  const toggle = useCallback(async () => {
-    if (!session?.user || busyRef.current) return;
-    busyRef.current = true;
+  async function toggle(e: React.MouseEvent | React.TouchEvent) {
+    // Prevent double-fire: if click follows a recent touch, skip it
+    if (e.type === "touchend") {
+      lastTouchRef.current = Date.now();
+      e.preventDefault(); // prevent subsequent click synthesis
+    }
+    if (e.type === "click" && Date.now() - lastTouchRef.current < 500) {
+      return;
+    }
+
+    if (!session?.user || isLoading) return;
 
     const wasFavorited = isFavorited;
 
@@ -57,9 +65,8 @@ export function FavoriteButton({
       setCount((c) => (wasFavorited ? c + 1 : c - 1));
     } finally {
       setIsLoading(false);
-      busyRef.current = false;
     }
-  }, [session?.user, isFavorited, projectId]);
+  }
 
   return (
     <Button
@@ -67,6 +74,7 @@ export function FavoriteButton({
       size="sm"
       className="gap-1.5 touch-manipulation"
       onClick={toggle}
+      onTouchEnd={toggle}
       disabled={!session?.user}
     >
       <Heart
