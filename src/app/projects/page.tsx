@@ -78,11 +78,19 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     "z-a": { title: "desc" },
     "most-followed": { favorites: { _count: "desc" } },
     updated: { updatedAt: "desc" },
-    "gb-newest": [{ gbStartDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
-    "gb-oldest": [{ gbStartDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
-    "gb-ending": [{ gbEndDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+    "gb-newest": [{ gbStartDate: "desc" }, { createdAt: "desc" }],
+    "gb-oldest": [{ gbStartDate: "asc" }, { createdAt: "asc" }],
+    "gb-ending": [{ gbEndDate: "asc" }, { createdAt: "desc" }],
   };
   const orderBy = sortOptions[params.sort ?? ""] ?? sortOptions.newest;
+
+  // For GB sorts, only show projects that have a GB date set
+  if (params.sort === "gb-newest" || params.sort === "gb-oldest") {
+    Object.assign(where, { gbStartDate: { not: null } });
+  }
+  if (params.sort === "gb-ending") {
+    Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
+  }
 
   const [projects, total, allVendors] = await Promise.all([
     prisma.project.findMany({

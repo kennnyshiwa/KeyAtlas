@@ -93,6 +93,14 @@ export async function GET(req: NextRequest) {
       orderBy = { createdAt: "desc" };
   }
 
+  // For GB sorts, only show projects with GB dates
+  if (sort === "gb-newest" || sort === "gb-oldest") {
+    Object.assign(where, { gbStartDate: { not: null } });
+  }
+  if (sort === "gb-ending") {
+    Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
+  }
+
   const [projects, total] = await Promise.all([
     prisma.project.findMany({
       where,
