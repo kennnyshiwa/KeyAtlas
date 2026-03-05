@@ -19,9 +19,10 @@ import { toast } from "sonner";
 
 interface ProjectAdminActionsProps {
   projectId: string;
+  isCreator?: boolean;
 }
 
-export function ProjectAdminActions({ projectId }: ProjectAdminActionsProps) {
+export function ProjectAdminActions({ projectId, isCreator }: ProjectAdminActionsProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -30,7 +31,7 @@ export function ProjectAdminActions({ projectId }: ProjectAdminActionsProps) {
   const isAdmin = session?.user?.role === "ADMIN";
   const isMod = session?.user?.role === "MODERATOR";
 
-  if (!isAdmin && !isMod) {
+  if (!isAdmin && !isMod && !isCreator) {
     return null;
   }
 
@@ -62,7 +63,7 @@ export function ProjectAdminActions({ projectId }: ProjectAdminActionsProps) {
   return (
     <>
       <Button variant="outline" size="sm" asChild>
-        <Link href={`/admin/projects/${projectId}/edit`}>
+        <Link href={isAdmin ? `/admin/projects/${projectId}/edit` : `/projects/submit/${projectId}/edit`}>
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
           Edit
         </Link>

@@ -191,13 +191,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             links: project.links,
           }}
         />
-        {(isCreator || session?.user?.role === "ADMIN" || session?.user?.role === "MODERATOR") && (
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/projects/submit/${project.id}/edit`}>Edit</Link>
-          </Button>
-        )}
         {session?.user && <ReportButton projectId={project.id} />}
-        <ProjectAdminActions projectId={project.id} />
+        <ProjectAdminActions projectId={project.id} isCreator={isCreator} />
         {project.designer && (
           <>
             <span className="text-muted-foreground text-sm">by</span>
