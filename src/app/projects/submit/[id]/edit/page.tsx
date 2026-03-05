@@ -43,9 +43,13 @@ export default async function EditSubmissionPage({ params }: EditSubmissionPageP
     notFound();
   }
 
-  // Only the creator can edit.
+  // Creator, admin, or moderator can edit.
   // If review is required, lock published projects; otherwise allow editing published projects.
-  if (project.creatorId !== session.user.id) {
+  const isCreatorOrStaff =
+    project.creatorId === session.user.id ||
+    session.user.role === "ADMIN" ||
+    session.user.role === "MODERATOR";
+  if (!isCreatorOrStaff) {
     redirect("/profile");
   }
   if (REQUIRE_PROJECT_REVIEW && project.published) {

@@ -191,7 +191,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             links: project.links,
           }}
         />
-        {isCreator && (
+        {(isCreator || session?.user?.role === "ADMIN" || session?.user?.role === "MODERATOR") && (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/projects/submit/${project.id}/edit`}>Edit</Link>
           </Button>
@@ -228,7 +228,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         <SoundTestSection
           projectId={project.id}
           soundTests={project.soundTests}
-          canEdit={isCreator || session?.user?.role === "ADMIN"}
+          canEdit={isCreator || session?.user?.role === "ADMIN" || session?.user?.role === "MODERATOR"}
         />
       )}
 

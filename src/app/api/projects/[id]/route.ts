@@ -83,12 +83,11 @@ export async function PUT(
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const isAdmin = session.user.role === "ADMIN";
+  const isStaff = session.user.role === "ADMIN" || session.user.role === "MODERATOR";
 
-  // Non-admin users can only edit their own projects.
-  // When review is required they can only edit unpublished drafts;
-  // when review is disabled they can edit their own published projects too.
-  if (!isAdmin) {
+  // Staff can edit any project. Regular users can only edit their own.
+  // When review is required, non-staff can only edit unpublished drafts.
+  if (!isStaff) {
     const existing = await prisma.project.findUnique({
       where: { id },
       select: { creatorId: true, published: true },
