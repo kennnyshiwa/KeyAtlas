@@ -21,7 +21,10 @@ export function FollowButton({
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
 
-  async function handleToggle() {
+  async function handleToggle(e: React.MouseEvent | React.TouchEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (loading) return;
     setLoading(true);
     try {
       const res = await fetch("/api/follow", {
@@ -49,6 +52,7 @@ export function FollowButton({
     <Button
       variant={following ? "outline" : "default"}
       size={size}
+      className="touch-manipulation"
       onClick={handleToggle}
       disabled={loading}
     >

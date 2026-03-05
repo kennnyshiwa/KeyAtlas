@@ -32,27 +32,29 @@ export function FavoriteButton({
       .catch(() => {});
   }, [projectId]);
 
-  const toggle = async (e: React.MouseEvent) => {
+  const toggle = async (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!session?.user || isLoading) return;
 
+    const wasFavorited = isFavorited;
+
     // Optimistic update
-    setIsFavorited(!isFavorited);
-    setCount((c) => (isFavorited ? c - 1 : c + 1));
+    setIsFavorited(!wasFavorited);
+    setCount((c) => (wasFavorited ? c - 1 : c + 1));
     setIsLoading(true);
 
     try {
       const res = await fetch(`/api/favorites/${projectId}`, {
-        method: isFavorited ? "DELETE" : "POST",
+        method: wasFavorited ? "DELETE" : "POST",
       });
       const data = await res.json();
       setCount(data.count);
       setIsFavorited(data.isFavorited);
     } catch {
       // Revert on error
-      setIsFavorited(isFavorited);
-      setCount((c) => (isFavorited ? c + 1 : c - 1));
+      setIsFavorited(wasFavorited);
+      setCount((c) => (wasFavorited ? c + 1 : c - 1));
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +64,7 @@ export function FavoriteButton({
     <Button
       variant="ghost"
       size="sm"
-      className="gap-1.5"
+      className="gap-1.5 touch-manipulation"
       onClick={toggle}
       disabled={!session?.user}
     >
