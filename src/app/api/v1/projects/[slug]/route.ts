@@ -39,6 +39,28 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const [followCount, isFollowing, isFavorited] = await Promise.all([
+    prisma.follow.count({ where: { targetType: "PROJECT", targetId: project.id } }),
+    user
+      ? prisma.follow
+          .findUnique({
+            where: {
+              userId_targetType_targetId: {
+                userId: user.id,
+                targetType: "PROJECT",
+                targetId: project.id,
+              },
+            },
+          })
+          .then((f) => !!f)
+      : Promise.resolve(false),
+    user
+      ? prisma.favorite
+          .findUnique({ where: { userId_projectId: { userId: user.id, projectId: project.id } } })
+          .then((f) => !!f)
+      : Promise.resolve(false),
+  ]);
+
   const data = {
     id: project.id,
     title: project.title,
@@ -94,10 +116,10 @@ export async function GET(
     estimated_delivery: project.estimatedDelivery,
     gb_start_date: project.gbStartDate,
     gb_end_date: project.gbEndDate,
-    follow_count: 0,
+    follow_count: followCount,
     favorite_count: project._count.favorites,
-    is_following: false,
-    is_favorited: false,
+    is_following: isFollowing,
+    is_favorited: isFavorited,
     is_featured: false,
     created_at: project.createdAt,
     updated_at: project.updatedAt,
