@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProjectStatusBadge } from "./status-badge";
 import { FavoriteButton } from "./favorite-button";
+import { EventStop } from "./event-stop";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import { formatPrice } from "@/lib/utils";
 import type { ProjectListItem } from "@/types";
@@ -81,10 +82,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
                   ` - ${formatPrice(project.priceMax, project.currency)}`}
               </span>
             )}
-            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} onTouchEnd={(e) => e.stopPropagation()}>
+            <EventStop>
               <FavoriteButton projectId={project.id} />
-            </div>
+            </EventStop>
           </div>
         </CardContent>
       </Card>
