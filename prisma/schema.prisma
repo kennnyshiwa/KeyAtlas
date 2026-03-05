@@ -131,6 +131,7 @@ model User {
   resolvedReports   ProjectReport[]    @relation("ResolvedReports")
   savedFilters      SavedFilter[]      @relation("UserSavedFilters")
   imageAssets       ImageAsset[]       @relation("UserImageAssets")
+  adminAuditLogs    AdminAuditLog[]    @relation("AdminActorLogs")
 
   @@map("users")
 }
@@ -757,4 +758,24 @@ model ImageAsset {
 
   @@index([uploaderId])
   @@map("image_assets")
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorId     String
+  actor       User     @relation("AdminActorLogs", fields: [actorId], references: [id], onDelete: Cascade)
+  actorRole   UserRole
+  action      String
+  resource    String
+  resourceId  String?
+  targetId    String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([resource, createdAt])
+  @@map("admin_audit_logs")
 }

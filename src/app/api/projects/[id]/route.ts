@@ -9,6 +9,7 @@ import { dispatchNotification } from "@/lib/notifications/service";
 import { STATUS_LABELS } from "@/lib/constants";
 import { rateLimit, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
 import { logProjectChanges } from "@/lib/project-change-log";
+import { logAdminAction } from "@/lib/admin-audit";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -224,6 +225,20 @@ export async function PUT(
     await indexProject(project);
   }
 
+  if (isStaff) {
+    await logAdminAction({
+      actorId: session.user.id,
+      actorRole: session.user.role,
+      action: "PROJECT_UPDATED",
+      resource: "PROJECT",
+      resourceId: id,
+      targetId: id,
+      metadata: { intent: intent ?? null, status: data.status, published: data.published },
+      ipAddress: req.headers.get("x-forwarded-for"),
+      userAgent: req.headers.get("user-agent"),
+    });
+  }
+
   // Notify followers on status change
   if (currentProject && currentProject.status !== data.status) {
     const followers = await prisma.follow.findMany({
@@ -255,7 +270,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -266,6 +281,17 @@ export async function DELETE(
 
   await prisma.project.delete({ where: { id } });
   await removeProjectFromIndex(id);
+
+  await logAdminAction({
+    actorId: session.user.id,
+    actorRole: session.user.role,
+    action: "PROJECT_DELETED",
+    resource: "PROJECT",
+    resourceId: id,
+    targetId: id,
+    ipAddress: req.headers.get("x-forwarded-for"),
+    userAgent: req.headers.get("user-agent"),
+  });
 
   return NextResponse.json({ success: true });
 }

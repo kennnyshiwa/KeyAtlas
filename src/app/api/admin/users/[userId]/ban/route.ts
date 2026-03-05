@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, requireAdminSession, revokeAllUserSessions } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 
 const bodySchema = z.object({
   banned: z.boolean(),
@@ -51,6 +52,16 @@ export async function PATCH(
   if (parsed.data.banned) {
     await revokeAllUserSessions(userId);
   }
+
+  await logAdminAction({
+    actorId: access.session.user.id,
+    actorRole: access.session.user.role,
+    action: parsed.data.banned ? "USER_BANNED" : "USER_UNBANNED",
+    resource: "USER",
+    resourceId: userId,
+    targetId: userId,
+    metadata: { reason: parsed.data.reason ?? null },
+  });
 
   return NextResponse.json({ data: updated });
 }

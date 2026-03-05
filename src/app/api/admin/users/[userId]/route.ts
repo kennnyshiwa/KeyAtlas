@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, requireAdminSession } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function GET(
   _req: Request,
@@ -86,6 +87,15 @@ export async function DELETE(
   }
 
   await prisma.user.delete({ where: { id: userId } });
+
+  await logAdminAction({
+    actorId: access.session.user.id,
+    actorRole: access.session.user.role,
+    action: "USER_DELETED",
+    resource: "USER",
+    resourceId: userId,
+    targetId: userId,
+  });
 
   return NextResponse.json({ data: { id: userId, deleted: true } });
 }

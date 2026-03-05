@@ -3,6 +3,7 @@ import { z } from "zod";
 import { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, requireAdminSession } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 
 const bodySchema = z.object({
   role: z.enum(["USER", "MODERATOR", "ADMIN"]),
@@ -46,6 +47,16 @@ export async function PATCH(
     where: { id: userId },
     data: { role: parsed.data.role },
     select: { id: true, role: true },
+  });
+
+  await logAdminAction({
+    actorId: access.session.user.id,
+    actorRole: access.session.user.role,
+    action: "USER_ROLE_UPDATED",
+    resource: "USER",
+    resourceId: userId,
+    targetId: userId,
+    metadata: { role: parsed.data.role },
   });
 
   return NextResponse.json({ data: updated });

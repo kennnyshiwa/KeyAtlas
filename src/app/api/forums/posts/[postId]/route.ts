@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isModeratorUser } from "@/lib/forums/moderation";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ postId: string }> }
 ) {
   const session = await auth();
@@ -31,6 +32,17 @@ export async function DELETE(
     where: {
       OR: [{ id: postId }, { parentId: postId }],
     },
+  });
+
+  await logAdminAction({
+    actorId: session.user.id,
+    actorRole: session.user.role,
+    action: "FORUM_POST_DELETED",
+    resource: "FORUM_POST",
+    resourceId: postId,
+    targetId: post.threadId,
+    ipAddress: req.headers.get("x-forwarded-for"),
+    userAgent: req.headers.get("user-agent"),
   });
 
   return NextResponse.json({ success: true, threadId: post.threadId });

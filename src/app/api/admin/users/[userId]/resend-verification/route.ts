@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, requireAdminSession } from "@/lib/admin-auth";
 import { sendVerificationEmail } from "@/lib/mail";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function POST(
   _req: Request,
@@ -53,6 +54,15 @@ export async function POST(
     email: user.email,
     token,
     displayName: user.displayName ?? user.name ?? null,
+  });
+
+  await logAdminAction({
+    actorId: access.session.user.id,
+    actorRole: access.session.user.role,
+    action: "USER_VERIFICATION_RESEND",
+    resource: "USER",
+    resourceId: userId,
+    targetId: userId,
   });
 
   return NextResponse.json({ data: { sent: true } });

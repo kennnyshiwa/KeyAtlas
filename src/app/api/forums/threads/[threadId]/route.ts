@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isModeratorUser } from "@/lib/forums/moderation";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function PATCH(
   req: NextRequest,
@@ -43,11 +44,23 @@ export async function PATCH(
     data,
   });
 
+  await logAdminAction({
+    actorId: session.user.id,
+    actorRole: session.user.role,
+    action: `FORUM_THREAD_${action?.toUpperCase()}`,
+    resource: "FORUM_THREAD",
+    resourceId: threadId,
+    targetId: threadId,
+    metadata: data,
+    ipAddress: req.headers.get("x-forwarded-for"),
+    userAgent: req.headers.get("user-agent"),
+  });
+
   return NextResponse.json(updated);
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ threadId: string }> }
 ) {
   const session = await auth();
@@ -72,6 +85,17 @@ export async function DELETE(
 
   await prisma.forumPost.deleteMany({ where: { threadId } });
   await prisma.forumThread.delete({ where: { id: threadId } });
+
+  await logAdminAction({
+    actorId: session.user.id,
+    actorRole: session.user.role,
+    action: "FORUM_THREAD_DELETED",
+    resource: "FORUM_THREAD",
+    resourceId: threadId,
+    targetId: threadId,
+    ipAddress: req.headers.get("x-forwarded-for"),
+    userAgent: req.headers.get("user-agent"),
+  });
 
   return NextResponse.json({ success: true, categorySlug: existing.category.slug });
 }

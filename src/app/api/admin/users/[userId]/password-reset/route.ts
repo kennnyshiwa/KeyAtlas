@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, requireAdminSession, revokeAllUserSessions } from "@/lib/admin-auth";
 import { getSiteUrl } from "@/lib/site";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function POST(
   _req: Request,
@@ -47,6 +48,15 @@ export async function POST(
 
   const baseUrl = getSiteUrl().replace(/\/$/, "");
   const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+  await logAdminAction({
+    actorId: access.session.user.id,
+    actorRole: access.session.user.role,
+    action: "USER_PASSWORD_RESET_ISSUED",
+    resource: "USER",
+    resourceId: userId,
+    targetId: userId,
+  });
 
   return NextResponse.json({
     data: {

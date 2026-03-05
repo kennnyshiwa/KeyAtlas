@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LayoutDashboard, FolderKanban, Store, ArrowLeft, Users, Tags, Flag } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Store, ArrowLeft, Users, Tags, Flag, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const adminLinks = [
@@ -13,6 +13,7 @@ const adminLinks = [
   { href: "/admin/keycap-profiles", label: "Keycap Profiles", icon: Tags },
   { href: "/admin/users", label: "Users", icon: Users, adminOnly: true },
   { href: "/admin/reports", label: "Reports", icon: Flag },
+  { href: "/admin/audit-logs", label: "Audit Logs", icon: Shield },
 ];
 
 export function AdminSidebar() {
