@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
-import { computeProjectDataCompleteness } from "@/lib/project-data-completeness";
 
 export async function GET(req: NextRequest) {
   const user = await authenticateApiKey(req);
@@ -31,22 +30,12 @@ export async function GET(req: NextRequest) {
         id: true,
         title: true,
         slug: true,
-        description: true,
         status: true,
-        gbStartDate: true,
-        gbEndDate: true,
         published: true,
         heroImage: true,
-        vendorId: true,
         createdAt: true,
         updatedAt: true,
         creator: { select: { id: true, username: true } },
-        _count: {
-          select: {
-            links: true,
-            projectVendors: true,
-          },
-        },
       },
       orderBy: { createdAt: "desc" },
       skip: offset,
@@ -66,17 +55,6 @@ export async function GET(req: NextRequest) {
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
       creator: p.creator,
-      dataCompleteness: computeProjectDataCompleteness({
-        title: p.title,
-        description: p.description,
-        heroImage: p.heroImage,
-        status: p.status,
-        gbStartDate: p.gbStartDate,
-        gbEndDate: p.gbEndDate,
-        vendorId: p.vendorId,
-        linkCount: p._count.links,
-        projectVendorCount: p._count.projectVendors,
-      }),
     })),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
