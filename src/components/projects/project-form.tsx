@@ -894,32 +894,14 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="slug">Slug</Label>
-              <Input
-                id="slug"
-                value={formData.slug}
-                onChange={(e) => updateField("slug", e.target.value)}
-                required
-                readOnly={isEditing}
-                className={isEditing ? "bg-muted cursor-not-allowed" : undefined}
-              />
-              <p className="text-muted-foreground text-xs">
-                {isEditing
-                  ? "The slug cannot be changed after creation."
-                  : "This becomes the permanent URL for your project (e.g. keyatlas.io/projects/your-slug)."}
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="title">Title</Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              required
+            />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
