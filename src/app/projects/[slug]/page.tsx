@@ -15,7 +15,7 @@ import { CommentSection } from "@/components/comments/comment-section";
 import { UpdateTimeline } from "@/components/updates/update-timeline";
 import { SoundTestSection } from "@/components/projects/sound-test-section";
 import { ShareButton } from "@/components/social/share-button";
-import { FollowButton } from "@/components/social/follow-button";
+import { ProjectSocialProof } from "@/components/projects/project-social-proof";
 import { ReportButton } from "@/components/projects/report-button";
 import { ProjectChangeLog } from "@/components/projects/project-changelog";
 import { Badge } from "@/components/ui/badge";
@@ -176,20 +176,18 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       />
       <ProjectHero project={project} />
 
-      <div className="rounded-lg border bg-muted/20 p-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Badge variant="secondary">{project._count.followers} followers</Badge>
-          <Badge variant="secondary">{project._count.favorites} bookmarks</Badge>
-          <Badge variant="secondary">{project._count.comments} comments</Badge>
-        </div>
-      </div>
+      <ProjectSocialProof
+        projectId={project.id}
+        followerCount={project._count.followers}
+        favoriteCount={project._count.favorites}
+        commentCount={project._count.comments}
+        canFollow={!!session?.user}
+        initialFollowing={isFollowing}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <FavoriteButton projectId={project.id} />
         <CollectionButton projectId={project.id} />
-        {session?.user && (
-          <FollowButton targetType="PROJECT" targetId={project.id} initialFollowing={isFollowing} size="sm" />
-        )}
         <ShareButton
           title={project.title}
           geekhack={{

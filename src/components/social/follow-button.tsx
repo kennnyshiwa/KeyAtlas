@@ -10,6 +10,7 @@ interface FollowButtonProps {
   targetType: "USER" | "PROJECT" | "VENDOR" | "FORUM_THREAD" | "FORUM_CATEGORY";
   targetId: string;
   initialFollowing: boolean;
+  onFollowingChange?: (following: boolean) => void;
   size?: "sm" | "default";
 }
 
@@ -17,6 +18,7 @@ export function FollowButton({
   targetType,
   targetId,
   initialFollowing,
+  onFollowingChange,
   size = "default",
 }: FollowButtonProps) {
   const { data: session } = useSession();
@@ -30,10 +32,13 @@ export function FollowButton({
     fetch(`/api/follow/status?targetType=${targetType}&targetId=${targetId}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        if (data) setFollowing(data.following);
+        if (data) {
+          setFollowing(data.following);
+          onFollowingChange?.(data.following);
+        }
       })
       .catch(() => {});
-  }, [session?.user, targetType, targetId]);
+  }, [session?.user, targetType, targetId, onFollowingChange]);
 
   async function handleToggle(e: React.MouseEvent | React.TouchEvent) {
     // Prevent double-fire: if click follows a recent touch, skip it
@@ -62,6 +67,7 @@ export function FollowButton({
 
       const data = await res.json();
       setFollowing(data.following);
+      onFollowingChange?.(data.following);
       if (targetType === "PROJECT" && data.following) {
         toast.success(
           "Following. You'll get updates for status changes, GB ending soon, and shipping progress."
