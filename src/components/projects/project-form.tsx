@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { GalleryStudio } from "@/components/projects/gallery-studio";
 import { VendorMultiSelect } from "@/components/projects/vendor-multi-select";
@@ -21,9 +22,9 @@ import { CATEGORY_LABELS, STATUS_LABELS, PROFILE_OPTIONS } from "@/lib/constants
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
 import type { ProjectWithRelations } from "@/types";
-import { Plus, Trash2, Loader2, Eye, Download } from "lucide-react";
+import { Plus, Trash2, Loader2, Eye, Download, Save } from "lucide-react";
 import { toast } from "sonner";
-import type { GeekhackPrefillPayload } from "@/lib/import/geekhack";
+import type { UrlImportPrefillPayload } from "@/lib/import/url-prefill";
 
 const RichTextEditor = lazy(() =>
   import("@/components/editor/rich-text-editor").then((m) => ({
@@ -41,21 +42,39 @@ interface ProjectFormProps {
     }[];
   };
   vendors?: { id: string; name: string; regionsServed?: string[]; storefrontUrl?: string | null }[];
+  templateProjects?: {
+    id: string;
+    title: string;
+    slug: string;
+    category: ProjectFormData["category"];
+    status: ProjectFormData["status"];
+    description: string | null;
+    tags: string[];
+    designer: string | null;
+    profile: string | null;
+    currency: string;
+    priceMin: number | null;
+    priceMax: number | null;
+    estimatedDelivery: string | null;
+    images: { url: string; alt: string | null; order: number; linkUrl: string | null; openInNewTab: boolean }[];
+    links: { label: string; url: string; type: ProjectFormData["links"][number]["type"] }[];
+    projectVendors: { vendorId: string; region: string | null; storeLink: string | null; endDate: Date | null }[];
+  }[];
   mode?: "admin" | "submit";
   showSectionNav?: boolean;
 }
+
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 function PriceInput({ id, valueCents, onValueCents }: { id: string; valueCents: number | null | undefined; onValueCents: (v: number | null) => void }) {
   const [display, setDisplay] = useState(valueCents != null ? (valueCents / 100).toString() : "");
   const initialized = useRef(false);
 
-  // Sync from parent only on mount or when valueCents changes externally
   useEffect(() => {
     if (!initialized.current) {
       initialized.current = true;
       return;
     }
-    // Only sync if the input isn't focused (external change)
     if (document.activeElement?.id !== id) {
       setDisplay(valueCents != null ? (valueCents / 100).toString() : "");
     }
@@ -70,7 +89,6 @@ function PriceInput({ id, valueCents, onValueCents }: { id: string; valueCents: 
       value={display}
       onChange={(e) => {
         const raw = e.target.value;
-        // Allow empty, digits, one decimal point
         if (raw !== "" && !/^\d*\.?\d{0,2}$/.test(raw)) return;
         setDisplay(raw);
         if (raw === "" || raw === ".") {
@@ -80,7 +98,6 @@ function PriceInput({ id, valueCents, onValueCents }: { id: string; valueCents: 
         }
       }}
       onBlur={() => {
-        // Format nicely on blur
         if (valueCents != null) {
           setDisplay((valueCents / 100).toFixed(2));
         } else {
@@ -91,8 +108,9 @@ function PriceInput({ id, valueCents, onValueCents }: { id: string; valueCents: 
   );
 }
 
-export function ProjectForm({ project, vendors = [], mode = "admin", showSectionNav: showSectionNavProp }: ProjectFormProps) {
+export function ProjectForm({ project, vendors = [], templateProjects = [], mode = "admin", showSectionNav: showSectionNavProp }: ProjectFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const isEditing = !!project;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [heroImageError, setHeroImageError] = useState(false);
@@ -150,10 +168,68 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
 
   const [tagInput, setTagInput] = useState("");
   const [inlineImageChoice, setInlineImageChoice] = useState("none");
+  const [bulkLinkInput, setBulkLinkInput] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [importingUrl, setImportingUrl] = useState(false);
+  const [templateProjectId, setTemplateProjectId] = useState("none");
 
-  // Geekhack import
-  const [ghUrl, setGhUrl] = useState("");
-  const [ghImporting, setGhImporting] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [draftRecovered, setDraftRecovered] = useState(false);
+  const lastSavedSnapshotRef = useRef<string>(JSON.stringify(formData));
+  const suppressAutosaveRef = useRef(false);
+
+  const draftStorageKey = useMemo(() => {
+    const owner = mode === "admin" ? "admin" : "submit";
+    return `keyvault:project-draft:${owner}:${project?.id ?? "new"}`;
+  }, [mode, project?.id]);
+
+  const serializeForm = (value: ProjectFormData) =>
+    JSON.stringify({
+      ...value,
+      icDate: value.icDate ? new Date(value.icDate).toISOString() : null,
+      gbStartDate: value.gbStartDate ? new Date(value.gbStartDate).toISOString() : null,
+      gbEndDate: value.gbEndDate ? new Date(value.gbEndDate).toISOString() : null,
+      images: (value.images ?? []).map((image, index) => ({ ...image, order: index })),
+    });
+
+  const parseLinkType = (url: string): ProjectFormData["links"][number]["type"] => {
+    const lower = url.toLowerCase();
+    if (lower.includes("geekhack.org")) return "GEEKHACK";
+    if (lower.includes("discord.")) return "DISCORD";
+    if (lower.includes("instagram.")) return "INSTAGRAM";
+    if (lower.includes("reddit.")) return "REDDIT";
+    if (lower.includes("shop") || lower.includes("store")) return "STORE";
+    return "WEBSITE";
+  };
+
+  const saveToLocalDraft = (value: ProjectFormData) => {
+    try {
+      localStorage.setItem(
+        draftStorageKey,
+        JSON.stringify({
+          version: 1,
+          updatedAt: Date.now(),
+          formData: {
+            ...value,
+            icDate: value.icDate ? new Date(value.icDate).toISOString() : null,
+            gbStartDate: value.gbStartDate ? new Date(value.gbStartDate).toISOString() : null,
+            gbEndDate: value.gbEndDate ? new Date(value.gbEndDate).toISOString() : null,
+          },
+        })
+      );
+    } catch {
+      setSaveState("error");
+    }
+  };
+
+  const clearLocalDraft = () => {
+    try {
+      localStorage.removeItem(draftStorageKey);
+    } catch {
+      // no-op
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -179,15 +255,123 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
     };
   }, []);
 
-  const handleGeekhackImport = async () => {
-    const trimmed = ghUrl.trim();
-    if (!trimmed) {
-      toast.error("Please enter a Geekhack URL");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(draftStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { formData?: Partial<ProjectFormData> };
+      const recovered = parsed.formData;
+      if (!recovered) return;
+
+      setFormData((prev) => ({
+        ...prev,
+        ...recovered,
+        icDate: recovered.icDate ? new Date(recovered.icDate) : prev.icDate,
+        gbStartDate: recovered.gbStartDate ? new Date(recovered.gbStartDate) : prev.gbStartDate,
+        gbEndDate: recovered.gbEndDate ? new Date(recovered.gbEndDate) : prev.gbEndDate,
+      }));
+      setDraftRecovered(true);
+      toast.success("Recovered unsaved draft from this device");
+    } catch {
+      // ignore malformed local draft data
+    }
+  }, [draftStorageKey]);
+
+  const updateField = <K extends keyof ProjectFormData>(
+    key: K,
+    value: ProjectFormData[K]
+  ) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  useEffect(() => {
+    if (suppressAutosaveRef.current) {
+      suppressAutosaveRef.current = false;
       return;
     }
-    setGhImporting(true);
+
+    const timeout = window.setTimeout(async () => {
+      const snapshot = serializeForm(formData);
+      saveToLocalDraft(formData);
+
+      if (snapshot === lastSavedSnapshotRef.current) return;
+
+      if (!formData.title.trim() || !formData.slug.trim()) {
+        setSaveState("saved");
+        setLastSavedAt(new Date());
+        return;
+      }
+
+      setSaveState("saving");
+      try {
+        const method = isEditing ? "PUT" : "POST";
+        const baseUrl = isEditing ? `/api/projects/${project.id}` : "/api/projects";
+        const submitData = {
+          ...formData,
+          published: false,
+          images: (formData.images ?? []).map((image, index) => ({
+            ...image,
+            order: index,
+          })),
+          projectVendors: (formData.projectVendors ?? []).filter((pv) => pv.vendorId),
+        };
+
+        const res = await fetch(`${baseUrl}?intent=draft`, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(submitData),
+        });
+
+        if (!res.ok) {
+          throw new Error("Autosave failed");
+        }
+
+        const savedProject = await res.json();
+
+        if (!isEditing && savedProject?.id) {
+          const nextPath =
+            mode === "admin"
+              ? `/admin/projects/${savedProject.id}/edit`
+              : `/projects/submit/${savedProject.id}/edit`;
+          if (pathname !== nextPath) {
+            router.replace(nextPath);
+          }
+        }
+
+        setSaveState("saved");
+        setLastSavedAt(new Date());
+        lastSavedSnapshotRef.current = snapshot;
+      } catch {
+        setSaveState("error");
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(timeout);
+  }, [formData, isEditing, mode, pathname, project?.id, router]);
+
+  const hasUnsavedChanges = serializeForm(formData) !== lastSavedSnapshotRef.current;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const handleUrlImport = async () => {
+    const trimmed = sourceUrl.trim();
+    if (!trimmed) {
+      toast.error("Please enter a URL to import");
+      return;
+    }
+    setImportingUrl(true);
     try {
-      const res = await fetch("/api/import/geekhack", {
+      const res = await fetch("/api/import/url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: trimmed }),
@@ -197,7 +381,8 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         toast.error(data.error || "Import failed");
         return;
       }
-      const prefill: GeekhackPrefillPayload = data.prefill;
+
+      const prefill: UrlImportPrefillPayload = data.prefill;
       setFormData((prev) => ({
         ...prev,
         title: prefill.title || prev.title,
@@ -205,35 +390,22 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         description: prefill.description || prev.description,
         category: prefill.category || prev.category,
         status: prefill.status || prev.status,
-        tags: Array.from(new Set([...prev.tags, ...prefill.tags])),
+        tags: Array.from(new Set([...(prev.tags ?? []), ...(prefill.tags ?? [])])),
+        designer: prefill.designer ?? prev.designer,
+        estimatedDelivery: prefill.estimatedDelivery ?? prev.estimatedDelivery,
+        gbStartDate: prefill.gbStartDate ? new Date(prefill.gbStartDate) : prev.gbStartDate,
+        gbEndDate: prefill.gbEndDate ? new Date(prefill.gbEndDate) : prev.gbEndDate,
         links: [
-          ...prev.links,
-          ...prefill.links.map((l) => ({ label: l.label, url: l.url, type: l.type as "GEEKHACK" })),
-        ],
-        images: [
-          ...prev.images,
-          ...prefill.images.map((img, i) => ({
-            url: img.url,
-            alt: img.alt ?? "",
-            order: prev.images.length + i,
-            linkUrl: null,
-            openInNewTab: true,
-          })),
+          ...(prev.links ?? []),
+          ...(prefill.links ?? []).map((link) => ({ label: link.label, url: link.url, type: link.type })),
         ],
       }));
-      toast.success(`Imported "${prefill.title}" from Geekhack`);
+      toast.success("Imported source hints. Please review before publishing.");
     } catch {
       toast.error("Network error – could not reach server");
     } finally {
-      setGhImporting(false);
+      setImportingUrl(false);
     }
-  };
-
-  const updateField = <K extends keyof ProjectFormData>(
-    key: K,
-    value: ProjectFormData[K]
-  ) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleTitleChange = (title: string) => {
@@ -265,6 +437,35 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
     ]);
   };
 
+  const addBulkLinks = () => {
+    const urls = bulkLinkInput
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter((item) => /^https?:\/\//i.test(item));
+
+    if (urls.length === 0) {
+      toast.error("Paste one or more valid URLs");
+      return;
+    }
+
+    const newLinks = urls
+      .filter((url) => !formData.links.some((link) => link.url === url))
+      .map((url) => ({
+        label: new URL(url).hostname.replace(/^www\./, ""),
+        url,
+        type: parseLinkType(url),
+      }));
+
+    if (newLinks.length === 0) {
+      toast.info("All pasted URLs are already in your links list");
+      return;
+    }
+
+    updateField("links", [...formData.links, ...newLinks]);
+    setBulkLinkInput("");
+    toast.success(`Added ${newLinks.length} link${newLinks.length > 1 ? "s" : ""}`);
+  };
+
   const updateLink = (
     index: number,
     field: string,
@@ -280,6 +481,34 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
       "links",
       formData.links.filter((_, i) => i !== index)
     );
+  };
+
+  const applyTemplate = () => {
+    const selected = templateProjects.find((item) => item.id === templateProjectId);
+    if (!selected) return;
+
+    suppressAutosaveRef.current = true;
+    setFormData((prev) => ({
+      ...prev,
+      title: `${selected.title} (Copy)`,
+      slug: generateSlug(`${selected.title}-copy`),
+      category: selected.category,
+      status: selected.status,
+      description: selected.description ?? "",
+      tags: selected.tags ?? [],
+      designer: selected.designer ?? null,
+      profile: selected.profile ?? null,
+      currency: selected.currency,
+      priceMin: selected.priceMin,
+      priceMax: selected.priceMax,
+      estimatedDelivery: selected.estimatedDelivery,
+      images: selected.images.map((image, index) => ({ ...image, order: index, alt: image.alt ?? undefined })),
+      links: selected.links,
+      projectVendors: selected.projectVendors.map((vendor) => ({ ...vendor, region: vendor.region ?? "", storeLink: vendor.storeLink ?? "" })),
+      published: false,
+      featured: false,
+    }));
+    toast.success("Template applied. Adjust details and publish when ready.");
   };
 
   const escapeHtml = (value: string) =>
@@ -306,15 +535,50 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
     return `<figure class="project-inline-image" style="margin:1.5rem 0; text-align:center;"><img src="${safeUrl}" alt="${safeAlt}" loading="lazy" decoding="async" style="max-width:100%; height:auto; border-radius:0.5rem; display:inline-block;" /><figcaption style="margin-top:0.5rem; color:#6b7280; font-size:0.875rem;">${escapeHtml(captionText)}</figcaption></figure><p></p>`;
   };
 
+  const getPublishValidationErrors = () => {
+    const errors: Array<{ id: string; message: string }> = [];
+    if (!formData.title.trim()) errors.push({ id: "title", message: "Title is required" });
+    if (!formData.slug.trim()) errors.push({ id: "slug", message: "Slug is required" });
+    if (!(formData.description ?? "").trim()) errors.push({ id: "description", message: "Description is required" });
+    if (!(formData.heroImage ?? "").trim()) errors.push({ id: "hero-image", message: "Hero image is required" });
+
+    if (formData.status === "GROUP_BUY") {
+      if (!formData.projectVendors.length) {
+        errors.push({ id: "vendors", message: "At least one vendor is required for Group Buy" });
+      }
+      if (!formData.gbStartDate) {
+        errors.push({ id: "gbStartDate", message: "GB start date is required for Group Buy" });
+      }
+      if (!formData.gbEndDate) {
+        errors.push({ id: "gbEndDate", message: "GB end date is required for Group Buy" });
+      }
+    }
+
+    return errors;
+  };
+
+  const focusValidationField = (id: string) => {
+    const element = document.getElementById(id) ?? document.querySelector(`[data-field="${id}"]`);
+    if (!element) return;
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+      element.focus();
+    }
+  };
+
   const saveProject = async (
     intent: "draft" | "review" | "publish" | "preview",
-    options?: { redirectToPreview?: boolean }
+    options?: { redirectToPreview?: boolean; silent?: boolean }
   ) => {
-    if (intent === "publish" && !(formData.heroImage ?? "").trim()) {
-      setHeroImageError(true);
-      toast.error("Hero image is required to publish");
-      heroCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
+    if (intent === "publish") {
+      const errors = getPublishValidationErrors();
+      if (errors.length > 0) {
+        const firstError = errors[0];
+        setHeroImageError(firstError.id === "hero-image");
+        focusValidationField(firstError.id);
+        toast.error(firstError.message);
+        return;
+      }
     }
 
     setHeroImageError(false);
@@ -325,7 +589,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
       const url = `${baseUrl}?intent=${intent}`;
       const method = isEditing ? "PUT" : "POST";
 
-      // Filter out vendor entries with no vendor selected before submitting
       const submitData = {
         ...formData,
         published:
@@ -353,9 +616,13 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
       }
 
       const savedProject = await res.json();
+      clearLocalDraft();
+      lastSavedSnapshotRef.current = serializeForm(formData);
+      setSaveState("saved");
+      setLastSavedAt(new Date());
 
       if (options?.redirectToPreview) {
-        toast.success("Saved. Opening preview...");
+        if (!options.silent) toast.success("Saved. Opening preview...");
         const returnTo =
           mode === "admin"
             ? isEditing
@@ -370,15 +637,18 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
       }
 
       if (intent === "draft") {
-        toast.success("Draft saved");
+        if (!options?.silent) toast.success("Draft saved");
       } else {
-        toast.success(isEditing ? "Project updated and published" : "Project created and published");
+        if (!options?.silent) toast.success(isEditing ? "Project updated and published" : "Project created and published");
       }
 
       router.push(mode === "submit" ? "/profile" : "/admin/projects");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Something went wrong");
+      setSaveState("error");
+      if (!options?.silent) {
+        toast.error(error instanceof Error ? error.message : "Something went wrong");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -404,9 +674,13 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
 
   const sections = [
     { id: "basic-info", label: "Basic Info" },
+    ...(formData.status === "GROUP_BUY"
+      ? [
+          { id: "vendors", label: "Vendors" },
+          { id: "timeline", label: "GB Timeline" },
+        ]
+      : [{ id: "timeline", label: "Timeline" }, { id: "vendors", label: "Vendors" }]),
     { id: "pricing", label: "Pricing" },
-    { id: "vendors", label: "Vendors" },
-    { id: "timeline", label: "Timeline" },
     { id: "hero-image", label: "Hero Image" },
     { id: "gallery", label: "Gallery" },
     { id: "tags", label: "Tags" },
@@ -434,7 +708,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
 
     return () => observer.disconnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [formData.status]);
 
   const showSectionNav = showSectionNavProp ?? mode === "submit";
 
@@ -466,46 +740,80 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
           </div>
         </nav>
       )}
-      <form onSubmit={handleSubmit} className="min-w-0 flex-1 space-y-6">
+      <form onSubmit={handleSubmit} className="min-w-0 flex-1 space-y-6 pb-24 md:pb-0">
       {!isEditing && (
         <Card>
           <CardHeader>
-            <CardTitle>Import from Geekhack</CardTitle>
+            <CardTitle>Import from URL</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
-                data-testid="geekhack-url-input"
-                placeholder="https://geekhack.org/index.php?topic=12345.0"
-                value={ghUrl}
-                onChange={(e) => setGhUrl(e.target.value)}
-                disabled={ghImporting}
+                data-testid="source-url-input"
+                placeholder="https://geekhack.org/... or vendor project page"
+                value={sourceUrl}
+                onChange={(e) => setSourceUrl(e.target.value)}
+                disabled={importingUrl}
               />
               <Button
                 type="button"
                 variant="secondary"
-                onClick={handleGeekhackImport}
-                disabled={ghImporting}
-                data-testid="geekhack-import-btn"
+                onClick={handleUrlImport}
+                disabled={importingUrl}
+                data-testid="source-import-btn"
+                className="min-h-11"
               >
-                {ghImporting ? (
+                {importingUrl ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Download className="mr-2 h-4 w-4" />
                 )}
-                Import
+                Import hints
               </Button>
             </div>
             <p className="text-muted-foreground mt-1 text-xs">
-              Paste a Geekhack IC/GB thread URL to auto-fill project fields.
+              We parse the page for title, status/date hints, links, and description snippets. Nothing is auto-published.
             </p>
+
+            {templateProjects.length > 0 && (
+              <div className="space-y-2 border-t pt-4">
+                <Label>Start from one of your existing projects</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Select value={templateProjectId} onValueChange={setTemplateProjectId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose project template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Choose template</SelectItem>
+                      {templateProjects.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" onClick={applyTemplate} disabled={templateProjectId === "none"} className="min-h-11">
+                    Duplicate as template
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      <Card id="basic-info" className="scroll-mt-24">
+      <Card id="basic-info" className="scroll-mt-24" data-field="basic-info">
         <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
+          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+            <CardTitle>Basic Information</CardTitle>
+            <div className="text-muted-foreground flex items-center gap-2 text-xs">
+              <Save className="h-3.5 w-3.5" />
+              {saveState === "saving" && "Saving draft..."}
+              {saveState === "saved" && `Saved${lastSavedAt ? ` ${lastSavedAt.toLocaleTimeString()}` : ""}`}
+              {saveState === "error" && "Autosave failed (kept locally)"}
+              {saveState === "idle" && draftRecovered && "Draft restored"}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -626,7 +934,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="description">
             <Label>Description</Label>
             <Suspense fallback={<div className="border-input h-[168px] animate-pulse rounded-md border" />}>
               <RichTextEditor
@@ -653,7 +961,6 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
                       }
 
                       editor.chain().focus().insertContent(buildInlineImageBlock(selectedImage)).run();
-                      // Ensure parent form state is immediately synchronized with editor content.
                       updateField("description", editor.getHTML());
                       setInlineImageChoice("none");
                     }}
@@ -716,7 +1023,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
               <Label htmlFor="currency">Currency</Label>
               <select
                 id="currency"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={formData.currency}
                 onChange={(e) => updateField("currency", e.target.value)}
               >
@@ -735,9 +1042,12 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card id="vendors" className="scroll-mt-24">
+      <Card id="vendors" className="scroll-mt-24" data-field="vendors">
         <CardHeader>
           <CardTitle>Vendors (Regional)</CardTitle>
+          {formData.status === "GROUP_BUY" && (
+            <p className="text-amber-600 text-sm">Group Buy projects require at least one vendor.</p>
+          )}
         </CardHeader>
         <CardContent>
           <VendorMultiSelect
@@ -768,7 +1078,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
 
       <Card id="timeline" className="scroll-mt-24">
         <CardHeader>
-          <CardTitle>Timeline</CardTitle>
+          <CardTitle>{formData.status === "GROUP_BUY" ? "Group Buy Timeline" : "Timeline"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -833,7 +1143,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </CardContent>
       </Card>
 
-      <Card id="hero-image" ref={heroCardRef} className={`scroll-mt-24 ${heroImageError ? "border-destructive ring-destructive/20 ring-2" : ""}`}>
+      <Card id="hero-image" ref={heroCardRef} className={`scroll-mt-24 ${heroImageError ? "border-destructive ring-destructive/20 ring-2" : ""}`} data-field="hero-image">
         <CardHeader>
           <CardTitle>Hero Image</CardTitle>
           {heroImageError && (
@@ -887,7 +1197,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
                 }
               }}
             />
-            <Button type="button" variant="outline" onClick={addTag}>
+            <Button type="button" variant="outline" onClick={addTag} className="min-h-11">
               Add
             </Button>
           </div>
@@ -913,15 +1223,28 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             Links
-            <Button type="button" variant="outline" size="sm" onClick={addLink}>
+            <Button type="button" variant="outline" size="sm" onClick={addLink} className="min-h-11">
               <Plus className="mr-1 h-4 w-4" />
               Add Link
             </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="space-y-2 rounded-md border p-3">
+            <Label htmlFor="bulk-links">Paste multiple URLs</Label>
+            <Textarea
+              id="bulk-links"
+              placeholder="Paste one URL per line or space-separated"
+              value={bulkLinkInput}
+              onChange={(e) => setBulkLinkInput(e.target.value)}
+              className="min-h-[88px]"
+            />
+            <Button type="button" variant="secondary" onClick={addBulkLinks} className="min-h-11">
+              Add pasted links
+            </Button>
+          </div>
           {formData.links.map((link, i) => (
-            <div key={i} className="flex items-end gap-2">
+            <div key={i} className="flex flex-col gap-2 rounded-md border p-2 sm:flex-row sm:items-end sm:border-0 sm:p-0">
               <div className="flex-1 space-y-1">
                 <Label>Label</Label>
                 <Input
@@ -936,7 +1259,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
                   onChange={(e) => updateLink(i, "url", e.target.value)}
                 />
               </div>
-              <div className="w-32 space-y-1">
+              <div className="w-full space-y-1 sm:w-32">
                 <Label>Type</Label>
                 <Select
                   value={link.type}
@@ -961,6 +1284,7 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
                 variant="destructive"
                 size="icon"
                 onClick={() => removeLink(i)}
+                className="min-h-11 min-w-11"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -1036,22 +1360,32 @@ export function ProjectForm({ project, vendors = [], mode = "admin", showSection
         </Card>
       )}
 
-      <div className="flex flex-wrap justify-end gap-3">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
-        </Button>
-        <Button type="button" variant="outline" onClick={handlePreview} disabled={isSubmitting}>
-          <Eye className="mr-2 h-4 w-4" />
-          Preview
-        </Button>
-        <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save Draft
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Publish
-        </Button>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (hasUnsavedChanges && !window.confirm("You have unsaved changes. Leave anyway?")) return;
+              router.back();
+            }}
+            className="min-h-11"
+          >
+            Cancel
+          </Button>
+          <Button type="button" variant="outline" onClick={handlePreview} disabled={isSubmitting} className="min-h-11">
+            <Eye className="mr-2 h-4 w-4" />
+            Preview
+          </Button>
+          <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isSubmitting} className="min-h-11">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Draft
+          </Button>
+          <Button type="submit" disabled={isSubmitting} className="min-h-11">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Publish
+          </Button>
+        </div>
       </div>
     </form>
     </div>
