@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Keyboard, Search, ChevronDown, Plus } from "lucide-react";
+import { Search, ChevronDown, Plus } from "lucide-react";
+import { Logo } from "@/components/layout/logo";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -52,7 +53,7 @@ export function Navbar() {
       <div className="container flex h-14 items-center">
         <MobileNav />
         <Link href="/" className="mr-6 flex items-center space-x-2">
-          <Keyboard className="h-6 w-6" />
+          <Logo size={24} />
           <span className="hidden font-bold sm:inline-block">KeyAtlas</span>
         </Link>
         <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">

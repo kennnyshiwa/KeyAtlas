@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { EndingSoonCard } from "@/components/projects/ending-soon-card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Keyboard, TrendingUp, Clock, Sparkles, RefreshCw } from "lucide-react";
+import { ArrowRight, TrendingUp, Clock, Sparkles, RefreshCw } from "lucide-react";
+import { Logo } from "@/components/layout/logo";
 import { addDays } from "date-fns";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
@@ -158,8 +159,8 @@ export default async function HomePage() {
     <div className="space-y-12">
       {/* Hero */}
       <section className="flex flex-col items-center gap-4 py-12 text-center">
-        <div className="bg-primary/10 rounded-full p-3">
-          <Keyboard className="text-primary h-8 w-8" />
+        <div className="bg-primary/10 flex h-20 w-20 items-center justify-center rounded-full">
+          <Logo size={64} />
         </div>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
           KeyAtlas

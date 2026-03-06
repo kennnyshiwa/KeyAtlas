@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Menu, Keyboard } from "lucide-react";
+import { Menu } from "lucide-react";
+import { Logo } from "@/components/layout/logo";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -48,7 +49,7 @@ export function MobileNav() {
       <SheetContent side="left" className="w-72">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Keyboard className="h-5 w-5" />
+            <Logo size={20} />
             KeyAtlas
           </SheetTitle>
         </SheetHeader>
