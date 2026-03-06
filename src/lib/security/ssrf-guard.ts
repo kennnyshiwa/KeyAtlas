@@ -52,6 +52,20 @@ export function isPrivateIP(ip: string): boolean {
   return false;
 }
 
+/** Hostnames that are considered "self" and skip DNS-based SSRF checks */
+function getSelfHostnames(): string[] {
+  const hosts: string[] = [];
+  for (const envKey of ["APP_URL", "NEXT_PUBLIC_SITE_URL", "AUTH_URL"]) {
+    const val = process.env[envKey];
+    if (val) {
+      try {
+        hosts.push(new URL(val).hostname.toLowerCase());
+      } catch { /* skip invalid */ }
+    }
+  }
+  return hosts;
+}
+
 /**
  * Validates that a URL is safe to fetch (not targeting internal resources).
  * Throws an error if the URL is blocked.
@@ -69,6 +83,11 @@ export async function assertSafeUrl(urlString: string): Promise<void> {
   }
 
   const hostname = parsed.hostname.toLowerCase();
+
+  // Allow the app's own domain (it may resolve to a private IP in Docker/homelab)
+  if (getSelfHostnames().includes(hostname)) {
+    return;
+  }
 
   // Block known internal hostnames
   if (BLOCKED_HOSTNAMES.includes(hostname)) {
