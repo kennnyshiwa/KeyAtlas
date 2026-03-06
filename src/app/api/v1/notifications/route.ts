@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
+import { toNotificationPayload } from "@/lib/notifications/serializers";
 
 export async function GET(req: NextRequest) {
   const user = await authenticateApiKey(req);
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   return NextResponse.json({
-    data: notifications,
+    data: notifications.map(toNotificationPayload),
     unreadCount,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });

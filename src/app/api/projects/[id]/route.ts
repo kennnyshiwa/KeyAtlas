@@ -254,11 +254,17 @@ export async function PUT(
         recipients: followers.map((f) => f.userId),
         // Include self-notifications for project status changes so owners/admins
         // who follow their own project still receive update emails.
-        preferenceType: "PROJECT_UPDATES",
+        preferenceType: "PROJECT_STATUS_CHANGES",
         notificationType: "PROJECT_STATUS_CHANGE",
         title: `${currentProject.title} status changed`,
         message: `${currentProject.title} moved from ${oldLabel} to ${newLabel}.`,
         link: `/projects/${currentProject.slug}`,
+        metadata: {
+          projectId: id,
+          projectSlug: currentProject.slug,
+          fromStatus: currentProject.status,
+          toStatus: data.status,
+        },
         emailSubject: `${currentProject.title} is now ${newLabel}`,
         emailHeading: `Status Update: ${currentProject.title}`,
         emailCtaLabel: "View project",

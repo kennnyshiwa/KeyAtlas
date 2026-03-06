@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { toNotificationPayload } from "@/lib/notifications/serializers";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     where: { userId: session.user.id, read: false },
   });
 
-  return NextResponse.json({ notifications, unreadCount });
+  return NextResponse.json({ notifications: notifications.map(toNotificationPayload), unreadCount });
 }
 
 export async function PATCH() {
@@ -37,7 +38,7 @@ export async function PATCH() {
   // Mark all as read
   await prisma.notification.updateMany({
     where: { userId: session.user.id, read: false },
-    data: { read: true },
+    data: { read: true, readAt: new Date() },
   });
 
   return NextResponse.json({ success: true });

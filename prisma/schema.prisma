@@ -500,6 +500,7 @@ enum NotificationType {
   NEW_FORUM_THREAD
   GB_STARTING
   GB_ENDING
+  PROJECT_GB_ENDING_SOON
   WATCHLIST_MATCH
 }
 
@@ -510,6 +511,8 @@ model Notification {
   message   String
   link      String?
   read      Boolean          @default(false)
+  readAt    DateTime?
+  metadata  Json?
   createdAt DateTime         @default(now())
 
   userId String
@@ -525,6 +528,8 @@ enum NotificationPreferenceType {
   FORUM_CATEGORY_THREADS
   PROJECT_UPDATES
   PROJECT_COMMENTS
+  PROJECT_STATUS_CHANGES
+  PROJECT_GB_ENDING_SOON
   NEW_FOLLOWERS
   WATCHLIST_MATCHES
 }

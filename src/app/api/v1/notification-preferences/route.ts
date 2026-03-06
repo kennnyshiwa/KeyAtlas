@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { authenticateApiKey } from "@/lib/api-auth";
+import { prisma } from "@/lib/prisma";
 import {
   buildNotificationPreferenceWrite,
   buildNotificationPreferencesView,
@@ -24,24 +24,24 @@ const updateSchema = z.object({
   email: z.boolean().optional(),
 });
 
-export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
+export async function GET(req: NextRequest) {
+  const user = await authenticateApiKey(req);
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const stored = await prisma.notificationPreference.findMany({
-    where: { userId: session.user.id },
+    where: { userId: user.id },
   });
 
   const preferences = buildNotificationPreferencesView(stored);
 
-  return NextResponse.json({ preferences });
+  return NextResponse.json({ data: preferences });
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
+  const user = await authenticateApiKey(req);
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -63,16 +63,16 @@ export async function PATCH(req: NextRequest) {
   const updated = await prisma.notificationPreference.upsert({
     where: {
       userId_type: {
-        userId: session.user.id,
+        userId: user.id,
         type,
       },
     },
     create: {
-      userId: session.user.id,
+      userId: user.id,
       ...write.create,
     },
     update: write.update,
   });
 
-  return NextResponse.json({ preference: updated });
+  return NextResponse.json({ data: updated });
 }

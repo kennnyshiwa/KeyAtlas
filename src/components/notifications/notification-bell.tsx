@@ -18,9 +18,15 @@ interface Notification {
   title: string;
   message: string;
   link: string | null;
-  read: boolean;
   createdAt: string;
+  readAt: string | null;
+  metadata?: Record<string, unknown>;
 }
+
+const TYPE_LABELS: Record<string, string> = {
+  PROJECT_STATUS_CHANGE: "Project status",
+  PROJECT_GB_ENDING_SOON: "Group buy ending",
+};
 
 export function NotificationBell() {
   const { data: session } = useSession();
@@ -62,7 +68,8 @@ export function NotificationBell() {
   async function markAllRead() {
     try {
       await fetch("/api/notifications", { method: "PATCH" });
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      const nowIso = new Date().toISOString();
+      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? nowIso })));
       setUnreadCount(0);
     } catch {
       // Silent fail
@@ -100,18 +107,24 @@ export function NotificationBell() {
             </div>
           ) : (
             notifications.map((n) => {
+              const typeLabel = TYPE_LABELS[n.type];
               const inner = (
                 <div
                   key={n.id}
                   className={`border-b px-4 py-3 transition-colors last:border-0 ${
-                    !n.read ? "bg-primary/5" : ""
+                    !n.readAt ? "bg-primary/5" : ""
                   } hover:bg-muted/50`}
                 >
                   <div className="flex items-start gap-2">
-                    {!n.read && (
+                    {!n.readAt && (
                       <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
                     )}
                     <div className="min-w-0 flex-1">
+                      {typeLabel && (
+                        <p className="text-muted-foreground mb-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                          {typeLabel}
+                        </p>
+                      )}
                       <p className="text-sm font-medium">{n.title}</p>
                       <p className="text-muted-foreground line-clamp-2 text-xs">
                         {n.message}

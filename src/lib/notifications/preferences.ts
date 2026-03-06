@@ -5,6 +5,8 @@ export const NOTIFICATION_PREFERENCE_TYPES: NotificationPreferenceType[] = [
   "FORUM_CATEGORY_THREADS",
   "PROJECT_UPDATES",
   "PROJECT_COMMENTS",
+  "PROJECT_STATUS_CHANGES",
+  "PROJECT_GB_ENDING_SOON",
   "NEW_FOLLOWERS",
   "WATCHLIST_MATCHES",
 ];
@@ -17,6 +19,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: Record<
   FORUM_CATEGORY_THREADS: { inApp: true, email: false },
   PROJECT_UPDATES: { inApp: true, email: false },
   PROJECT_COMMENTS: { inApp: true, email: false },
+  PROJECT_STATUS_CHANGES: { inApp: true, email: true },
+  PROJECT_GB_ENDING_SOON: { inApp: true, email: true },
   NEW_FOLLOWERS: { inApp: true, email: false },
   WATCHLIST_MATCHES: { inApp: true, email: true },
 };

@@ -1,4 +1,4 @@
-import type { NotificationPreferenceType, NotificationType } from "@/generated/prisma/client";
+import type { NotificationPreferenceType, NotificationType, Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "@/lib/notifications/preferences";
 import { getSiteUrl } from "@/lib/site";
@@ -13,6 +13,7 @@ interface NotificationDispatchInput {
   title: string;
   message: string;
   link?: string;
+  metadata?: Record<string, unknown>;
   emailSubject?: string;
   emailHeading?: string;
   emailCtaLabel?: string;
@@ -55,6 +56,7 @@ export async function dispatchNotification(input: NotificationDispatchInput) {
           title: input.title,
           message: input.message,
           link: input.link,
+          metadata: input.metadata as Prisma.InputJsonValue | undefined,
         },
       });
 

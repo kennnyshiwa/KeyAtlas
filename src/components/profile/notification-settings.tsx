@@ -11,7 +11,10 @@ type PreferenceType =
   | "FORUM_CATEGORY_THREADS"
   | "PROJECT_UPDATES"
   | "PROJECT_COMMENTS"
-  | "NEW_FOLLOWERS";
+  | "PROJECT_STATUS_CHANGES"
+  | "PROJECT_GB_ENDING_SOON"
+  | "NEW_FOLLOWERS"
+  | "WATCHLIST_MATCHES";
 
 interface Preference {
   type: PreferenceType;
@@ -24,7 +27,10 @@ const LABELS: Record<PreferenceType, string> = {
   FORUM_CATEGORY_THREADS: "New threads in followed categories",
   PROJECT_UPDATES: "Project updates",
   PROJECT_COMMENTS: "Project comments and replies",
+  PROJECT_STATUS_CHANGES: "Project status changes",
+  PROJECT_GB_ENDING_SOON: "Group buy ending soon",
   NEW_FOLLOWERS: "New followers",
+  WATCHLIST_MATCHES: "Watchlist matches",
 };
 
 export function NotificationSettings() {
