@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
       type: "comment",
       title: `Comment on ${c.project.title}`,
       message: `commented on ${c.project.title}`,
-      link: `/projects/${c.project.slug}`,
+      link: `/projects/${c.project.slug}#comment-${c.id}`,
       user: {
         id: c.user.id,
         username: c.user.username,

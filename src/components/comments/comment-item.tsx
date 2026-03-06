@@ -65,7 +65,7 @@ export function CommentItem({
   }
 
   return (
-    <div className={depth > 0 ? "ml-6 border-l-2 pl-4" : ""}>
+    <div id={`comment-${comment.id}`} className={depth > 0 ? "ml-6 border-l-2 pl-4" : ""}>
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <div className="bg-muted flex h-7 w-7 items-center justify-center overflow-hidden rounded-full">

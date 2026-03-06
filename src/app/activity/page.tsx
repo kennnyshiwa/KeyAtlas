@@ -88,7 +88,7 @@ export default async function ActivityPage() {
       type: "comment" as const,
       title: `Comment on ${c.project.title}`,
       description: `commented on ${c.project.title}`,
-      link: `/projects/${c.project.slug}`,
+      link: `/projects/${c.project.slug}#comment-${c.id}`,
       userName: c.user.displayName || c.user.name || "Anonymous",
       userImage: c.user.image,
       createdAt: c.createdAt,
