@@ -16,6 +16,7 @@ import { CATEGORY_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import { Plus, Pencil } from "lucide-react";
 import { DeleteProjectButton } from "./delete-button";
+import { computeProjectDataCompleteness } from "@/lib/project-data-completeness";
 
 export const metadata = {
   title: "Manage Projects",
@@ -23,7 +24,15 @@ export const metadata = {
 
 export default async function AdminProjectsPage() {
   const projects = await prisma.project.findMany({
-    include: { vendor: { select: { name: true } } },
+    include: {
+      vendor: { select: { name: true } },
+      _count: {
+        select: {
+          links: true,
+          projectVendors: true,
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -45,60 +54,88 @@ export default async function AdminProjectsPage() {
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Completeness</TableHead>
               <TableHead>Published</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {projects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="font-medium">
-                  <div>
-                    {project.title}
-                    {project.vendor && (
-                      <span className="text-muted-foreground ml-2 text-xs">
-                        by {project.vendor.name}
-                      </span>
+            {projects.map((project) => {
+              const dataCompleteness = computeProjectDataCompleteness({
+                title: project.title,
+                description: project.description,
+                heroImage: project.heroImage,
+                status: project.status,
+                gbStartDate: project.gbStartDate,
+                gbEndDate: project.gbEndDate,
+                vendorId: project.vendorId,
+                linkCount: project._count.links,
+                projectVendorCount: project._count.projectVendors,
+              });
+
+              return (
+                <TableRow key={project.id}>
+                  <TableCell className="font-medium">
+                    <div>
+                      {project.title}
+                      {project.vendor && (
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          by {project.vendor.name}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {CATEGORY_LABELS[project.category]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <ProjectStatusBadge status={project.status} />
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        dataCompleteness >= 80
+                          ? "default"
+                          : dataCompleteness >= 50
+                            ? "secondary"
+                            : "destructive"
+                      }
+                    >
+                      {dataCompleteness}%
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {project.published ? (
+                      <Badge variant="default">Live</Badge>
+                    ) : (
+                      <Badge variant="secondary">Draft</Badge>
                     )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">
-                    {CATEGORY_LABELS[project.category]}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <ProjectStatusBadge status={project.status} />
-                </TableCell>
-                <TableCell>
-                  {project.published ? (
-                    <Badge variant="default">Live</Badge>
-                  ) : (
-                    <Badge variant="secondary">Draft</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {formatDate(project.createdAt)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/projects/admin-edit/${project.id}`}>
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <DeleteProjectButton
-                      projectId={project.id}
-                      projectTitle={project.title}
-                    />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {formatDate(project.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon" asChild>
+                        <Link href={`/projects/admin-edit/${project.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      <DeleteProjectButton
+                        projectId={project.id}
+                        projectTitle={project.title}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {projects.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center">
+                <TableCell colSpan={7} className="py-8 text-center">
                   <p className="text-muted-foreground">No projects yet.</p>
                   <Button asChild variant="link" className="mt-2">
                     <Link href="/admin/projects/new">Create your first project</Link>
