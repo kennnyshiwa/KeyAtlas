@@ -17,6 +17,7 @@ import { SoundTestSection } from "@/components/projects/sound-test-section";
 import { ShareButton } from "@/components/social/share-button";
 import { FollowButton } from "@/components/social/follow-button";
 import { ProjectSocialProof } from "@/components/projects/project-social-proof";
+import { ShareTrackPanel } from "@/components/projects/share-track-panel";
 import { ReportButton } from "@/components/projects/report-button";
 import { ProjectChangeLog } from "@/components/projects/project-changelog";
 import { Badge } from "@/components/ui/badge";
@@ -183,6 +184,16 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         favoriteCount={project._count.favorites}
         commentCount={project._count.comments}
         initialFollowing={isFollowing}
+      />
+
+      <ShareTrackPanel
+        title={project.title}
+        slug={project.slug}
+        status={project.status}
+        followerCount={project._count.followers}
+        favoriteCount={project._count.favorites}
+        commentCount={project._count.comments}
+        isCreator={isCreator}
       />
 
       <div className="flex flex-wrap items-center gap-2">

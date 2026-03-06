@@ -9,6 +9,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { SearchCommand } from "@/components/search/search-command";
+import { AttributionCapture } from "@/components/analytics/attribution-capture";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
 
 const geistSans = Geist({
@@ -106,6 +107,9 @@ export default function RootLayout({
               <main className="container flex-1 py-6">{children}</main>
               <Footer />
             </div>
+            <Suspense fallback={null}>
+              <AttributionCapture />
+            </Suspense>
             <Suspense fallback={null}>
               <SearchCommand />
             </Suspense>
