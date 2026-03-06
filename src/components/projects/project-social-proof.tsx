@@ -1,15 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { FollowButton } from "@/components/social/follow-button";
 
 interface ProjectSocialProofProps {
   projectId: string;
   followerCount: number;
   favoriteCount: number;
   commentCount: number;
-  canFollow: boolean;
   initialFollowing: boolean;
 }
 
@@ -18,17 +16,27 @@ export function ProjectSocialProof({
   followerCount,
   favoriteCount,
   commentCount,
-  canFollow,
   initialFollowing,
 }: ProjectSocialProofProps) {
   const [followers, setFollowers] = useState(followerCount);
   const [following, setFollowing] = useState(initialFollowing);
 
-  const handleFollowingChange = (nextFollowing: boolean) => {
-    if (nextFollowing === following) return;
-    setFollowers((current) => Math.max(0, current + (nextFollowing ? 1 : -1)));
-    setFollowing(nextFollowing);
-  };
+  useEffect(() => {
+    const onFollowChanged = (event: Event) => {
+      const custom = event as CustomEvent<{ targetId: string; following: boolean }>;
+      if (!custom.detail || custom.detail.targetId !== projectId) return;
+
+      const nextFollowing = custom.detail.following;
+      setFollowers((current) => {
+        if (nextFollowing === following) return current;
+        return Math.max(0, current + (nextFollowing ? 1 : -1));
+      });
+      setFollowing(nextFollowing);
+    };
+
+    window.addEventListener("project-follow-changed", onFollowChanged as EventListener);
+    return () => window.removeEventListener("project-follow-changed", onFollowChanged as EventListener);
+  }, [projectId, following]);
 
   return (
     <div className="rounded-lg border bg-muted/20 p-3">
@@ -36,15 +44,6 @@ export function ProjectSocialProof({
         <Badge variant="secondary">{followers} followers</Badge>
         <Badge variant="secondary">{favoriteCount} bookmarks</Badge>
         <Badge variant="secondary">{commentCount} comments</Badge>
-        {canFollow ? (
-          <FollowButton
-            targetType="PROJECT"
-            targetId={projectId}
-            initialFollowing={initialFollowing}
-            onFollowingChange={handleFollowingChange}
-            size="sm"
-          />
-        ) : null}
       </div>
     </div>
   );

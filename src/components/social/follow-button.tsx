@@ -35,6 +35,13 @@ export function FollowButton({
         if (data) {
           setFollowing(data.following);
           onFollowingChange?.(data.following);
+          if (targetType === "PROJECT") {
+            window.dispatchEvent(
+              new CustomEvent("project-follow-changed", {
+                detail: { targetId, following: data.following },
+              })
+            );
+          }
         }
       })
       .catch(() => {});
@@ -68,6 +75,13 @@ export function FollowButton({
       const data = await res.json();
       setFollowing(data.following);
       onFollowingChange?.(data.following);
+      if (targetType === "PROJECT") {
+        window.dispatchEvent(
+          new CustomEvent("project-follow-changed", {
+            detail: { targetId, following: data.following },
+          })
+        );
+      }
       if (targetType === "PROJECT" && data.following) {
         toast.success(
           "Following. You'll get updates for status changes, GB ending soon, and shipping progress."

@@ -15,6 +15,7 @@ import { CommentSection } from "@/components/comments/comment-section";
 import { UpdateTimeline } from "@/components/updates/update-timeline";
 import { SoundTestSection } from "@/components/projects/sound-test-section";
 import { ShareButton } from "@/components/social/share-button";
+import { FollowButton } from "@/components/social/follow-button";
 import { ProjectSocialProof } from "@/components/projects/project-social-proof";
 import { ReportButton } from "@/components/projects/report-button";
 import { ProjectChangeLog } from "@/components/projects/project-changelog";
@@ -181,13 +182,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         followerCount={project._count.followers}
         favoriteCount={project._count.favorites}
         commentCount={project._count.comments}
-        canFollow={!!session?.user}
         initialFollowing={isFollowing}
       />
 
       <div className="flex flex-wrap items-center gap-2">
         <FavoriteButton projectId={project.id} />
         <CollectionButton projectId={project.id} />
+        {session?.user && (
+          <FollowButton targetType="PROJECT" targetId={project.id} initialFollowing={isFollowing} size="sm" />
+        )}
         <ShareButton
           title={project.title}
           geekhack={{
