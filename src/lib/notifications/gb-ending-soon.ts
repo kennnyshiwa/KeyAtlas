@@ -14,7 +14,7 @@ function utcDayBounds(date = new Date()) {
 }
 
 export async function runGbEndingSoonNotifications(now = new Date()): Promise<GbEndingSoonJobResult> {
-  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const in72h = new Date(now.getTime() + 72 * 60 * 60 * 1000);
   const { start: dayStart, end: dayEnd } = utcDayBounds(now);
 
   const projects = await prisma.project.findMany({
@@ -22,7 +22,7 @@ export async function runGbEndingSoonNotifications(now = new Date()): Promise<Gb
       published: true,
       gbEndDate: {
         gte: now,
-        lte: in24h,
+        lte: in72h,
       },
     },
     select: {
@@ -66,7 +66,7 @@ export async function runGbEndingSoonNotifications(now = new Date()): Promise<Gb
       preferenceType: "PROJECT_GB_ENDING_SOON",
       notificationType: "PROJECT_GB_ENDING_SOON",
       title: `${project.title} ends soon`,
-      message: `${project.title} group buy closes within 24 hours.`,
+      message: `${project.title} group buy closes within 72 hours.`,
       link: `/projects/${project.slug}`,
       metadata: {
         projectId: project.id,
