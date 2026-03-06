@@ -1,5 +1,15 @@
 import { STATUS_LABELS, CATEGORY_LABELS } from "@/lib/constants";
+import { formatPrice } from "@/lib/utils";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+
+/**
+ * Format cents for embed text. Uses formatPrice but drops ".00" when there are
+ * no fractional cents so "$120.00" becomes "$120".
+ */
+function embedPrice(cents: number, currency: string): string {
+  const formatted = formatPrice(cents, currency);
+  return formatted.replace(/\.00$/, "");
+}
 
 /**
  * Build a compact embed description for OG/Twitter meta tags.
@@ -16,6 +26,7 @@ export function buildEmbedDescription(project: {
   currency?: string | null;
 }): string {
   const segments: string[] = [];
+  const cur = project.currency ?? "USD";
 
   // Segment 1: Status · Category · Profile
   const labels = [
@@ -39,15 +50,13 @@ export function buildEmbedDescription(project: {
     segments.push(social.join(" · "));
   }
 
-  // Segment 3: Price range
-  const cur = project.currency ?? "USD";
-  const sym = cur === "USD" ? "$" : cur === "EUR" ? "€" : cur === "GBP" ? "£" : `${cur} `;
-  if (project.priceMin != null && project.priceMax != null) {
-    segments.push(`${sym}${project.priceMin}-${sym}${project.priceMax}`);
+  // Segment 3: Price range (cents → dollars, drop .00)
+  if (project.priceMin != null && project.priceMax != null && project.priceMin !== project.priceMax) {
+    segments.push(`${embedPrice(project.priceMin, cur)}-${embedPrice(project.priceMax, cur)}`);
   } else if (project.priceMin != null) {
-    segments.push(`${sym}${project.priceMin}`);
+    segments.push(embedPrice(project.priceMin, cur));
   } else if (project.priceMax != null) {
-    segments.push(`${sym}${project.priceMax}`);
+    segments.push(embedPrice(project.priceMax, cur));
   }
 
   return segments.join(" | ");
