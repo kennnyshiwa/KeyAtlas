@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -27,6 +27,18 @@ function htmlToBbcode(input: string): string {
     .replace(/&gt;/g, ">")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function buildTrackedUrl(baseUrl: string, ref: string): string {
+  try {
+    const u = new URL(baseUrl);
+    u.searchParams.set("ref", ref);
+    return u.toString();
+  } catch {
+    // fallback — just append
+    const sep = baseUrl.includes("?") ? "&" : "?";
+    return `${baseUrl}${sep}ref=${encodeURIComponent(ref)}`;
+  }
 }
 
 function buildGeekhackBbcode(title: string, shareUrl: string, payload?: GeekhackSharePayload): string {
@@ -69,45 +81,69 @@ interface GeekhackSharePayload {
   links?: Array<{ label: string; url: string }>;
 }
 
+interface ReferralStats {
+  total: number;
+  bySource: { ref: string; count: number }[];
+  byDay: { date: string; count: number }[];
+}
+
 interface ShareButtonProps {
   title: string;
   url?: string;
+  slug?: string;
+  isCreator?: boolean;
+  isAdmin?: boolean;
   geekhack?: GeekhackSharePayload;
 }
 
-export function ShareButton({ title, url, geekhack }: ShareButtonProps) {
+export function ShareButton({ title, url, slug, isCreator, isAdmin, geekhack }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const [copiedGeekhack, setCopiedGeekhack] = useState(false);
-  const shareUrl = url || (typeof window !== "undefined" ? window.location.href : "");
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [stats, setStats] = useState<ReferralStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsFetched, setStatsFetched] = useState(false);
+
+  const baseUrl = url || (typeof window !== "undefined" ? window.location.href.split("?")[0] : "");
+  const showStats = (isCreator || isAdmin) && !!slug;
+
+  // Lazy-fetch stats when popover opens (only for creator/admin)
+  useEffect(() => {
+    if (!popoverOpen || !showStats || statsFetched) return;
+    setStatsLoading(true);
+    setStatsFetched(true);
+    fetch(`/api/v1/projects/${slug}/referral/stats`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: ReferralStats | null) => setStats(data))
+      .catch(() => {})
+      .finally(() => setStatsLoading(false));
+  }, [popoverOpen, showStats, slug, statsFetched]);
 
   const shareLinks = [
     {
       name: "Twitter / X",
-      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(shareUrl)}`,
+      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(buildTrackedUrl(baseUrl, "x"))}`,
     },
     {
       name: "Reddit",
-      href: `https://reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(title)}`,
+      href: `https://reddit.com/submit?url=${encodeURIComponent(buildTrackedUrl(baseUrl, "reddit"))}&title=${encodeURIComponent(title)}`,
     },
     {
       name: "Discord",
-      action: () => copyLink(),
+      action: () => copyTracked("discord", "Discord link"),
       label: "Copy for Discord",
     },
   ];
 
   async function copyText(text: string) {
-    // Primary path
     if (navigator?.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(text);
         return true;
       } catch {
-        // fall through to legacy path
+        // fall through
       }
     }
-
-    // Legacy fallback for browsers with restricted Clipboard API
     try {
       const ta = document.createElement("textarea");
       ta.value = text;
@@ -125,19 +161,21 @@ export function ShareButton({ title, url, geekhack }: ShareButtonProps) {
     }
   }
 
-  async function copyLink() {
-    const ok = await copyText(shareUrl);
+  async function copyTracked(ref: string, label: string) {
+    const tracked = buildTrackedUrl(baseUrl, ref);
+    const ok = await copyText(tracked);
     if (!ok) {
-      toast.error("Could not copy link. Your browser blocked clipboard access.");
+      toast.error("Could not copy. Your browser blocked clipboard access.");
       return;
     }
     setCopied(true);
-    toast.success("Link copied!");
+    toast.success(`${label} copied!`);
     setTimeout(() => setCopied(false), 2000);
   }
 
   async function copyGeekhackBbcode() {
-    const bbcode = buildGeekhackBbcode(title, shareUrl, geekhack);
+    const trackedUrl = buildTrackedUrl(baseUrl, "geekhack");
+    const bbcode = buildGeekhackBbcode(title, trackedUrl, geekhack);
     const ok = await copyText(bbcode);
     if (!ok) {
       toast.error("Could not copy Geekhack BBCode. Browser clipboard permission is blocked.");
@@ -149,14 +187,14 @@ export function ShareButton({ title, url, geekhack }: ShareButtonProps) {
   }
 
   return (
-    <Popover>
+    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm">
           <Share2 className="mr-2 h-4 w-4" />
           Share
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-2" align="end">
+      <PopoverContent className="w-56 p-2" align="end">
         {shareLinks.map((link) =>
           link.href ? (
             <a
@@ -189,12 +227,37 @@ export function ShareButton({ title, url, geekhack }: ShareButtonProps) {
         )}
         <div className="my-1 border-t" />
         <button
-          onClick={copyLink}
+          onClick={() => copyTracked("link", "Link")}
           className="hover:bg-muted flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors"
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           Copy Link
         </button>
+
+        {showStats && (
+          <>
+            <div className="my-1 border-t" />
+            <div className="px-2 py-1.5 text-xs text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground text-xs">Referral Stats</p>
+              {statsLoading && <p>Loading…</p>}
+              {stats && stats.total === 0 && <p>No clicks yet.</p>}
+              {stats && stats.total > 0 && (
+                <>
+                  <p>{stats.total} total click{stats.total !== 1 ? "s" : ""}</p>
+                  {stats.bySource.length > 0 && (
+                    <p>
+                      {stats.bySource
+                        .slice(0, 5)
+                        .map((s) => `${s.ref}: ${s.count}`)
+                        .join(" · ")}
+                    </p>
+                  )}
+                </>
+              )}
+              {!statsLoading && !stats && statsFetched && <p>Could not load stats.</p>}
+            </div>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );

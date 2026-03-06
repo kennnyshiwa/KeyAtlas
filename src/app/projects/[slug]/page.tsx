@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Script from "next/script";
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { ProjectHero } from "@/components/projects/project-hero";
 import { ProjectGallery } from "@/components/projects/project-gallery";
@@ -17,7 +18,7 @@ import { SoundTestSection } from "@/components/projects/sound-test-section";
 import { ShareButton } from "@/components/social/share-button";
 import { FollowButton } from "@/components/social/follow-button";
 import { ProjectSocialProof } from "@/components/projects/project-social-proof";
-import { ShareTrackPanel } from "@/components/projects/share-track-panel";
+import { ReferralTracker } from "@/components/projects/referral-tracker";
 import { ReportButton } from "@/components/projects/report-button";
 import { ProjectChangeLog } from "@/components/projects/project-changelog";
 import { Badge } from "@/components/ui/badge";
@@ -76,7 +77,14 @@ export async function generateMetadata({
   const siteUrl = getSiteUrl();
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
   const title = project.metaTitle?.trim() || project.title || SITE_NAME;
-  const description = buildEmbedDescription(project);
+  const description = buildEmbedDescription({
+    ...project,
+    followerCount: project._count.followers,
+    favoriteCount: project._count.favorites,
+    priceMin: project.priceMin,
+    priceMax: project.priceMax,
+    currency: project.currency,
+  });
   const primaryImage =
     project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;
 
@@ -149,7 +157,14 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   const siteUrl = getSiteUrl();
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
-  const description = buildEmbedDescription(project);
+  const description = buildEmbedDescription({
+    ...project,
+    followerCount: project._count.followers,
+    favoriteCount: project._count.favorites,
+    priceMin: project.priceMin,
+    priceMax: project.priceMax,
+    currency: project.currency,
+  });
   const primaryImage =
     project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;
   const jsonLd = {
@@ -171,6 +186,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
+      <Suspense fallback={null}>
+        <ReferralTracker slug={project.slug} />
+      </Suspense>
       <Script
         id="project-json-ld"
         type="application/ld+json"
@@ -186,16 +204,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         initialFollowing={isFollowing}
       />
 
-      <ShareTrackPanel
-        title={project.title}
-        slug={project.slug}
-        status={project.status}
-        followerCount={project._count.followers}
-        favoriteCount={project._count.favorites}
-        commentCount={project._count.comments}
-        isCreator={isCreator}
-      />
-
       <div className="flex flex-wrap items-center gap-2">
         <FavoriteButton projectId={project.id} />
         <CollectionButton projectId={project.id} />
@@ -204,6 +212,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         )}
         <ShareButton
           title={project.title}
+          slug={project.slug}
+          isCreator={isCreator}
+          isAdmin={session?.user?.role === "ADMIN" || session?.user?.role === "MODERATOR"}
           geekhack={{
             status: project.status,
             designer: project.designer,

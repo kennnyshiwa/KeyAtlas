@@ -316,6 +316,7 @@ model Project {
   vendorSuggestions VendorSuggestion[]
   changeLogs     ProjectChangeLog[]
   reports        ProjectReport[]
+  referralClicks ReferralClick[]
 
   @@index([category])
   @@index([status])
@@ -783,4 +784,18 @@ model AdminAuditLog {
   @@index([action, createdAt])
   @@index([resource, createdAt])
   @@map("admin_audit_logs")
+}
+
+model ReferralClick {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ref         String
+  utmSource   String?
+  utmCampaign String?
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, ref])
+  @@index([projectId, createdAt])
+  @@map("referral_clicks")
 }
