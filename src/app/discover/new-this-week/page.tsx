@@ -5,8 +5,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, TrendingUp } from "lucide-react";
 import type { Metadata } from "next";
+import { scoreTrendingProject } from "@/lib/project-discovery";
 
 export const metadata: Metadata = {
   title: "New This Week | KeyAtlas",
@@ -30,7 +31,9 @@ export default async function NewThisWeekPage({ searchParams }: NewThisWeekPageP
     createdAt: { gte: sevenDaysAgo },
   } as const;
 
-  const [projects, total] = await Promise.all([
+  const now = new Date();
+
+  const [projects, total, trendingCandidates] = await Promise.all([
     prisma.project.findMany({
       where,
       include: { vendor: { select: { name: true, slug: true } }, _count: { select: { favorites: true } } },
@@ -39,7 +42,45 @@ export default async function NewThisWeekPage({ searchParams }: NewThisWeekPageP
       take: limit,
     }),
     prisma.project.count({ where }),
+    prisma.project.findMany({
+      where: { published: true, updatedAt: { gte: sevenDaysAgo } },
+      include: {
+        vendor: { select: { name: true, slug: true } },
+        _count: { select: { favorites: true, followers: true, comments: true, updates: true } },
+      },
+      take: 24,
+    }),
   ]);
+
+  const trendingProjects = trendingCandidates
+    .sort((a, b) => {
+      const scoreDelta =
+        scoreTrendingProject(
+          {
+            favoritesCount: b._count.favorites,
+            followersCount: b._count.followers,
+            commentsCount: b._count.comments,
+            updatesCount: b._count.updates,
+            updatedAt: b.updatedAt,
+            createdAt: b.createdAt,
+          },
+          now
+        ) -
+        scoreTrendingProject(
+          {
+            favoritesCount: a._count.favorites,
+            followersCount: a._count.followers,
+            commentsCount: a._count.comments,
+            updatesCount: a._count.updates,
+            updatedAt: a.updatedAt,
+            createdAt: a.createdAt,
+          },
+          now
+        );
+      if (scoreDelta !== 0) return scoreDelta;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    })
+    .slice(0, 8);
 
   const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
@@ -56,6 +97,16 @@ export default async function NewThisWeekPage({ searchParams }: NewThisWeekPageP
           <Link href="/discover/interest-checks">Interest checks</Link>
         </Button>
       </PageHeader>
+
+      {trendingProjects.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Trending this week
+          </div>
+          <ProjectGrid projects={trendingProjects} />
+        </section>
+      )}
 
       {projects.length > 0 ? (
         <>

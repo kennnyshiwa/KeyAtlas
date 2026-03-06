@@ -173,6 +173,11 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
   const [sourceUrl, setSourceUrl] = useState("");
   const [importingUrl, setImportingUrl] = useState(false);
   const [templateProjectId, setTemplateProjectId] = useState("none");
+  const [importSummary, setImportSummary] = useState<{
+    fieldsPrefilled: number;
+    linksDetected: number;
+    estimatedSections: number;
+  } | null>(null);
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
@@ -364,6 +369,32 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [hasUnsavedChanges]);
 
+  const countPrefilledFields = (before: ProjectFormData, after: ProjectFormData) => {
+    let count = 0;
+    const scalarKeys: Array<keyof ProjectFormData> = [
+      "title",
+      "description",
+      "designer",
+      "estimatedDelivery",
+      "heroImage",
+      "metaTitle",
+      "metaDescription",
+    ];
+
+    for (const key of scalarKeys) {
+      const beforeValue = before[key];
+      const afterValue = after[key];
+      if (!beforeValue && afterValue) count += 1;
+    }
+
+    if ((before.tags?.length ?? 0) === 0 && (after.tags?.length ?? 0) > 0) count += 1;
+    if ((before.links?.length ?? 0) === 0 && (after.links?.length ?? 0) > 0) count += 1;
+    if (!before.gbStartDate && after.gbStartDate) count += 1;
+    if (!before.gbEndDate && after.gbEndDate) count += 1;
+
+    return count;
+  };
+
   const handleUrlImport = async () => {
     const trimmed = sourceUrl.trim();
     if (!trimmed) {
@@ -384,24 +415,37 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
       }
 
       const prefill: UrlImportPrefillPayload = data.prefill;
-      setFormData((prev) => ({
-        ...prev,
-        title: prefill.title || prev.title,
-        slug: prefill.title ? generateSlug(prefill.title) : prev.slug,
-        description: prefill.description || prev.description,
-        category: prefill.category || prev.category,
-        status: prefill.status || prev.status,
-        tags: Array.from(new Set([...(prev.tags ?? []), ...(prefill.tags ?? [])])),
-        designer: prefill.designer ?? prev.designer,
-        estimatedDelivery: prefill.estimatedDelivery ?? prev.estimatedDelivery,
-        gbStartDate: prefill.gbStartDate ? new Date(prefill.gbStartDate) : prev.gbStartDate,
-        gbEndDate: prefill.gbEndDate ? new Date(prefill.gbEndDate) : prev.gbEndDate,
+      const nextFormData: ProjectFormData = {
+        ...formData,
+        title: prefill.title || formData.title,
+        slug: prefill.title ? generateSlug(prefill.title) : formData.slug,
+        description: prefill.description || formData.description,
+        category: prefill.category || formData.category,
+        status: prefill.status || formData.status,
+        tags: Array.from(new Set([...(formData.tags ?? []), ...(prefill.tags ?? [])])),
+        designer: prefill.designer ?? formData.designer,
+        estimatedDelivery: prefill.estimatedDelivery ?? formData.estimatedDelivery,
+        gbStartDate: prefill.gbStartDate ? new Date(prefill.gbStartDate) : formData.gbStartDate,
+        gbEndDate: prefill.gbEndDate ? new Date(prefill.gbEndDate) : formData.gbEndDate,
         links: [
-          ...(prev.links ?? []),
+          ...(formData.links ?? []),
           ...(prefill.links ?? []).map((link) => ({ label: link.label, url: link.url, type: link.type })),
         ],
-      }));
-      toast.success("Imported source hints. Please review before publishing.");
+      };
+
+      setFormData(nextFormData);
+      const linksDetected = Math.max((prefill.links ?? []).length, nextFormData.links.length - formData.links.length);
+      const fieldsPrefilled = countPrefilledFields(formData, nextFormData);
+      const estimatedSections = [
+        prefill.title,
+        prefill.description,
+        prefill.status,
+        prefill.gbStartDate || prefill.gbEndDate,
+        (prefill.links ?? []).length > 0,
+      ].filter(Boolean).length;
+
+      setImportSummary({ fieldsPrefilled, linksDetected, estimatedSections });
+      toast.success(`Imported source hints: ${fieldsPrefilled} fields prefilled, ${linksDetected} links detected.`);
     } catch {
       toast.error("Network error – could not reach server");
     } finally {
@@ -696,6 +740,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
   };
 
   const sections = [
+    { id: "import-url", label: "URL Import" },
     { id: "basic-info", label: "Basic Info" },
     ...(formData.status === "GROUP_BUY"
       ? [
@@ -764,10 +809,12 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
         </nav>
       )}
       <form onSubmit={handleSubmit} className="min-w-0 flex-1 space-y-6 pb-24 md:pb-0">
-      {!isEditing && (
-        <Card>
+      <Card className="border-primary/40 bg-primary/5" id="import-url" data-field="import-url">
           <CardHeader>
-            <CardTitle>Import from URL</CardTitle>
+            <CardTitle>Start with a URL import (fastest for long Geekhack posts)</CardTitle>
+            <p className="text-muted-foreground text-sm">
+              Paste a Geekhack topic or vendor page and we&apos;ll prefill title, description, status/timeline hints, and links so you can polish instead of retyping.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -798,6 +845,15 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
               We parse the page for title, status/date hints, links, and description snippets. Nothing is auto-published.
             </p>
 
+            {importSummary && (
+              <div className="rounded-md border bg-background/70 p-3 text-sm">
+                <p className="font-medium">Import summary</p>
+                <p className="text-muted-foreground text-xs">
+                  {importSummary.fieldsPrefilled} fields prefilled • {importSummary.linksDetected} links detected • ~{importSummary.estimatedSections} sections imported
+                </p>
+              </div>
+            )}
+
             {templateProjects.length > 0 && (
               <div className="space-y-2 border-t pt-4">
                 <Label>Start from one of your existing projects</Label>
@@ -823,7 +879,6 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
             )}
           </CardContent>
         </Card>
-      )}
 
       <Card id="basic-info" className="scroll-mt-24" data-field="basic-info">
         <CardHeader>

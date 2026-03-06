@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import type { Metadata } from "next";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,9 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
   }
 
-  const [projects, total, allVendors] = await Promise.all([
+  const session = await auth();
+
+  const [projects, total, allVendors, followedProjectIds, anchorFollowedProject] = await Promise.all([
     prisma.project.findMany({
       where,
       include: {
@@ -108,7 +111,40 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    session?.user
+      ? prisma.follow.findMany({
+          where: { userId: session.user.id, targetType: "PROJECT" },
+          select: { targetId: true },
+        })
+      : Promise.resolve([]),
+    session?.user
+      ? prisma.follow.findFirst({
+          where: { userId: session.user.id, targetType: "PROJECT", targetProject: { published: true } },
+          select: { targetProject: { select: { id: true, title: true, category: true, status: true } } },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve(null),
   ]);
+
+  const followedIds = new Set(followedProjectIds.map((f) => f.targetId));
+  const followedRecommendations = anchorFollowedProject?.targetProject
+    ? await prisma.project.findMany({
+        where: {
+          published: true,
+          id: { notIn: [...followedIds, anchorFollowedProject.targetProject.id] },
+          OR: [
+            { category: anchorFollowedProject.targetProject.category },
+            { status: anchorFollowedProject.targetProject.status },
+          ],
+        },
+        include: {
+          vendor: { select: { name: true, slug: true } },
+          _count: { select: { favorites: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 4,
+      })
+    : [];
 
   const totalPages = Math.ceil(total / limit);
 
@@ -141,6 +177,13 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
           </div>
         </div>
       </div>
+
+      {followedRecommendations.length > 0 && anchorFollowedProject?.targetProject && (
+        <section className="space-y-3 rounded-lg border p-4">
+          <h2 className="text-lg font-semibold">From projects you follow: {anchorFollowedProject.targetProject.title}</h2>
+          <ProjectGrid projects={followedRecommendations} viewMode="compact" />
+        </section>
+      )}
 
       {projects.length > 0 ? (
         <>

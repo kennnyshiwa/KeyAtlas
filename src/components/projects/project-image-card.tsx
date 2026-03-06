@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ProjectStatusBadge } from "./status-badge";
 import { SmartImage } from "@/components/shared/smart-image";
+import { Badge } from "@/components/ui/badge";
+import { isRecentlyUpdated } from "@/lib/project-discovery";
 import type { ProjectListItem } from "@/types";
 
 interface ProjectImageCardProps {
@@ -29,8 +31,13 @@ export function ProjectImageCard({ project }: ProjectImageCardProps) {
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-        <div className="absolute top-2 left-2">
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
           <ProjectStatusBadge status={project.status} />
+          {isRecentlyUpdated(new Date(project.updatedAt)) && (
+            <Badge variant="secondary" className="text-[10px]">
+              Recently updated
+            </Badge>
+          )}
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-3">
           <h3 className="line-clamp-2 font-semibold text-white">

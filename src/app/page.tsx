@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Keyboard, TrendingUp, Clock, Sparkles, RefreshCw } from "lucide-react";
 import { addDays } from "date-fns";
 import type { Metadata } from "next";
+import { auth } from "@/lib/auth";
+import { scoreTrendingProject } from "@/lib/project-discovery";
 
 export const metadata: Metadata = {
   title: "KeyAtlas - Mechanical Keyboard Community Hub",
@@ -15,6 +17,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
+  const session = await auth();
   const now = new Date();
   const sevenDaysFromNow = addDays(now, 7);
   const fourteenDaysAgo = addDays(now, -14);
@@ -25,8 +28,10 @@ export default async function HomePage() {
     endingSoonProjects,
     newICProjects,
     newGBProjects,
-    trendingProjects,
+    trendingCandidates,
     recentlyUpdatedProjects,
+    followedProjectIds,
+    anchorFollowedProject,
   ] = await Promise.all([
     prisma.project.findMany({
       where: { published: true, featured: true },
@@ -71,13 +76,12 @@ export default async function HomePage() {
       take: 8,
     }),
     prisma.project.findMany({
-      where: { published: true },
+      where: { published: true, updatedAt: { gte: fourteenDaysAgo } },
       include: {
         vendor: { select: { name: true, slug: true } },
-        _count: { select: { favorites: true } },
+        _count: { select: { favorites: true, followers: true, comments: true, updates: true } },
       },
-      orderBy: { favorites: { _count: "desc" } },
-      take: 8,
+      take: 40,
     }),
     prisma.project.findMany({
       where: { published: true },
@@ -85,7 +89,70 @@ export default async function HomePage() {
       orderBy: { updatedAt: "desc" },
       take: 8,
     }),
+    session?.user
+      ? prisma.follow.findMany({
+          where: { userId: session.user.id, targetType: "PROJECT" },
+          select: { targetId: true },
+        })
+      : Promise.resolve([]),
+    session?.user
+      ? prisma.follow.findFirst({
+          where: { userId: session.user.id, targetType: "PROJECT", targetProject: { published: true } },
+          select: {
+            targetProject: { select: { id: true, title: true, category: true, status: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve(null),
   ]);
+
+  const trendingProjects = trendingCandidates
+    .sort((a, b) => {
+      const scoreDelta =
+        scoreTrendingProject(
+          {
+            favoritesCount: b._count.favorites,
+            followersCount: b._count.followers,
+            commentsCount: b._count.comments,
+            updatesCount: b._count.updates,
+            updatedAt: b.updatedAt,
+            createdAt: b.createdAt,
+          },
+          now
+        ) -
+        scoreTrendingProject(
+          {
+            favoritesCount: a._count.favorites,
+            followersCount: a._count.followers,
+            commentsCount: a._count.comments,
+            updatesCount: a._count.updates,
+            updatedAt: a.updatedAt,
+            createdAt: a.createdAt,
+          },
+          now
+        );
+
+      if (scoreDelta !== 0) return scoreDelta;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    })
+    .slice(0, 8);
+
+  const followedIds = new Set(followedProjectIds.map((f) => f.targetId));
+  const followedRecommendations = anchorFollowedProject?.targetProject
+    ? await prisma.project.findMany({
+        where: {
+          published: true,
+          id: { notIn: [...followedIds, anchorFollowedProject.targetProject.id] },
+          OR: [
+            { category: anchorFollowedProject.targetProject.category },
+            { status: anchorFollowedProject.targetProject.status },
+          ],
+        },
+        include: { vendor: { select: { name: true, slug: true } }, _count: { select: { favorites: true } } },
+        orderBy: { updatedAt: "desc" },
+        take: 6,
+      })
+    : [];
 
   return (
     <div className="space-y-12">
@@ -159,6 +226,23 @@ export default async function HomePage() {
         </section>
       )}
 
+      {followedRecommendations.length > 0 && anchorFollowedProject?.targetProject && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold tracking-tight">
+              Because you follow {anchorFollowedProject.targetProject.title}
+            </h2>
+            <Button variant="ghost" asChild>
+              <Link href="/projects">
+                More picks
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <ProjectGrid projects={followedRecommendations} />
+        </section>
+      )}
+
       {/* New Interest Checks */}
       {newICProjects.length > 0 && (
         <section className="space-y-4">
@@ -201,7 +285,7 @@ export default async function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="text-primary h-5 w-5" />
-              <h2 className="text-2xl font-bold tracking-tight">Trending</h2>
+              <h2 className="text-2xl font-bold tracking-tight">Trending this week</h2>
             </div>
             <Button variant="ghost" asChild>
               <Link href="/projects">

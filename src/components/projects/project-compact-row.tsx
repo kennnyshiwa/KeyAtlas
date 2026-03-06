@@ -3,6 +3,8 @@ import { ProjectStatusBadge } from "./status-badge";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { FavoriteButton } from "./favorite-button";
+import { Badge } from "@/components/ui/badge";
+import { isRecentlyUpdated } from "@/lib/project-discovery";
 import type { ProjectListItem } from "@/types";
 
 interface ProjectCompactRowProps {
@@ -30,6 +32,11 @@ export function ProjectCompactRow({ project }: ProjectCompactRowProps) {
         <span className="text-muted-foreground hidden text-sm md:inline">
           {project.designer || project.vendor?.name}
         </span>
+      )}
+      {isRecentlyUpdated(new Date(project.updatedAt)) && (
+        <Badge variant="outline" className="hidden text-[11px] sm:inline-flex">
+          Recently updated
+        </Badge>
       )}
       {project.priceMin != null && (
         <span className="text-sm font-medium">

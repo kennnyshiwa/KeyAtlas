@@ -31,6 +31,7 @@ export type ProjectListItem = Pick<
   | "designer"
   | "shipped"
   | "createdAt"
+  | "updatedAt"
   | "gbStartDate"
   | "gbEndDate"
 > & {

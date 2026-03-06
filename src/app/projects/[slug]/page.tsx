@@ -40,6 +40,7 @@ async function getProject(slug: string) {
     creator: { select: { id: true, name: true, image: true } },
     projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
     soundTests: { orderBy: { createdAt: "asc" as const } },
+    _count: { select: { followers: true, favorites: true, comments: true } },
   };
 
   const direct = await prisma.project.findUnique({ where: { slug }, include });
@@ -174,6 +175,14 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <ProjectHero project={project} />
+
+      <div className="rounded-lg border bg-muted/20 p-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant="secondary">{project._count.followers} followers</Badge>
+          <Badge variant="secondary">{project._count.favorites} bookmarks</Badge>
+          <Badge variant="secondary">{project._count.comments} comments</Badge>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <FavoriteButton projectId={project.id} />

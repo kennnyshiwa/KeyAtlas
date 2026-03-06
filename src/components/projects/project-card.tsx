@@ -7,6 +7,7 @@ import { FavoriteButton } from "./favorite-button";
 import { EventStop } from "./event-stop";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import { formatPrice } from "@/lib/utils";
+import { isRecentlyUpdated } from "@/lib/project-discovery";
 import type { ProjectListItem } from "@/types";
 
 interface ProjectCardProps {
@@ -64,6 +65,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
             {project.shipped && (
               <Badge className="bg-emerald-500 text-xs text-white">
                 Shipped
+              </Badge>
+            )}
+            {isRecentlyUpdated(new Date(project.updatedAt)) && (
+              <Badge variant="outline" className="text-xs">
+                Recently updated
               </Badge>
             )}
           </div>

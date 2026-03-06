@@ -62,6 +62,11 @@ export function FollowButton({
 
       const data = await res.json();
       setFollowing(data.following);
+      if (targetType === "PROJECT" && data.following) {
+        toast.success(
+          "Following. You'll get updates for status changes, GB ending soon, and shipping progress."
+        );
+      }
     } catch {
       toast.error("Failed to update follow");
     } finally {
