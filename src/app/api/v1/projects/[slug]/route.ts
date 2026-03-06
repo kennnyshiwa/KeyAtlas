@@ -27,6 +27,27 @@ export async function GET(
         select: { id: true, title: true, content: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       },
+      comments: {
+        where: { parentId: null },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          updatedAt: true,
+          user: { select: { id: true, username: true, name: true, displayName: true, image: true } },
+          replies: {
+            select: {
+              id: true,
+              content: true,
+              createdAt: true,
+              updatedAt: true,
+              user: { select: { id: true, username: true, name: true, displayName: true, image: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
       creator: { select: { id: true, username: true, name: true, image: true } },
       projectVendors: {
         include: { vendor: { select: { name: true } } },
@@ -106,7 +127,32 @@ export async function GET(
       content: u.content,
       created_at: u.createdAt,
     })),
-    comments: [],
+    comments: project.comments.map((c) => ({
+      id: c.id,
+      content: c.content,
+      created_at: c.createdAt,
+      updated_at: c.updatedAt,
+      author: {
+        id: c.user.id,
+        username: c.user.username,
+        name: c.user.displayName ?? c.user.name,
+        avatar_url: c.user.image,
+        image: c.user.image,
+      },
+      replies: c.replies.map((r) => ({
+        id: r.id,
+        content: r.content,
+        created_at: r.createdAt,
+        updated_at: r.updatedAt,
+        author: {
+          id: r.user.id,
+          username: r.user.username,
+          name: r.user.displayName ?? r.user.name,
+          avatar_url: r.user.image,
+          image: r.user.image,
+        },
+      })),
+    })),
     tags: project.tags ?? [],
     links: project.links.map((link) => ({
       id: link.id,
