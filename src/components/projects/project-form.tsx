@@ -113,6 +113,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
   const pathname = usePathname();
   const isEditing = !!project;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [heroImageError, setHeroImageError] = useState(false);
   const heroCardRef = useRef<HTMLDivElement | null>(null);
   const [profileOptions, setProfileOptions] = useState<string[]>(
@@ -665,6 +666,28 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
 
   const handlePreview = async () => {
     await saveProject("preview", { redirectToPreview: true });
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!project?.id || project.published) return;
+    if (!window.confirm("Delete this draft? This cannot be undone.")) return;
+
+    setIsDeletingDraft(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to delete draft");
+      }
+      clearLocalDraft();
+      toast.success("Draft deleted");
+      router.push(mode === "submit" ? "/profile" : "/admin/projects");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete draft");
+    } finally {
+      setIsDeletingDraft(false);
+    }
   };
 
   const formatDateForInput = (date: Date | string | null | undefined) => {
@@ -1362,6 +1385,19 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
         <div className="flex flex-wrap justify-end gap-3">
+          {isEditing && !project?.published && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteDraft}
+              disabled={isSubmitting || isDeletingDraft}
+              className="min-h-11"
+            >
+              {isDeletingDraft && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Draft
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"

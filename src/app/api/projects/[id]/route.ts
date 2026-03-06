@@ -281,23 +281,44 @@ export async function DELETE(
 ) {
   const { id } = await params;
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const isAdmin = session.user.role === "ADMIN";
+  const isStaff = isAdmin || session.user.role === "MODERATOR";
+
+  const existing = await prisma.project.findUnique({
+    where: { id },
+    select: { id: true, creatorId: true, published: true },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const isCreator = existing.creatorId === session.user.id;
+  const canDeleteDraft = isCreator && !existing.published;
+
+  if (!isStaff && !canDeleteDraft) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   await prisma.project.delete({ where: { id } });
   await removeProjectFromIndex(id);
 
-  await logAdminAction({
-    actorId: session.user.id,
-    actorRole: session.user.role,
-    action: "PROJECT_DELETED",
-    resource: "PROJECT",
-    resourceId: id,
-    targetId: id,
-    ipAddress: req.headers.get("x-forwarded-for"),
-    userAgent: req.headers.get("user-agent"),
-  });
+  if (isStaff) {
+    await logAdminAction({
+      actorId: session.user.id,
+      actorRole: session.user.role,
+      action: "PROJECT_DELETED",
+      resource: "PROJECT",
+      resourceId: id,
+      targetId: id,
+      ipAddress: req.headers.get("x-forwarded-for"),
+      userAgent: req.headers.get("user-agent"),
+    });
+  }
 
   return NextResponse.json({ success: true });
 }

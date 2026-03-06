@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -7,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { Eye, Pencil, Plus } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { ApiKeyManager } from "@/components/profile/api-key-manager";
 import { ApiDocs } from "@/components/profile/api-docs";
 import { ProfileSettings } from "@/components/profile/profile-settings";
@@ -44,6 +47,27 @@ interface ProfileTabsProps {
 }
 
 export function ProfileTabs({ projects, favorites, collection, apiKeys, user, defaultTab = "projects" }: ProfileTabsProps) {
+  const router = useRouter();
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+
+  const deleteDraft = async (projectId: string) => {
+    if (!window.confirm("Delete this draft? This cannot be undone.")) return;
+    setDeletingProjectId(projectId);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to delete draft");
+      }
+      toast.success("Draft deleted");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete draft");
+    } finally {
+      setDeletingProjectId(null);
+    }
+  };
+
   return (
     <Tabs defaultValue={defaultTab}>
       <TabsList>
@@ -102,6 +126,16 @@ export function ProfileTabs({ projects, favorites, collection, apiKeys, user, de
                             <Eye className="mr-2 h-4 w-4" />
                             Preview
                           </Link>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteDraft(project.id)}
+                          disabled={deletingProjectId === project.id}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {deletingProjectId === project.id ? "Deleting..." : "Delete"}
                         </Button>
                       </>
                     )}
