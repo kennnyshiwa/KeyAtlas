@@ -41,6 +41,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      NOTIFICATION_JOB_SECRET: ${NOTIFICATION_JOB_SECRET:-}
     volumes:
       - keyatlas_uploads_data:/app/public/uploads
     healthcheck:
