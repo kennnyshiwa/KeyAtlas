@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo, type ReactNode, type CSSProperties } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode, type CSSProperties } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -9,6 +9,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import TextAlign from "@tiptap/extension-text-align";
+import { Extension } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { FontSize } from "@/components/editor/extensions/font-size";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +34,7 @@ import {
   Redo,
 } from "lucide-react";
 import { contrastRatio, WCAG_AA_THRESHOLD, passesWcagAA } from "@/lib/color-contrast";
+import { toast } from "sonner";
 import "./rich-text-editor.css";
 
 interface RichTextEditorProps {
@@ -130,6 +133,62 @@ function getEffectiveBgColor(el: HTMLElement): string {
   return "#ffffff";
 }
 
+async function uploadImageFile(file: File): Promise<string | null> {
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: form });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { url?: string };
+    return data.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function createImagePastePlugin(onUpload: (file: File, editor: Editor) => void) {
+  return Extension.create({
+    name: "imagePaste",
+    addProseMirrorPlugins() {
+      const editor = this.editor;
+      return [
+        new Plugin({
+          key: new PluginKey("imagePaste"),
+          props: {
+            handlePaste(_view, event) {
+              const items = event.clipboardData?.items;
+              if (!items) return false;
+              for (const item of Array.from(items)) {
+                if (item.type.startsWith("image/")) {
+                  const file = item.getAsFile();
+                  if (file) {
+                    event.preventDefault();
+                    onUpload(file, editor);
+                    return true;
+                  }
+                }
+              }
+              return false;
+            },
+            handleDrop(_view, event) {
+              const files = event.dataTransfer?.files;
+              if (!files?.length) return false;
+              for (const file of Array.from(files)) {
+                if (file.type.startsWith("image/")) {
+                  event.preventDefault();
+                  onUpload(file, editor);
+                  return true;
+                }
+              }
+              return false;
+            },
+          },
+        }),
+      ];
+    },
+  });
+}
+
 export function RichTextEditor({
   content = "",
   onChange,
@@ -146,6 +205,41 @@ export function RichTextEditor({
   const lastColorApplyAtRef = useRef(0);
   const normalizedContent = normalizeLegacyFontTags(content || "");
   const prevContentRef = useRef(normalizedContent);
+
+  const handleImageUpload = useCallback(async (file: File, ed: Editor) => {
+    // Insert a placeholder while uploading
+    const placeholderSrc = URL.createObjectURL(file);
+    ed.chain().focus().setImage({ src: placeholderSrc, alt: "Uploading..." }).run();
+
+    const url = await uploadImageFile(file);
+    URL.revokeObjectURL(placeholderSrc);
+
+    if (url) {
+      // Replace the blob placeholder with the real URL
+      const { doc, tr } = ed.state;
+      doc.descendants((node, pos) => {
+        if (node.type.name === "image" && node.attrs.src === placeholderSrc) {
+          tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: url, alt: null });
+        }
+      });
+      if (tr.docChanged) {
+        ed.view.dispatch(tr);
+      } else {
+        // Fallback: just append the image
+        ed.chain().focus().setImage({ src: url }).run();
+      }
+    } else {
+      // Remove the placeholder on failure
+      const { doc, tr } = ed.state;
+      doc.descendants((node, pos) => {
+        if (node.type.name === "image" && node.attrs.src === placeholderSrc) {
+          tr.delete(pos, pos + node.nodeSize);
+        }
+      });
+      if (tr.docChanged) ed.view.dispatch(tr);
+      toast.error("Image upload failed");
+    }
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -169,6 +263,7 @@ export function RichTextEditor({
           decoding: "async",
         },
       }),
+      createImagePastePlugin(handleImageUpload),
       Placeholder.configure({ placeholder }),
     ],
     content: normalizedContent,
