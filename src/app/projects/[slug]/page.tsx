@@ -46,10 +46,29 @@ async function getProject(slug: string) {
     _count: { select: { followers: true, favorites: true, comments: true } },
   };
 
-  const direct = await prisma.project.findUnique({ where: { slug }, include });
+  const decodedSlug = (() => {
+    try {
+      return decodeURIComponent(slug);
+    } catch {
+      return slug;
+    }
+  })();
+  const slugCandidates = Array.from(
+    new Set([
+      slug,
+      decodedSlug,
+      decodedSlug.normalize("NFC"),
+      decodedSlug.normalize("NFD"),
+    ])
+  );
+
+  const direct = await prisma.project.findFirst({
+    where: { slug: { in: slugCandidates } },
+    include,
+  });
   if (direct) return direct;
 
-  const topicId = slug.match(/^(\d{5,})-/)?.[1];
+  const topicId = decodedSlug.match(/^(\d{5,})-/)?.[1];
   if (!topicId) return null;
 
   const byGeekhackTopic = await prisma.project.findFirst({

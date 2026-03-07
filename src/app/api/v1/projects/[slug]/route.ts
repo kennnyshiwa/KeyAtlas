@@ -14,9 +14,24 @@ export async function GET(
   if (limited) return limited;
 
   const { slug } = await params;
+  const decodedSlug = (() => {
+    try {
+      return decodeURIComponent(slug);
+    } catch {
+      return slug;
+    }
+  })();
+  const slugCandidates = Array.from(
+    new Set([
+      slug,
+      decodedSlug,
+      decodedSlug.normalize("NFC"),
+      decodedSlug.normalize("NFD"),
+    ])
+  );
 
-  const project = await prisma.project.findUnique({
-    where: { slug, published: true },
+  const project = await prisma.project.findFirst({
+    where: { slug: { in: slugCandidates }, published: true },
     include: {
       images: {
         select: { id: true, url: true, alt: true, order: true, linkUrl: true, openInNewTab: true },
@@ -195,8 +210,23 @@ export async function PATCH(
   if (limited) return limited;
 
   const { slug } = await params;
-  const existing = await prisma.project.findUnique({
-    where: { slug },
+  const decodedSlug = (() => {
+    try {
+      return decodeURIComponent(slug);
+    } catch {
+      return slug;
+    }
+  })();
+  const slugCandidates = Array.from(
+    new Set([
+      slug,
+      decodedSlug,
+      decodedSlug.normalize("NFC"),
+      decodedSlug.normalize("NFD"),
+    ])
+  );
+  const existing = await prisma.project.findFirst({
+    where: { slug: { in: slugCandidates } },
     select: { id: true, creatorId: true },
   });
 
