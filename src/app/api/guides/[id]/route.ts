@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 interface RouteCtx {
   params: Promise<{ id: string }>;
+}
+
+/** Resolve the authenticated user from either NextAuth session or API key */
+async function resolveUser(req: NextRequest) {
+  // Try NextAuth session first (web)
+  const session = await auth();
+  if (session?.user?.id) {
+    return { id: session.user.id, role: session.user.role as string };
+  }
+  // Fall back to API key (mobile)
+  const apiUser = await authenticateApiKey(req);
+  if (apiUser) {
+    return { id: apiUser.id, role: apiUser.role as string };
+  }
+  return null;
 }
 
 const updateSchema = z.object({
@@ -15,8 +31,8 @@ const updateSchema = z.object({
 });
 
 export async function PUT(req: NextRequest, { params }: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) {
+  const user = await resolveUser(req);
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -31,8 +47,8 @@ export async function PUT(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Guide not found" }, { status: 404 });
   }
 
-  const isOwner = guide.authorId === session.user.id;
-  const isAdmin = session.user.role === "ADMIN";
+  const isOwner = guide.authorId === user.id;
+  const isAdmin = user.role === "ADMIN";
 
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -60,9 +76,9 @@ export async function PUT(req: NextRequest, { params }: RouteCtx) {
   return NextResponse.json(updated);
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
-  const session = await auth();
-  if (!session?.user) {
+export async function DELETE(req: NextRequest, { params }: RouteCtx) {
+  const user = await resolveUser(req);
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -77,8 +93,8 @@ export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Guide not found" }, { status: 404 });
   }
 
-  const isOwner = guide.authorId === session.user.id;
-  const isAdmin = session.user.role === "ADMIN";
+  const isOwner = guide.authorId === user.id;
+  const isAdmin = user.role === "ADMIN";
 
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
