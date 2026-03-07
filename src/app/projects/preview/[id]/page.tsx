@@ -178,7 +178,7 @@ export default async function ProjectPreviewPage({ params, searchParams }: Previ
         </div>
       </div>
 
-      {project.category === "KEYBOARDS" && (
+      {(project.soundTests.length > 0 || project.category === "KEYBOARDS") && (
         <SoundTestSection
           projectId={project.id}
           soundTests={project.soundTests}

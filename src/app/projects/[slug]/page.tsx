@@ -251,7 +251,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         <ProjectGallery images={project.images} />
       )}
 
-      {project.category === "KEYBOARDS" && (
+      {(project.soundTests.length > 0 || project.category === "KEYBOARDS") && (
         <SoundTestSection
           projectId={project.id}
           soundTests={project.soundTests}
