@@ -4,7 +4,7 @@ import { safeFetch } from "@/lib/security/ssrf-guard";
 import { validateImageBuffer } from "@/lib/security/upload-validation";
 import { getStorageProvider } from "@/lib/storage";
 
-const MAX_REMOTE_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_REMOTE_IMAGE_BYTES = 20 * 1024 * 1024; // Match upload API limit
 const REMOTE_IMAGE_TIMEOUT_MS = 12_000;
 
 const ALLOWED_IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
