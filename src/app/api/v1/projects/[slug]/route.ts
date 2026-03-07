@@ -23,6 +23,7 @@ export async function GET(
         orderBy: { order: "asc" },
       },
       links: { select: { id: true, label: true, url: true, type: true } },
+      soundTests: { select: { id: true, title: true, url: true, platform: true } },
       updates: {
         select: { id: true, title: true, content: true, createdAt: true },
         orderBy: { createdAt: "desc" },
@@ -122,6 +123,12 @@ export async function GET(
       position: img.order,
     })),
     timeline: [],
+    sound_tests: project.soundTests.map((st) => ({
+      id: st.id,
+      title: st.title,
+      url: st.url,
+      platform: st.platform,
+    })),
     updates: project.updates.map((u) => ({
       id: u.id,
       title: u.title,
