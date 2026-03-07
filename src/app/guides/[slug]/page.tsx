@@ -12,7 +12,7 @@ import { ShareButton } from "@/components/social/share-button";
 import { DeleteGuideButton } from "@/components/guides/delete-guide-button";
 import { RichTextRenderer } from "@/components/editor/rich-text-renderer";
 import { ProjectGrid } from "@/components/projects/project-grid";
-import { Calendar } from "lucide-react";
+import { Calendar, Pencil } from "lucide-react";
 import { SmartImage } from "@/components/shared/smart-image";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
@@ -76,9 +76,10 @@ export default async function GuidePage({ params }: Props) {
   if (!guide) notFound();
 
   const session = await auth();
-  const canDelete =
+  const canEdit =
     !!session?.user &&
     (session.user.role === "ADMIN" || session.user.id === guide.authorId);
+  const canDelete = canEdit;
 
   const [moreGuides, recentProjects] = await Promise.all([
     prisma.buildGuide.findMany({
@@ -137,6 +138,14 @@ export default async function GuidePage({ params }: Props) {
       <PageHeader title={guide.title}>
         <div className="flex items-center gap-2">
           <ShareButton title={guide.title} />
+          {canEdit && (
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/guides/${guide.slug}/edit`}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
+          )}
           {canDelete && <DeleteGuideButton guideId={guide.id} />}
         </div>
       </PageHeader>
