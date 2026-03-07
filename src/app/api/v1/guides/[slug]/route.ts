@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_DETAIL } from "@/lib/rate-limit";
 
@@ -7,12 +6,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const limited = await rateLimit(user.id, "v1:guides:detail", RATE_LIMIT_DETAIL);
+  // Rate limit by IP for unauthenticated access to published guides
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
+  const limited = await rateLimit(ip, "v1:guides:detail", RATE_LIMIT_DETAIL);
   if (limited) return limited;
 
   const { slug } = await params;
