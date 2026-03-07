@@ -90,9 +90,8 @@ export async function generateMetadata({
     priceMax: project.priceMax,
     currency: project.currency,
   });
-  const appIconUrl = `${siteUrl}/icon-512.png`;
   const primaryImage =
-    toAbsoluteUrl(project.heroImage || project.images[0]?.url) || appIconUrl;
+    toAbsoluteUrl(project.heroImage || project.images[0]?.url) || `${siteUrl}/window.svg`;
 
   return {
     title,
@@ -104,13 +103,13 @@ export async function generateMetadata({
       url: canonical,
       type: "website",
       siteName: SITE_NAME,
-      images: [primaryImage, appIconUrl],
+      images: [primaryImage],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [primaryImage, appIconUrl],
+      images: [primaryImage],
     },
   };
 }
@@ -176,9 +175,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     priceMax: project.priceMax,
     currency: project.currency,
   });
-  const appIconUrl = `${siteUrl}/icon-512.png`;
   const primaryImage =
-    toAbsoluteUrl(project.heroImage || project.images[0]?.url) || appIconUrl;
+    toAbsoluteUrl(project.heroImage || project.images[0]?.url) || `${siteUrl}/window.svg`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": project.vendor ? "Product" : "CreativeWork",
