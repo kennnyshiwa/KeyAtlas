@@ -75,6 +75,11 @@ export async function generateMetadata({
   if (!project) return { title: "Not Found" };
 
   const siteUrl = getSiteUrl();
+  const toAbsoluteUrl = (url?: string | null) => {
+    if (!url) return null;
+    if (/^https?:\/\//i.test(url)) return url;
+    return new URL(url, siteUrl).toString();
+  };
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
   const title = project.metaTitle?.trim() || project.title || SITE_NAME;
   const description = buildEmbedDescription({
@@ -85,8 +90,9 @@ export async function generateMetadata({
     priceMax: project.priceMax,
     currency: project.currency,
   });
+  const appIconUrl = `${siteUrl}/icon-512.png`;
   const primaryImage =
-    project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;
+    toAbsoluteUrl(project.heroImage || project.images[0]?.url) || appIconUrl;
 
   return {
     title,
@@ -98,13 +104,13 @@ export async function generateMetadata({
       url: canonical,
       type: "website",
       siteName: SITE_NAME,
-      images: primaryImage ? [primaryImage] : undefined,
+      images: [primaryImage, appIconUrl],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: primaryImage ? [primaryImage] : undefined,
+      images: [primaryImage, appIconUrl],
     },
   };
 }
@@ -156,6 +162,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     : false;
 
   const siteUrl = getSiteUrl();
+  const toAbsoluteUrl = (url?: string | null) => {
+    if (!url) return null;
+    if (/^https?:\/\//i.test(url)) return url;
+    return new URL(url, siteUrl).toString();
+  };
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
   const description = buildEmbedDescription({
     ...project,
@@ -165,8 +176,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     priceMax: project.priceMax,
     currency: project.currency,
   });
+  const appIconUrl = `${siteUrl}/icon-512.png`;
   const primaryImage =
-    project.heroImage || project.images[0]?.url || `${siteUrl}/window.svg`;
+    toAbsoluteUrl(project.heroImage || project.images[0]?.url) || appIconUrl;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": project.vendor ? "Product" : "CreativeWork",
