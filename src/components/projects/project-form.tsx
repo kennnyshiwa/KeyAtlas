@@ -283,7 +283,18 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
         gbEndDate: recovered.gbEndDate ? new Date(recovered.gbEndDate) : prev.gbEndDate,
       }));
       setDraftRecovered(true);
-      toast.success("Recovered unsaved draft from this device");
+      toast.success("Recovered unsaved draft from this device", {
+        action: !isEditing
+          ? {
+              label: "Start Fresh",
+              onClick: () => {
+                clearLocalDraft();
+                window.location.reload();
+              },
+            }
+          : undefined,
+        duration: 8000,
+      });
     } catch {
       // ignore malformed local draft data
     }
@@ -341,6 +352,11 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
         const savedProject = await res.json();
 
         if (!isEditing && savedProject?.id) {
+          // Clear the "new" draft since we're transitioning to an edit page
+          try {
+            const owner = mode === "admin" ? "admin" : "submit";
+            localStorage.removeItem(`keyvault:project-draft:${owner}:new`);
+          } catch { /* no-op */ }
           const nextPath =
             mode === "admin"
               ? `/admin/projects/${savedProject.id}/edit`
@@ -691,6 +707,14 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
 
       const savedProject = await res.json();
       clearLocalDraft();
+      // Also clear the "new" draft key when publishing from an edit page
+      // (autosave may have redirected from /submit to /submit/{id}/edit)
+      if (isEditing) {
+        try {
+          const owner = mode === "admin" ? "admin" : "submit";
+          localStorage.removeItem(`keyvault:project-draft:${owner}:new`);
+        } catch { /* no-op */ }
+      }
       lastSavedSnapshotRef.current = serializeForm(formData);
       setSaveState("saved");
       setLastSavedAt(new Date());
