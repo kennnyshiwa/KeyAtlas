@@ -28,6 +28,7 @@ export function ImageUpload({
   const [urlInput, setUrlInput] = useState("");
   const [urlError, setUrlError] = useState("");
   const [isValidating, setIsValidating] = useState(false);
+  const [isReplacing, setIsReplacing] = useState(false);
   const inputId = useId();
 
   const handleUpload = useCallback(
@@ -69,6 +70,7 @@ export function ImageUpload({
         });
 
         onChange(data.url);
+        setIsReplacing(false);
       } catch (error) {
         console.error("Upload error:", error);
         const message = error instanceof Error ? error.message : "Upload failed";
@@ -122,6 +124,7 @@ export function ImageUpload({
 
       onChange(data.url);
       setUrlInput("");
+      setIsReplacing(false);
     } catch {
       setUrlError("Failed to validate URL");
     } finally {
@@ -129,27 +132,38 @@ export function ImageUpload({
     }
   }, [urlInput, onChange]);
 
-  if (value) {
+  if (value && !isReplacing) {
     return (
-      <div className={cn("relative overflow-hidden rounded-lg border", className)}>
-        <SmartImage
-          src={value}
-          alt="Uploaded image"
-          width={400}
-          height={300}
-          className="h-48 w-full object-cover"
-        />
-        {onRemove && (
-          <Button
-            variant="destructive"
-            size="icon"
-            className="absolute top-2 right-2 h-6 w-6"
-            onClick={onRemove}
-            type="button"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
+      <div className={cn("space-y-2", className)}>
+        <div className="relative overflow-hidden rounded-lg border">
+          <SmartImage
+            src={value}
+            alt="Uploaded image"
+            width={400}
+            height={300}
+            className="h-48 w-full object-cover"
+          />
+          {onRemove && (
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2 h-6 w-6"
+              onClick={onRemove}
+              type="button"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setIsReplacing(true)}
+        >
+          <Upload className="mr-1 h-3 w-3" />
+          Change image
+        </Button>
       </div>
     );
   }
@@ -175,6 +189,16 @@ export function ImageUpload({
           <LinkIcon className="mr-1 h-3 w-3" />
           Image URL
         </Button>
+        {isReplacing && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsReplacing(false)}
+          >
+            Cancel
+          </Button>
+        )}
       </div>
 
       {mode === "upload" ? (
