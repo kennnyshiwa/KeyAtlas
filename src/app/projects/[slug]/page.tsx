@@ -141,8 +141,17 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     notFound();
   }
 
-  if (project.slug !== slug) {
-    redirect(`/projects/${project.slug}`);
+  const requestedSlug = (() => {
+    try {
+      return decodeURIComponent(slug).normalize("NFC");
+    } catch {
+      return slug.normalize("NFC");
+    }
+  })();
+  const canonicalSlug = project.slug.normalize("NFC");
+
+  if (canonicalSlug !== requestedSlug) {
+    redirect(`/projects/${encodeURIComponent(project.slug)}`);
   }
 
   const relatedProjects = await prisma.project.findMany({
