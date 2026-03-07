@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { images, links, projectVendors, ...data } = result.data;
+  const { images, links, soundTests, projectVendors, ...data } = result.data;
 
   // Vendor required for GROUP_BUY status
   if (data.status === "GROUP_BUY" && projectVendors.length === 0) {
@@ -229,10 +229,18 @@ export async function POST(req: NextRequest) {
           endDate: pv.endDate ?? null,
         })),
       },
+      soundTests: {
+        create: soundTests.map((st) => ({
+          url: st.url,
+          title: st.title ?? null,
+          platform: st.platform ?? null,
+        })),
+      },
     },
     include: {
       images: true,
       links: true,
+      soundTests: true,
       vendor: { select: { name: true, slug: true } },
       projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
     },

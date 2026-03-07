@@ -72,6 +72,15 @@ export const projectFormSchema = z.object({
       })
     )
     .default([]),
+  soundTests: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        title: z.string().max(200).optional().nullable(),
+        platform: z.string().max(50).optional().nullable(),
+      })
+    )
+    .default([]),
   links: z
     .array(
       z.object({

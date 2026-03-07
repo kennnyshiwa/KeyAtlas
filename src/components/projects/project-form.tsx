@@ -22,7 +22,7 @@ import { CATEGORY_LABELS, STATUS_LABELS, PROFILE_OPTIONS } from "@/lib/constants
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
 import type { ProjectWithRelations } from "@/types";
-import { Plus, Trash2, Loader2, Eye, Download, Save } from "lucide-react";
+import { Plus, Trash2, Loader2, Eye, Download, Save, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import type { UrlImportPrefillPayload } from "@/lib/import/url-prefill";
 
@@ -164,6 +164,11 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
       label: link.label,
       url: link.url,
       type: link.type,
+    })) ?? [],
+    soundTests: project?.soundTests?.map((st) => ({
+      url: st.url,
+      title: st.title ?? null,
+      platform: st.platform ?? null,
     })) ?? [],
   });
 
@@ -661,6 +666,16 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           order: index,
         })),
         projectVendors: (formData.projectVendors ?? []).filter((pv) => pv.vendorId),
+        soundTests: (formData.soundTests ?? [])
+          .filter((st) => st.url?.trim())
+          .map((st) => ({
+            ...st,
+            platform: st.url.includes("youtube.com") || st.url.includes("youtu.be")
+              ? "youtube"
+              : st.url.includes("streamable.com")
+                ? "streamable"
+                : "other",
+          })),
       };
 
       const res = await fetch(url, {
@@ -767,6 +782,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     { id: "gallery", label: "Gallery" },
     { id: "tags", label: "Tags" },
     { id: "links", label: "Links" },
+    { id: "sound-tests", label: "Sound Tests" },
     ...(mode === "admin" ? [{ id: "settings", label: "Settings" }] : []),
   ];
 
@@ -1367,6 +1383,74 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           {formData.links.length === 0 && (
             <p className="text-muted-foreground text-sm">No links added</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card id="sound-tests" className="scroll-mt-24">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Volume2 className="h-5 w-5" />
+            Sound Tests
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-muted-foreground text-sm">
+            Add YouTube or Streamable links to showcase how this keyboard sounds.
+          </p>
+          {(formData.soundTests ?? []).map((st, index) => (
+            <div key={index} className="flex items-start gap-2 rounded-md border p-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <Input
+                  value={st.title ?? ""}
+                  onChange={(e) => {
+                    const updated = [...(formData.soundTests ?? [])];
+                    updated[index] = { ...updated[index], title: e.target.value || null };
+                    updateField("soundTests", updated);
+                  }}
+                  placeholder="Title (optional)"
+                />
+                <Input
+                  value={st.url}
+                  onChange={(e) => {
+                    const updated = [...(formData.soundTests ?? [])];
+                    updated[index] = { ...updated[index], url: e.target.value };
+                    updateField("soundTests", updated);
+                  }}
+                  placeholder="https://youtube.com/watch?v=... or streamable.com/..."
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const updated = (formData.soundTests ?? []).filter((_, i) => i !== index);
+                  updateField("soundTests", updated);
+                }}
+              >
+                <Trash2 className="text-destructive h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const detectPlatform = (url: string) => {
+                if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
+                if (url.includes("streamable.com")) return "streamable";
+                return "other";
+              };
+              updateField("soundTests", [
+                ...(formData.soundTests ?? []),
+                { url: "", title: null, platform: null },
+              ]);
+            }}
+          >
+            <Plus className="mr-1 h-3 w-3" />
+            Add Sound Test
+          </Button>
         </CardContent>
       </Card>
 

@@ -27,6 +27,7 @@ export default async function AdminEditProjectPage({ params }: AdminEditProjectP
       include: {
         images: { orderBy: { order: "asc" } },
         links: true,
+        soundTests: { orderBy: { createdAt: "asc" } },
         vendor: true,
         creator: { select: { id: true, name: true, image: true } },
         projectVendors: true,

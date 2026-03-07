@@ -116,7 +116,7 @@ export async function PUT(
     );
   }
 
-  const { images, links, projectVendors, ...data } = result.data;
+  const { images, links, soundTests, projectVendors, ...data } = result.data;
 
   // Vendor required for GROUP_BUY status
   if (data.status === "GROUP_BUY" && projectVendors.length === 0) {
@@ -192,6 +192,7 @@ export async function PUT(
     await tx.projectImage.deleteMany({ where: { projectId: id } });
     await tx.projectLink.deleteMany({ where: { projectId: id } });
     await tx.projectVendor.deleteMany({ where: { projectId: id } });
+    await tx.soundTest.deleteMany({ where: { projectId: id } });
 
     // Auto-set vendorId from first projectVendor for backward compat
     const primaryVendorId = resolvedVendors.length > 0 ? resolvedVendors[0].vendorId : null;
@@ -211,10 +212,18 @@ export async function PUT(
             endDate: pv.endDate ?? null,
           })),
         },
+        soundTests: {
+          create: soundTests.map((st) => ({
+            url: st.url,
+            title: st.title ?? null,
+            platform: st.platform ?? null,
+          })),
+        },
       },
       include: {
         images: true,
         links: true,
+        soundTests: true,
         vendor: { select: { name: true, slug: true } },
         projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
       },

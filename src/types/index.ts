@@ -2,6 +2,7 @@ import type {
   Project,
   ProjectImage,
   ProjectLink,
+  SoundTest,
   Vendor,
   User,
 } from "@/generated/prisma/client";
@@ -9,6 +10,7 @@ import type {
 export type ProjectWithRelations = Project & {
   images: ProjectImage[];
   links: ProjectLink[];
+  soundTests?: SoundTest[];
   vendor: Vendor | null;
   creator: Pick<User, "id" | "name" | "image">;
 };
