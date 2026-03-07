@@ -4,6 +4,7 @@ import {
   fetchGeekhackThread,
   validateGeekhackTopicUrl,
 } from "@/lib/import/geekhack";
+import { mirrorImgurImageSrcsInHtml, mirrorPrefillImages } from "@/lib/import/imgur-mirror";
 import type { ProjectStatus } from "@/generated/prisma/client";
 
 export interface UrlImportPrefillPayload {
@@ -61,6 +62,32 @@ function pickDescription(html: string) {
   return fallback ? `<p>${fallback}</p>` : "";
 }
 
+function toAbsoluteUrl(url: string, base: string) {
+  try {
+    return new URL(url, base).toString();
+  } catch {
+    return null;
+  }
+}
+
+function pickImages(html: string, baseUrl: string, title: string) {
+  const raw = [
+    ...html.matchAll(/<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)["'][^>]*>/gi),
+    ...html.matchAll(/<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["'][^>]*>/gi),
+    ...html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi),
+  ].map((m) => m[1]?.trim()).filter((value): value is string => Boolean(value));
+
+  const unique = [...new Set(raw)]
+    .map((url) => toAbsoluteUrl(url, baseUrl))
+    .filter((url): url is string => Boolean(url))
+    .slice(0, 8);
+
+  return unique.map((url, index) => ({
+    url,
+    alt: `${title} image ${index + 1}`,
+  }));
+}
+
 export function inferStatus(text: string): ProjectStatus {
   const value = text.toLowerCase();
   if (/\b(group buy|gb live|pre-order|preorder)\b/.test(value)) return "GROUP_BUY";
@@ -104,6 +131,8 @@ export async function importUrlPrefill(url: string): Promise<UrlImportPrefillPay
     const prefill = buildGeekhackPrefillPayload(thread);
     return {
       ...prefill,
+      description: await mirrorImgurImageSrcsInHtml(prefill.description),
+      images: await mirrorPrefillImages(prefill.images),
       links: prefill.links,
     };
   }
@@ -129,10 +158,11 @@ export async function importUrlPrefill(url: string): Promise<UrlImportPrefillPay
   const dates = inferDates(combinedText);
 
   const normalizedSource = response.url || url;
+  const images = await mirrorPrefillImages(pickImages(html, normalizedSource, title));
 
   return {
     title,
-    description,
+    description: await mirrorImgurImageSrcsInHtml(description),
     sourceUrl: normalizedSource,
     category: "KEYCAPS",
     status,
@@ -146,5 +176,6 @@ export async function importUrlPrefill(url: string): Promise<UrlImportPrefillPay
         type: inferType(normalizedSource),
       },
     ],
+    images,
   };
 }
