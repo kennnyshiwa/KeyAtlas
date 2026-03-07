@@ -221,6 +221,7 @@ export async function PATCH(
       priceMax: typeof body.max_price === "number" ? body.max_price : null,
       gbStartDate: body.gb_start_date ? new Date(body.gb_start_date) : null,
       gbEndDate: body.gb_end_date ? new Date(body.gb_end_date) : null,
+      profile: body.profile !== undefined ? (body.profile || null) : undefined,
     },
     select: { id: true, slug: true, updatedAt: true },
   });
