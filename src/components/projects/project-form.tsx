@@ -389,6 +389,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
 
     if ((before.tags?.length ?? 0) === 0 && (after.tags?.length ?? 0) > 0) count += 1;
     if ((before.links?.length ?? 0) === 0 && (after.links?.length ?? 0) > 0) count += 1;
+    if ((before.images?.length ?? 0) < (after.images?.length ?? 0)) count += 1;
     if (!before.gbStartDate && after.gbStartDate) count += 1;
     if (!before.gbEndDate && after.gbEndDate) count += 1;
 
@@ -431,10 +432,21 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           ...(formData.links ?? []),
           ...(prefill.links ?? []).map((link) => ({ label: link.label, url: link.url, type: link.type })),
         ],
+        images: [
+          ...(formData.images ?? []),
+          ...(prefill.images ?? []).map((img, idx) => ({
+            url: img.url,
+            alt: img.alt ?? undefined,
+            order: (formData.images?.length ?? 0) + idx,
+            linkUrl: null,
+            openInNewTab: false,
+          })),
+        ],
       };
 
       setFormData(nextFormData);
       const linksDetected = Math.max((prefill.links ?? []).length, nextFormData.links.length - formData.links.length);
+      const imagesImported = (prefill.images ?? []).length;
       const fieldsPrefilled = countPrefilledFields(formData, nextFormData);
       const estimatedSections = [
         prefill.title,
@@ -442,10 +454,12 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
         prefill.status,
         prefill.gbStartDate || prefill.gbEndDate,
         (prefill.links ?? []).length > 0,
+        imagesImported > 0,
       ].filter(Boolean).length;
 
       setImportSummary({ fieldsPrefilled, linksDetected, estimatedSections });
-      toast.success(`Imported source hints: ${fieldsPrefilled} fields prefilled, ${linksDetected} links detected.`);
+      const imageSuffix = imagesImported > 0 ? `, ${imagesImported} gallery images imported` : "";
+      toast.success(`Imported source hints: ${fieldsPrefilled} fields prefilled, ${linksDetected} links detected${imageSuffix}.`);
     } catch {
       toast.error("Network error – could not reach server");
     } finally {

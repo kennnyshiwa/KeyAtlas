@@ -22,6 +22,10 @@ export interface UrlImportPrefillPayload {
     url: string;
     type: "GEEKHACK" | "WEBSITE" | "DISCORD" | "INSTAGRAM" | "REDDIT" | "STORE" | "OTHER";
   }>;
+  images?: Array<{
+    url: string;
+    alt?: string;
+  }>;
 }
 
 function decode(input: string) {
