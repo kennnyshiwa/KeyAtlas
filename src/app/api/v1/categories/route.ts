@@ -14,12 +14,12 @@ const CATEGORY_LABELS: Record<ProjectCategory, string> = {
 };
 
 export async function GET(req: NextRequest) {
+  // Allow unauthenticated access (categories are public reference data)
+  // but prefer authenticated for rate limiting by user
   const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const limited = await rateLimit(user.id, "v1:categories", RATE_LIMIT_REFERENCE);
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
+  const limitKey = user?.id ?? ip;
+  const limited = await rateLimit(limitKey, "v1:categories", RATE_LIMIT_REFERENCE);
   if (limited) return limited;
 
   const counts = await prisma.project.groupBy({
@@ -31,8 +31,9 @@ export async function GET(req: NextRequest) {
   const countMap = new Map(counts.map((c) => [c.category, c._count._all]));
 
   const data = Object.values(ProjectCategory).map((category) => ({
-    category,
-    label: CATEGORY_LABELS[category],
+    id: category,
+    name: CATEGORY_LABELS[category],
+    slug: category.toLowerCase(),
     count: countMap.get(category) ?? 0,
   }));
 
