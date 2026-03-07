@@ -116,8 +116,9 @@ export async function GET(req: NextRequest) {
     description: null,
     status: p.status,
     hero_image_url: p.heroImage,
-    category: null,
-    category_id: null,
+    category: p.category,
+    category_id: p.category,
+    profile: p.profile,
     designer: null,
     pricing: {
       min_price: p.priceMin,

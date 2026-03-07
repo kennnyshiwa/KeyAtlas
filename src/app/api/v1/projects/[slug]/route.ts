@@ -89,8 +89,9 @@ export async function GET(
     description: project.description,
     status: project.status,
     hero_image_url: project.heroImage,
-    category: null,
-    category_id: null,
+    category: project.category,
+    category_id: project.category,
+    profile: project.profile,
     designer: {
       id: project.creator.id,
       username: project.creator.username,
