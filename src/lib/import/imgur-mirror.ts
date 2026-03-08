@@ -117,22 +117,37 @@ export async function mirrorPrefillImages<T extends { url: string }>(images: T[]
 }
 
 const IMG_SRC_RE = /(<img\b[^>]*\bsrc\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
+const A_HREF_RE = /(<a\b[^>]*\bhref\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
 
 export async function mirrorImgurImageSrcsInHtml(html: string, userId?: string): Promise<string> {
-  if (!html || !html.toLowerCase().includes("<img")) return html;
+  if (!html || !html.toLowerCase().includes("imgur")) return html;
 
   const rewrites = new Map<string, string>();
-  for (const match of html.matchAll(IMG_SRC_RE)) {
-    const src = match[2];
-    if (!src || rewrites.has(src) || !isImgurUrl(src)) continue;
-    rewrites.set(src, await mirrorImgurUrlOrOriginal(src, userId));
+
+  // Collect imgur URLs from both img src and a href
+  for (const re of [IMG_SRC_RE, A_HREF_RE]) {
+    re.lastIndex = 0;
+    for (const match of html.matchAll(re)) {
+      const url = match[2];
+      if (!url || rewrites.has(url) || !isImgurUrl(url)) continue;
+      rewrites.set(url, await mirrorImgurUrlOrOriginal(url, userId));
+    }
   }
 
   if (rewrites.size === 0) return html;
 
-  return html.replace(IMG_SRC_RE, (full, prefix: string, src: string, suffix: string) => {
+  // Rewrite both img src and a href
+  let result = html.replace(IMG_SRC_RE, (full, prefix: string, src: string, suffix: string) => {
     const rewritten = rewrites.get(src);
     if (!rewritten) return full;
     return `${prefix}${rewritten}${suffix}`;
   });
+
+  result = result.replace(A_HREF_RE, (full, prefix: string, href: string, suffix: string) => {
+    const rewritten = rewrites.get(href);
+    if (!rewritten) return full;
+    return `${prefix}${rewritten}${suffix}`;
+  });
+
+  return result;
 }

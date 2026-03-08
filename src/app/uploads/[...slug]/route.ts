@@ -33,10 +33,12 @@ export async function GET(
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_BY_EXT[ext] ?? "application/octet-stream";
 
+    const filename = slug[slug.length - 1];
     return new NextResponse(new Uint8Array(data), {
       status: 200,
       headers: {
         "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${filename}"`,
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });

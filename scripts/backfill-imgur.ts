@@ -11,6 +11,7 @@ type Counters = {
 };
 
 const IMG_SRC_RE = /(<img\b[^>]*\bsrc\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
+const A_HREF_RE = /(<a\b[^>]*\bhref\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
 
 function getArgValue(name: string): string | null {
   const direct = process.argv.find((arg) => arg.startsWith(`${name}=`));
@@ -41,19 +42,32 @@ async function tryMirror(url: string, counters: Counters): Promise<string> {
 async function rewriteDescription(description: string, counters: Counters): Promise<string> {
   const rewrites = new Map<string, string>();
 
-  for (const match of description.matchAll(IMG_SRC_RE)) {
-    const src = match[2]?.trim();
-    if (!src || rewrites.has(src) || !isImgurUrl(src)) continue;
-    rewrites.set(src, await tryMirror(src, counters));
+  // Collect all imgur URLs from both img src and a href
+  for (const re of [IMG_SRC_RE, A_HREF_RE]) {
+    re.lastIndex = 0;
+    for (const match of description.matchAll(re)) {
+      const src = match[2]?.trim();
+      if (!src || rewrites.has(src) || !isImgurUrl(src)) continue;
+      rewrites.set(src, await tryMirror(src, counters));
+    }
   }
 
   if (rewrites.size === 0) return description;
 
-  return description.replace(IMG_SRC_RE, (full, prefix: string, src: string, suffix: string) => {
+  // Rewrite both img src and a href attributes
+  let result = description.replace(IMG_SRC_RE, (full, prefix: string, src: string, suffix: string) => {
     const rewritten = rewrites.get(src);
     if (!rewritten) return full;
     return `${prefix}${rewritten}${suffix}`;
   });
+
+  result = result.replace(A_HREF_RE, (full, prefix: string, href: string, suffix: string) => {
+    const rewritten = rewrites.get(href);
+    if (!rewritten) return full;
+    return `${prefix}${rewritten}${suffix}`;
+  });
+
+  return result;
 }
 
 async function main() {
