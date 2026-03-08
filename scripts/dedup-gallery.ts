@@ -1,7 +1,18 @@
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
+import path from "path";
 
 const dryRun = process.argv.includes("--dry-run");
+
+/** Extract the original filename from a mirrored upload URL.
+ *  e.g. /uploads/uuid-uuid-uuid-uuid-uuid-OriginalName.jpeg → OriginalName.jpeg
+ *  Falls back to full URL for non-upload paths. */
+function imageKey(url: string): string {
+  const base = path.basename(url);
+  // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-OriginalFilename.ext
+  const match = base.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i);
+  return match ? match[1].toLowerCase() : url.toLowerCase();
+}
 
 async function main() {
   const projects = await prisma.project.findMany({
@@ -17,10 +28,11 @@ async function main() {
     const dupeIds: string[] = [];
 
     for (const img of project.images) {
-      if (seen.has(img.url)) {
+      const key = imageKey(img.url);
+      if (seen.has(key)) {
         dupeIds.push(img.id);
       } else {
-        seen.add(img.url);
+        seen.add(key);
       }
     }
 
