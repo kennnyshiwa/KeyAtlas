@@ -40,6 +40,8 @@ const DIRECT_LOAD_HOSTS = new Set([
 
 function getImageMode(src: string): "next" | "direct" {
   if (!src) return "direct";
+  // Serve uploaded images directly — they're already stored locally
+  if (src.startsWith("/uploads/")) return "direct";
   if (src.startsWith("/")) return "next";
 
   try {
