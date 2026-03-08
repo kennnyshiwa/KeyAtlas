@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { vendorFormSchema } from "@/lib/validations/vendor";
 
-export async function GET() {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+export async function GET(req: NextRequest) {
+  const user = await authenticateApiKey(req);
+  if (!user || user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -29,8 +29,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  const user = await authenticateApiKey(req);
+  if (!user || user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     data: {
       ...result.data,
       storefrontUrl: result.data.storefrontUrl || null,
-      ownerId: session.user.id,
+      ownerId: user.id,
     },
   });
 
