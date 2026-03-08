@@ -197,12 +197,20 @@ export async function PUT(
     // Auto-set vendorId from first projectVendor for backward compat
     const primaryVendorId = resolvedVendors.length > 0 ? resolvedVendors[0].vendorId : null;
 
+    // Deduplicate gallery images by URL
+    const seenUrls = new Set<string>();
+    const uniqueImages = images.filter((img: { url: string }) => {
+      if (seenUrls.has(img.url)) return false;
+      seenUrls.add(img.url);
+      return true;
+    });
+
     return tx.project.update({
       where: { id },
       data: {
         ...data,
         vendorId: primaryVendorId,
-        images: { create: images },
+        images: { create: uniqueImages },
         links: { create: links },
         projectVendors: {
           create: resolvedVendors.map((pv) => ({

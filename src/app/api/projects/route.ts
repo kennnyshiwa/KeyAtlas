@@ -210,13 +210,21 @@ export async function POST(req: NextRequest) {
   // Auto-set vendorId from first projectVendor for backward compat
   const primaryVendorId = resolvedVendors.length > 0 ? resolvedVendors[0].vendorId : null;
 
+  // Deduplicate gallery images by URL
+  const seenUrls = new Set<string>();
+  const uniqueImages = images.filter((img: { url: string }) => {
+    if (seenUrls.has(img.url)) return false;
+    seenUrls.add(img.url);
+    return true;
+  });
+
   const project = await prisma.project.create({
     data: {
       ...data,
       vendorId: primaryVendorId,
       creatorId: session.user.id,
       images: {
-        create: images,
+        create: uniqueImages,
       },
       links: {
         create: links,

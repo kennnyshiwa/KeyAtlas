@@ -453,16 +453,25 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           ...(formData.links ?? []),
           ...(prefill.links ?? []).map((link) => ({ label: link.label, url: link.url, type: link.type })),
         ],
-        images: [
-          ...(formData.images ?? []),
-          ...(prefill.images ?? []).map((img, idx) => ({
-            url: img.url,
-            alt: img.alt ?? undefined,
-            order: (formData.images?.length ?? 0) + idx,
-            linkUrl: null,
-            openInNewTab: false,
-          })),
-        ],
+        images: (() => {
+          const merged = [
+            ...(formData.images ?? []),
+            ...(prefill.images ?? []).map((img, idx) => ({
+              url: img.url,
+              alt: img.alt ?? undefined,
+              order: (formData.images?.length ?? 0) + idx,
+              linkUrl: null,
+              openInNewTab: false,
+            })),
+          ];
+          // Deduplicate by URL
+          const seen = new Set<string>();
+          return merged.filter((img) => {
+            if (seen.has(img.url)) return false;
+            seen.add(img.url);
+            return true;
+          });
+        })(),
       };
 
       setFormData(nextFormData);
