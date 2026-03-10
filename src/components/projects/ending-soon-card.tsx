@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
-import { differenceInDays, differenceInHours } from "date-fns";
+import { differenceInCalendarDays, differenceInHours } from "date-fns";
 import type { ProjectListItem } from "@/types";
 
 interface EndingSoonCardProps {
@@ -14,7 +14,7 @@ interface EndingSoonCardProps {
 export function EndingSoonCard({ project }: EndingSoonCardProps) {
   const now = new Date();
   const endDate = project.gbEndDate ? new Date(project.gbEndDate) : null;
-  const daysLeft = endDate ? differenceInDays(endDate, now) : null;
+  const daysLeft = endDate ? differenceInCalendarDays(endDate, now) : null;
   const hoursLeft = endDate ? differenceInHours(endDate, now) : null;
 
   const urgencyLabel =
