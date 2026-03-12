@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { rateLimit, RATE_LIMIT_KEY_MGMT } from "@/lib/rate-limit";
@@ -13,7 +14,14 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const user = await authenticateApiKey(req);
+  // Accept both API key auth (kv_ tokens) and session auth (Bearer session tokens)
+  let user = await authenticateApiKey(req);
+  if (!user) {
+    const session = await auth();
+    if (session?.user?.id) {
+      user = await prisma.user.findUnique({ where: { id: session.user.id } });
+    }
+  }
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const limited = await rateLimit(user.id, "v1:push:register", RATE_LIMIT_KEY_MGMT);
