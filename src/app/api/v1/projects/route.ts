@@ -101,6 +101,7 @@ export async function GET(req: NextRequest) {
         createdAt: true,
         updatedAt: true,
         vendor: { select: { name: true } },
+        _count: { select: { favorites: true, comments: true } },
       },
       orderBy,
       skip: offset,
@@ -108,6 +109,17 @@ export async function GET(req: NextRequest) {
     }),
     prisma.project.count({ where }),
   ]);
+
+  // Batch-fetch follow counts for all projects in one query
+  const projectIds = projects.map((p) => p.id);
+  const followCounts = projectIds.length > 0
+    ? await prisma.follow.groupBy({
+        by: ["targetId"],
+        where: { targetType: "PROJECT", targetId: { in: projectIds } },
+        _count: true,
+      })
+    : [];
+  const followMap = new Map(followCounts.map((f) => [f.targetId, f._count]));
 
   const data = projects.map((p) => ({
     id: p.id,
@@ -148,8 +160,9 @@ export async function GET(req: NextRequest) {
     estimated_delivery: null,
     gb_start_date: p.gbStartDate,
     gb_end_date: p.gbEndDate,
-    follow_count: 0,
-    favorite_count: 0,
+    follow_count: followMap.get(p.id) ?? 0,
+    favorite_count: p._count.favorites,
+    comment_count: p._count.comments,
     is_following: false,
     is_favorited: false,
     is_featured: false,
