@@ -14,12 +14,14 @@ export async function GET(req: NextRequest) {
   if (limited) return limited;
 
   const now = new Date();
+  // Include midnight-stored dates that are still "today" by querying from start of current UTC day
+  const startOfUtcDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const sevenDaysFromNow = addDays(now, 7);
 
   const where = {
     published: true,
     status: "GROUP_BUY" as const,
-    gbEndDate: { gte: now, lte: sevenDaysFromNow },
+    gbEndDate: { gte: startOfUtcDay, lte: sevenDaysFromNow },
   };
 
   const [projects, total] = await Promise.all([
