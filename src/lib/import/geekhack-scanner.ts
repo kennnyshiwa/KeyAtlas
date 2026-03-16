@@ -35,6 +35,10 @@ const META_POST_PATTERNS = [
   /important\s+information\s+regarding\s+monoflex/i,
   /list\s+of\s+currently\s+running.*group\s+buys/i,
   /vendor\s+trust\s+and\s+safety\s+system/i,
+  /someone\s+is\s+stealing\s+my\s+identity/i,
+  /\bstolen\s+identity\b/i,
+  /\bscam\s+alert\b/i,
+  /\bwarning\b.*\bfraud\b/i,
 ];
 
 /** Check if a title matches known meta/admin post patterns. */
