@@ -13,45 +13,12 @@ type SmartImageProps = {
   quality?: number;
 };
 
-const TRUSTED_HOSTS = new Set([
-  "cdn.discordapp.com",
-  "media.discordapp.net",
-  "lh3.googleusercontent.com",
-  "picsum.photos",
-  "fastly.picsum.photos",
-  "i.imgur.com",
-  "imgur.com",
-  "i.redd.it",
-  "preview.redd.it",
-  "pbs.twimg.com",
-  "i.postimg.cc",
-  "images.unsplash.com",
-  "cdn.shopify.com",
-  "geekhack.org",
-  "photos.kstj.us",
-  "i.ibb.co",
-  "bord.design",
-  "imagedelivery.net",
-]);
-
-const DIRECT_LOAD_HOSTS = new Set([
-  // Next image optimizer occasionally crashes on timeout for this host in prod.
-  "i.postimg.cc",
-]);
-
 function getImageMode(src: string): "next" | "direct" {
   if (!src) return "direct";
   // Serve uploaded images directly — they're already stored locally
   if (src.startsWith("/uploads/")) return "direct";
-  if (src.startsWith("/")) return "next";
-
-  try {
-    const u = new URL(src);
-    if (DIRECT_LOAD_HOSTS.has(u.hostname)) return "direct";
-    return TRUSTED_HOSTS.has(u.hostname) ? "next" : "direct";
-  } catch {
-    return "direct";
-  }
+  // All other URLs (https://) go through Next.js Image optimizer
+  return "next";
 }
 
 export function SmartImage({ src, alt, className, fill, width, height, sizes, loading = "lazy", priority = false, quality }: SmartImageProps) {
