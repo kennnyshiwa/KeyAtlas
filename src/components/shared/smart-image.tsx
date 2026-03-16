@@ -31,6 +31,7 @@ const TRUSTED_HOSTS = new Set([
   "photos.kstj.us",
   "i.ibb.co",
   "bord.design",
+  "imagedelivery.net",
 ]);
 
 const DIRECT_LOAD_HOSTS = new Set([
@@ -82,7 +83,7 @@ export function SmartImage({ src, alt, className, fill, width, height, sizes, lo
         alt={alt}
         className={className}
         loading={loading}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
       />
     );
   }

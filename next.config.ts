@@ -69,6 +69,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "bord.design" },
       { protocol: "https", hostname: "neocities.org" },
       { protocol: "https", hostname: "*.neocities.org" },
+      { protocol: "https", hostname: "imagedelivery.net" },
     ],
   },
 };
