@@ -146,6 +146,9 @@ function isGeekhackDecorativeImage(url: string): boolean {
     // Theme chrome: Themes/*/images/icons/…
     if (/\/themes\/[^/]+\/images\//i.test(lowerPath)) return true;
 
+    // Tapatalk CDN emojis (emoji.tapatalk-cdn.com)
+    if (parsed.hostname.includes("tapatalk-cdn.com") && lowerPath.includes("emoji")) return true;
+
     return false;
   } catch {
     return false;
