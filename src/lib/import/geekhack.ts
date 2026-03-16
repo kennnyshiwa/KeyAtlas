@@ -131,6 +131,27 @@ function uniq(values: string[]) {
   return [...new Set(values.filter(Boolean))];
 }
 
+/**
+ * Returns true for Geekhack forum chrome images that should never
+ * appear in a project gallery (smileys, theme icons, etc.).
+ */
+function isGeekhackDecorativeImage(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const lowerPath = parsed.pathname.toLowerCase();
+
+    // Forum smileys: cdn.geekhack.org/Smileys/…
+    if (lowerPath.includes("/smileys/")) return true;
+
+    // Theme chrome: Themes/*/images/icons/…
+    if (/\/themes\/[^/]+\/images\//i.test(lowerPath)) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function extractAll(regex: RegExp, input: string, group = 1) {
   const out: string[] = [];
   for (const match of input.matchAll(regex)) {
@@ -235,7 +256,8 @@ function extractPostSegment(postHtml: string, postNumber: number): ExtractedPost
   const contentHtml = cleanPostHtml(rawContent).replace(/(<\/div>\s*)+$/i, "").trim();
 
   const links = extractAll(/<a[^>]+href=["']([^"']+)["'][^>]*>/gi, contentHtml || postHtml);
-  const imageUrls = extractAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi, contentHtml || postHtml);
+  const imageUrls = extractAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi, contentHtml || postHtml)
+    .filter((url) => !isGeekhackDecorativeImage(url));
 
   const contentText = stripTags(contentHtml || postHtml)
     .replace(/^\s*Author\s+Topic:\s*/i, "")
