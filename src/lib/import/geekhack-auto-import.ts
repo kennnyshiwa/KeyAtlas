@@ -385,8 +385,9 @@ async function importTopic(
   return { imported: true };
 }
 
-// ── Concurrency lock ──────────────────────────────────────────────────────────
-let _running = false;
+// ── Concurrency lock (time-based, auto-expires after 10 min) ─────────────────
+let _runningUntil = 0;
+const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
@@ -401,12 +402,14 @@ export async function runGeekhackAutoImport(opts?: {
   /** Max board listing pages to scan per board (default 3). */
   maxPages?: number;
 }): Promise<AutoImportSummary> {
-  // Prevent concurrent runs (race condition from overlapping requests)
-  if (_running) {
-    console.warn("[geekhack-auto-import] Already running — skipping duplicate invocation");
+  // Prevent concurrent runs — lock auto-expires after LOCK_TTL_MS to avoid stuck state
+  const now = Date.now();
+  if (_runningUntil > now) {
+    const remainSec = Math.round((_runningUntil - now) / 1000);
+    console.warn(`[geekhack-auto-import] Already running (lock expires in ${remainSec}s) — skipping`);
     return { scanned: 0, imported: 0, skipped: 0, errors: ["Import already in progress"] };
   }
-  _running = true;
+  _runningUntil = now + LOCK_TTL_MS;
 
   const maxImports = opts?.maxImports ?? Infinity;
   const maxPages = opts?.maxPages ?? 3;
@@ -414,9 +417,9 @@ export async function runGeekhackAutoImport(opts?: {
     process.env.GEEKHACK_IMPORT_USER_ID ?? "cmlwzwwpn000001qpgnkb363r";
 
   try {
-  return await _doImport(maxImports, maxPages, creatorId);
+    return await _doImport(maxImports, maxPages, creatorId);
   } finally {
-    _running = false;
+    _runningUntil = 0;
   }
 }
 
