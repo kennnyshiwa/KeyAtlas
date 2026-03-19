@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchGeekhackThread } from "@/lib/import/geekhack";
-import { enrichProject, buildVendorLookups } from "@/lib/import/geekhack-enrich";
+import { enrichProject, buildVendorLookups, cleanProjectText } from "@/lib/import/geekhack-enrich";
 import { indexProject } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
 
@@ -44,8 +44,10 @@ export async function GET(req: NextRequest) {
     Math.max(1, Number(searchParams.get("batchSize")) || 20),
     100
   );
+  // ?textCleanup=true — run text cleanup on already-enriched projects too
+  const textCleanupMode = searchParams.get("textCleanup") === "true";
 
-  console.log(`[cron/geekhack-enrich] Triggered — batchSize=${batchSize}`);
+  console.log(`[cron/geekhack-enrich] Triggered — batchSize=${batchSize} textCleanup=${textCleanupMode}`);
   const startedAt = Date.now();
 
   // --- Load vendors once ---
@@ -65,7 +67,9 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       title: true,
+      slug: true,
       status: true,
+      description: true,
       designer: true,
       vendorId: true,
       priceMin: true,
@@ -251,12 +255,47 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // --- Text cleanup pass (optional) ---
+  let textCleaned = 0;
+  if (textCleanupMode) {
+    const dirtyProjects = await prisma.project.findMany({
+      where: {
+        tags: { has: "geekhack" },
+        OR: [
+          { title: { contains: "&#" } },
+          { description: { contains: "&#" } },
+        ],
+      },
+      select: { id: true, title: true, description: true },
+      take: batchSize,
+    });
+
+    console.log(`[cron/geekhack-enrich] Text cleanup: found ${dirtyProjects.length} projects with HTML entities`);
+
+    for (const dp of dirtyProjects) {
+      const result = cleanProjectText(dp.title, dp.description);
+      if (result.changed) {
+        const data: Record<string, string> = {};
+        if (result.cleanTitle !== dp.title) data.title = result.cleanTitle;
+        if (result.cleanDescription !== dp.description && result.cleanDescription !== null) {
+          data.description = result.cleanDescription;
+        }
+        if (Object.keys(data).length > 0) {
+          await prisma.project.update({ where: { id: dp.id }, data });
+          console.log(`[cron/geekhack-enrich] Text cleaned: "${dp.title}" → "${result.cleanTitle}"`);
+          textCleaned++;
+        }
+      }
+    }
+  }
+
   const durationMs = Date.now() - startedAt;
   console.log(
     `[cron/geekhack-enrich] Complete in ${durationMs}ms — ` +
       `processed=${summary.processed} enriched=${summary.enriched} ` +
-      `skipped=${summary.skipped} errors=${summary.errors.length}`
+      `skipped=${summary.skipped} errors=${summary.errors.length}` +
+      (textCleanupMode ? ` textCleaned=${textCleaned}` : "")
   );
 
-  return NextResponse.json({ ok: true, durationMs, ...summary });
+  return NextResponse.json({ ok: true, durationMs, ...summary, ...(textCleanupMode ? { textCleaned } : {}) });
 }

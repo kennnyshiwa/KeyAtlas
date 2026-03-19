@@ -22,7 +22,9 @@ interface VendorRecord {
 interface ProjectForEnrichment {
   id: string;
   title: string;
+  slug: string;
   status: string;
+  description: string | null;
   designer: string | null;
   vendorId: string | null;
   priceMin: number | null;
@@ -110,6 +112,105 @@ function stripHtml(text: string): string {
     .replace(/<[^>]+>/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// ---------------------------------------------------------------------------
+// Text cleanup — decode HTML entities and fix mojibake
+// ---------------------------------------------------------------------------
+
+/**
+ * Decode HTML numeric character references (&#NNN; and &#xHHH;) and named entities.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text
+    // Numeric decimal: &#128640; → 🚀
+    .replace(/&#(\d+);/g, (_, code) => {
+      const n = parseInt(code, 10);
+      try { return String.fromCodePoint(n); } catch { return _; }
+    })
+    // Numeric hex: &#x1F680; → 🚀
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      const n = parseInt(hex, 16);
+      try { return String.fromCodePoint(n); } catch { return _; }
+    })
+    // Common named entities
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&ndash;/g, "–")
+    .replace(/&mdash;/g, "—")
+    .replace(/&hellip;/g, "…")
+    .replace(/&lsquo;/g, "\u2018")
+    .replace(/&rsquo;/g, "\u2019")
+    .replace(/&ldquo;/g, "\u201C")
+    .replace(/&rdquo;/g, "\u201D")
+    .replace(/&trade;/g, "™")
+    .replace(/&copy;/g, "©")
+    .replace(/&reg;/g, "®");
+}
+
+/**
+ * Fix common mojibake patterns from windows-1252 → UTF-8 misinterpretation.
+ */
+function fixMojibake(text: string): string {
+  return text
+    .replace(/â€™/g, "\u2019")  // '
+    .replace(/â€˜/g, "\u2018")  // '
+    .replace(/â€œ/g, "\u201C")  // "
+    .replace(/â€\u009D/g, "\u201D")  // "
+    .replace(/â€"/g, "–")       // –
+    .replace(/â€"/g, "—")       // —
+    .replace(/â€¦/g, "…")       // …
+    .replace(/Â /g, " ")
+    .replace(/Â/g, "")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã¨/g, "è")
+    .replace(/Ã¼/g, "ü")
+    .replace(/Ã¶/g, "ö")
+    .replace(/Ã¤/g, "ä")
+    .replace(/Ã±/g, "ñ")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã­/g, "í");
+}
+
+/**
+ * Clean up text: decode HTML entities, fix mojibake, normalize whitespace.
+ */
+function cleanText(text: string): string {
+  let cleaned = decodeHtmlEntities(text);
+  cleaned = fixMojibake(cleaned);
+  // Normalize whitespace (but preserve newlines)
+  cleaned = cleaned.replace(/[ \t]+/g, " ");
+  return cleaned;
+}
+
+/**
+ * Check if a string needs cleaning (has HTML entities or mojibake).
+ */
+function needsCleaning(text: string | null): boolean {
+  if (!text) return false;
+  return /&#\d+;|&#x[0-9a-f]+;|â€|Ã[©¨¼¶¤±³¡­]/i.test(text);
+}
+
+/**
+ * Standalone text cleanup for titles and descriptions.
+ * Exported for use in the text-cleanup-only mode.
+ */
+export function cleanProjectText(
+  title: string,
+  description: string | null
+): { changed: boolean; cleanTitle: string; cleanDescription: string | null } {
+  const cleanTitle = needsCleaning(title) ? cleanText(title) : title;
+  const cleanDescription = description && needsCleaning(description) ? cleanText(description) : description;
+  return {
+    changed: cleanTitle !== title || cleanDescription !== description,
+    cleanTitle,
+    cleanDescription,
+  };
 }
 
 /**
@@ -794,6 +895,22 @@ export function enrichProject(
     ...extractUrlsFromText(text),
     ...(thread.op?.links ?? []),
   ];
+
+  // 0. Text cleanup — decode HTML entities and fix mojibake in title and description
+  if (needsCleaning(project.title)) {
+    const cleanedTitle = cleanText(project.title);
+    if (cleanedTitle !== project.title) {
+      changes.push({ field: "title", oldValue: project.title, newValue: cleanedTitle });
+      projectUpdate.title = cleanedTitle;
+    }
+  }
+  if (needsCleaning(project.description)) {
+    const cleanedDesc = cleanText(project.description!);
+    if (cleanedDesc !== project.description) {
+      changes.push({ field: "description", oldValue: "(cleaned)", newValue: "(cleaned)" });
+      projectUpdate.description = cleanedDesc;
+    }
+  }
 
   // 1. Designer
   const designerChange = extractDesigner(project, thread);
