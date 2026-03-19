@@ -13,10 +13,16 @@ type SmartImageProps = {
   quality?: number;
 };
 
-function getImageMode(src: string): "next" | "direct" {
+function getImageMode(src: string): "next" | "direct" | "unoptimized" {
   if (!src) return "direct";
   // Serve uploaded images directly — they're already stored locally
   if (src.startsWith("/uploads/")) return "direct";
+  // Animated GIFs can't be optimized — skip the optimizer
+  if (/\.gif(\?|$)/i.test(src)) return "unoptimized";
+  // Geekhack session URLs aren't real images (PHP redirects)
+  if (/PHPSESSID/i.test(src)) return "direct";
+  // Expired Discord CDN links (signed URLs with ex= param) tend to 403
+  if (/discord(app)?\.net.*[?&]ex=/i.test(src)) return "direct";
   // All other URLs (https://) go through Next.js Image optimizer
   return "next";
 }
@@ -24,9 +30,10 @@ function getImageMode(src: string): "next" | "direct" {
 export function SmartImage({ src, alt, className, fill, width, height, sizes, loading = "lazy", priority = false, quality }: SmartImageProps) {
   const mode = getImageMode(src);
 
-  if (mode === "next") {
+  if (mode === "unoptimized" || mode === "next") {
+    const unopt = mode === "unoptimized";
     if (fill) {
-      return <Image src={src} alt={alt} fill className={className} sizes={sizes} priority={priority} quality={quality} />;
+      return <Image src={src} alt={alt} fill className={className} sizes={sizes} priority={priority} quality={quality} unoptimized={unopt} />;
     }
     return (
       <Image
@@ -38,6 +45,7 @@ export function SmartImage({ src, alt, className, fill, width, height, sizes, lo
         sizes={sizes}
         priority={priority}
         quality={quality}
+        unoptimized={unopt}
       />
     );
   }
