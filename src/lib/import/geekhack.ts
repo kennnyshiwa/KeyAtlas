@@ -282,17 +282,35 @@ function extractPostSegment(postHtml: string, postNumber: number): ExtractedPost
 }
 
 function extractPosts(html: string): ExtractedPost[] {
-  const markers = [
+  const innerMarkers = [
     ...html.matchAll(/<div[^>]*class=["'][^"']*inner[^"']*["'][^>]*id=["']msg_(\d+)["']/gi),
   ];
-  if (markers.length === 0) return [];
+  if (innerMarkers.length === 0) return [];
+
+  // Find all poster divs — each post's author info lives in a <div class="poster">
+  // that appears BEFORE the corresponding <div class="inner" id="msg_XXX">.
+  // We need to include the poster div in each segment to correctly extract the author.
+  const posterPositions: number[] = [];
+  for (const m of html.matchAll(/<div[^>]*class=["'][^"']*poster[^"']*["'][^>]*>/gi)) {
+    posterPositions.push(m.index ?? 0);
+  }
 
   const posts: ExtractedPost[] = [];
 
-  for (let i = 0; i < markers.length; i++) {
-    const start = markers[i].index ?? 0;
-    const end = i + 1 < markers.length ? markers[i + 1].index ?? html.length : html.length;
-    const segment = html.slice(start, end);
+  for (let i = 0; i < innerMarkers.length; i++) {
+    const innerPos = innerMarkers[i].index ?? 0;
+    const nextInnerPos = i + 1 < innerMarkers.length
+      ? innerMarkers[i + 1].index ?? html.length
+      : html.length;
+
+    // Find the last poster div that appears before this inner div
+    let segStart = innerPos;
+    for (const pp of posterPositions) {
+      if (pp < innerPos) segStart = pp;
+      else break;
+    }
+
+    const segment = html.slice(segStart, nextInnerPos);
     posts.push(extractPostSegment(segment, i + 1));
   }
 
