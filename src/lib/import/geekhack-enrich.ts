@@ -21,6 +21,7 @@ interface VendorRecord {
 
 interface ProjectForEnrichment {
   id: string;
+  title: string;
   designer: string | null;
   vendorId: string | null;
   priceMin: number | null;
@@ -30,6 +31,7 @@ interface ProjectForEnrichment {
   gbStartDate: Date | null;
   gbEndDate: Date | null;
   tags: string[];
+  createdAt: Date;
   projectVendors: { vendorId: string; region: string | null }[];
 }
 
@@ -466,7 +468,10 @@ const MONTH_MAP: Record<string, number> = {
   december: 11, dec: 11,
 };
 
-function parseNaturalDate(str: string): Date | null {
+/**
+ * Parse a natural date string. If no year is found, uses `inferYear` as fallback.
+ */
+function parseNaturalDate(str: string, inferYear?: number): Date | null {
   // Strip ordinal suffixes (1st, 2nd, 3rd, 4th, 10th, etc.) and commas
   const cleaned = str.trim().replace(/(\d+)(?:st|nd|rd|th)\b/gi, "$1").replace(/,/g, "");
 
@@ -504,6 +509,29 @@ function parseNaturalDate(str: string): Date | null {
     if (!isNaN(d.getTime())) return d;
   }
 
+  // --- No year found — try "Month Day" or "Day Month" with inferred year ---
+  if (inferYear) {
+    // "March 20" or "MARCH 20"
+    const monthDay = cleaned.match(/(\w+)\s+(\d{1,2})(?:\s|$)/);
+    if (monthDay) {
+      const month = MONTH_MAP[monthDay[1].toLowerCase()];
+      if (month !== undefined) {
+        const d = new Date(inferYear, month, parseInt(monthDay[2]));
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
+
+    // "20 March"
+    const dayMonth = cleaned.match(/(\d{1,2})\s+(\w+)(?:\s|$)/);
+    if (dayMonth) {
+      const month = MONTH_MAP[dayMonth[2].toLowerCase()];
+      if (month !== undefined) {
+        const d = new Date(inferYear, month, parseInt(dayMonth[1]));
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -513,7 +541,10 @@ function extractDates(
 ): EnrichmentChange[] {
   const changes: EnrichmentChange[] = [];
 
-  // GB date range patterns
+  // Use project creation year as fallback for dates without year
+  const inferYear = project.createdAt.getFullYear();
+
+  // GB date range patterns — check body text first, then title
   if (!project.gbStartDate || !project.gbEndDate) {
     const gbRangePatterns = [
       // "Time：10th June 2025 - 10th July 2025" (fullwidth or normal colon)
@@ -522,18 +553,63 @@ function extractDates(
       /(?:Group\s*buy\s*(?:runs|starts|begins)\s*(?:from)?)\s*(.+?)\s*(?:to|through|until|-|–|—)\s*(.+?)(?:\n|$|\.)/i,
     ];
 
+    // Also try to extract dates from parenthetical in title
+    // e.g., "DCS Hangul PBT | GB SOON! (MARCH 20 - APRIL 3)"
+    const titleDatePattern = /\(([A-Z][a-zA-Z]+\s+\d{1,2})\s*[-–—]\s*([A-Z][a-zA-Z]+\s+\d{1,2})\)/;
+    // Also: "(March 20 - April 3, 2026)" with year
+    const titleDatePatternWithYear = /\(([A-Z][a-zA-Z]+\s+\d{1,2})\s*[-–—]\s*([A-Z][a-zA-Z]+\s+\d{1,2},?\s*\d{4})\)/;
+
+    // Try body text patterns first
+    let found = false;
     for (const pattern of gbRangePatterns) {
       const match = text.match(pattern);
       if (match) {
-        const start = parseNaturalDate(match[1]);
-        const end = parseNaturalDate(match[2]);
+        const start = parseNaturalDate(match[1], inferYear);
+        const end = parseNaturalDate(match[2], inferYear);
+        if (start && !project.gbStartDate) {
+          changes.push({ field: "gbStartDate", oldValue: null, newValue: start });
+          found = true;
+        }
+        if (end && !project.gbEndDate) {
+          changes.push({ field: "gbEndDate", oldValue: null, newValue: end });
+          found = true;
+        }
+        if (found) break;
+      }
+    }
+
+    // If not found in body, try title
+    if (!found) {
+      const titleMatch =
+        project.title.match(titleDatePatternWithYear) ??
+        project.title.match(titleDatePattern);
+
+      if (titleMatch) {
+        const start = parseNaturalDate(titleMatch[1], inferYear);
+        const end = parseNaturalDate(titleMatch[2], inferYear);
         if (start && !project.gbStartDate) {
           changes.push({ field: "gbStartDate", oldValue: null, newValue: start });
         }
         if (end && !project.gbEndDate) {
           changes.push({ field: "gbEndDate", oldValue: null, newValue: end });
         }
-        if (changes.length > 0) break;
+      }
+    }
+
+    // Also try generic date ranges in body: "Month Day - Month Day, Year"
+    if (changes.length === 0 && (!project.gbStartDate || !project.gbEndDate)) {
+      const genericRange = text.match(
+        /(\w+\s+\d{1,2}(?:st|nd|rd|th)?)\s*[-–—]\s*(\w+\s+\d{1,2}(?:st|nd|rd|th)?,?\s*\d{4})/i
+      );
+      if (genericRange) {
+        const start = parseNaturalDate(genericRange[1], inferYear);
+        const end = parseNaturalDate(genericRange[2], inferYear);
+        if (start && !project.gbStartDate) {
+          changes.push({ field: "gbStartDate", oldValue: null, newValue: start });
+        }
+        if (end && !project.gbEndDate) {
+          changes.push({ field: "gbEndDate", oldValue: null, newValue: end });
+        }
       }
     }
   }
@@ -548,7 +624,7 @@ function extractDates(
     for (const pattern of icPatterns) {
       const match = text.match(pattern);
       if (match) {
-        const date = parseNaturalDate(match[1]);
+        const date = parseNaturalDate(match[1], inferYear);
         if (date) {
           changes.push({ field: "icDate", oldValue: null, newValue: date });
           break;

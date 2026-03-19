@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
       gbStartDate: true,
       gbEndDate: true,
       tags: true,
+      createdAt: true,
       links: {
         where: { type: "GEEKHACK" },
         select: { url: true },
