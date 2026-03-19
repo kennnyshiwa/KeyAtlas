@@ -571,6 +571,16 @@ const MONTH_MAP: Record<string, number> = {
 };
 
 /**
+ * Extract year from a Geekhack OP timestamp string.
+ * e.g. "June 10, 2024, 03:45:22 PM" → 2024
+ */
+function extractYearFromTimestamp(timestamp: string | null | undefined): number | undefined {
+  if (!timestamp) return undefined;
+  const match = timestamp.match(/\b(20\d{2})\b/);
+  return match ? parseInt(match[1], 10) : undefined;
+}
+
+/**
  * Parse a natural date string. If no year is found, uses `inferYear` as fallback.
  */
 function parseNaturalDate(str: string, inferYear?: number): Date | null {
@@ -639,12 +649,14 @@ function parseNaturalDate(str: string, inferYear?: number): Date | null {
 
 function extractDates(
   project: ProjectForEnrichment,
-  text: string
+  text: string,
+  opYear?: number
 ): EnrichmentChange[] {
   const changes: EnrichmentChange[] = [];
 
-  // Use project creation year as fallback for dates without year
-  const inferYear = project.createdAt.getFullYear();
+  // Use OP timestamp year for inference (when the GH post was made)
+  // Falls back to project creation year only as last resort
+  const inferYear = opYear ?? project.createdAt.getFullYear();
 
   // GB date range patterns — check body text first, then title
   if (!project.gbStartDate || !project.gbEndDate) {
@@ -977,8 +989,11 @@ export function enrichProject(
     projectUpdate[change.field] = change.newValue;
   }
 
-  // 4. Dates
-  const dateChanges = extractDates(project, text);
+  // 4. Dates — use OP timestamp for year inference, NOT project.createdAt
+  //    project.createdAt is when it was imported to KeyAtlas (could be years later)
+  //    thread.op.timestamp is when the GH post was made (much more accurate)
+  const opYear = extractYearFromTimestamp(thread.op?.timestamp);
+  const dateChanges = extractDates(project, text, opYear);
   for (const change of dateChanges) {
     changes.push(change);
     projectUpdate[change.field] = change.newValue;
