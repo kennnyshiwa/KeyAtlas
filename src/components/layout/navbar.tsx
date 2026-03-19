@@ -31,6 +31,7 @@ const projectCategories = [
 const navLinks = [
   { href: "/forums", label: "Forums" },
   { href: "/vendors", label: "Vendors" },
+  { href: "/designers", label: "Designers" },
   { href: "/guides", label: "Guides" },
   { href: "/calendar", label: "Calendar" },
   { href: "/statistics", label: "Stats" },

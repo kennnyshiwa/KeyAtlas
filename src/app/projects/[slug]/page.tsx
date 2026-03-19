@@ -40,6 +40,7 @@ async function getProject(slug: string) {
     images: { orderBy: { order: "asc" as const } },
     links: true,
     vendor: true,
+    designerProfile: { select: { name: true, slug: true } },
     creator: { select: { id: true, name: true, image: true } },
     projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
     soundTests: { orderBy: { createdAt: "asc" as const } },
@@ -253,7 +254,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       : undefined;
 
   // Designer / creator
-  const creatorName = project.designer || project.creator?.name;
+  const creatorName = project.designerProfile?.name || project.designer || project.creator?.name;
 
   // Category label
   const categoryLabels: Record<string, string> = {
@@ -399,12 +400,18 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         />
         {session?.user && <ReportButton projectId={project.id} />}
         <ProjectAdminActions projectId={project.id} isCreator={isCreator} />
-        {project.designer && (
+        {(project.designerProfile || project.designer) && (
           <>
             <span className="text-muted-foreground text-sm">by</span>
-            <Badge variant="outline">
-              {project.designer}
-            </Badge>
+            {project.designerProfile ? (
+              <Badge variant="outline" asChild>
+                <Link href={`/designers/${project.designerProfile.slug}`}>
+                  {project.designerProfile.name}
+                </Link>
+              </Badge>
+            ) : (
+              <Badge variant="outline">{project.designer}</Badge>
+            )}
           </>
         )}
       </div>

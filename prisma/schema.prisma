@@ -235,6 +235,22 @@ model Vendor {
   @@map("vendors")
 }
 
+model Designer {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logo        String?
+  banner      String?
+  description String?  @db.Text
+  websiteUrl  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projects Project[]
+
+  @@map("designers")
+}
+
 model VendorSuggestion {
   id              String                 @id @default(cuid())
   name            String
@@ -303,6 +319,8 @@ model Project {
   creator   User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   designer       String?
+  designerId     String?
+  designerProfile Designer? @relation(fields: [designerId], references: [id], onDelete: SetNull)
 
   images         ProjectImage[]
   links          ProjectLink[]
@@ -324,6 +342,7 @@ model Project {
   @@index([published])
   @@index([createdAt])
   @@index([profile])
+  @@index([designerId])
   @@index([shipped])
   @@map("projects")
 }

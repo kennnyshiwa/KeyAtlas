@@ -13,6 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/forums",
     "/guides",
     "/vendors",
+    "/designers",
     "/activity",
     "/compare",
     "/calendar",
@@ -31,13 +32,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   try {
-    const [projects, vendors, guides, users] = await Promise.all([
+    const [projects, vendors, designers, guides, users] = await Promise.all([
       prisma.project.findMany({
         where: { published: true },
         select: { slug: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
       }),
       prisma.vendor.findMany({
+        select: { slug: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.designer.findMany({
         select: { slug: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
       }),
@@ -67,6 +72,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     }));
 
+    const designerRoutes: MetadataRoute.Sitemap = designers.map((designer) => ({
+      url: `${siteUrl}/designers/${designer.slug}`,
+      lastModified: designer.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    }));
+
     const guideRoutes: MetadataRoute.Sitemap = guides.map((guide) => ({
       url: `${siteUrl}/guides/${guide.slug}`,
       lastModified: guide.updatedAt,
@@ -83,7 +95,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.5,
       }));
 
-    return [...staticRoutes, ...projectRoutes, ...vendorRoutes, ...guideRoutes, ...userRoutes];
+    return [
+      ...staticRoutes,
+      ...projectRoutes,
+      ...vendorRoutes,
+      ...designerRoutes,
+      ...guideRoutes,
+      ...userRoutes,
+    ];
   } catch {
     // In CI/build environments without DB connectivity, return static routes so build can succeed.
     return staticRoutes;
