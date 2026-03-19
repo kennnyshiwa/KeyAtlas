@@ -207,26 +207,33 @@ function extractUrlsFromText(text: string): string[] {
 /**
  * Parse structured vendor lists commonly found in Geekhack posts.
  * Format: "- Region: VendorName" or "Region — VendorName" per line.
- * Returns vendor name → region pairs (vendor name as written in the post).
+ * 
+ * Only parses lines that appear near a "Vendors:" header AND where
+ * the left side matches a known region pattern. This prevents false
+ * positives from other "Label: Value" patterns in the post.
  */
 function parseStructuredVendorList(text: string): Array<{ vendorName: string; region: string | null }> {
   const results: Array<{ vendorName: string; region: string | null }> = [];
 
-  // Match lines like "- Region: VendorName" or "Region: VendorName"
-  // Common formats:
-  //   - The USA and Rest of the world: Click Clack
-  //   - Europe: EloquentKeys
-  //   United Kingdom: ProtoTypist
+  // Find the "Vendors:" section in the text
+  const vendorSectionMatch = text.match(/\bVendors?\s*[:：]\s*\n/i);
+  if (!vendorSectionMatch || vendorSectionMatch.index === undefined) return results;
+
+  // Extract ~2000 chars after the "Vendors:" header
+  const sectionStart = vendorSectionMatch.index + vendorSectionMatch[0].length;
+  const section = text.slice(sectionStart, sectionStart + 2000);
+
+  // Match lines like "- Region: VendorName"
   const linePattern = /^[-–—•*]?\s*(.+?)\s*[:：]\s*(.+?)$/gm;
 
-  for (const m of text.matchAll(linePattern)) {
+  for (const m of section.matchAll(linePattern)) {
     const regionText = m[1].trim();
     const vendorName = m[2].trim();
 
-    // Skip lines that are clearly not vendor entries (too long, contain URLs, etc.)
-    if (vendorName.length > 60 || vendorName.includes("http") || regionText.length > 60) continue;
+    // Skip obvious non-vendor lines
+    if (vendorName.length > 40 || vendorName.includes("http") || regionText.length > 50) continue;
 
-    // Detect region from the region text
+    // REQUIRE the left side to match a known region — this is the key filter
     let region: string | null = null;
     for (const [regionCode, pattern] of Object.entries(REGION_PATTERNS)) {
       if (pattern.test(regionText)) {
@@ -235,13 +242,13 @@ function parseStructuredVendorList(text: string): Array<{ vendorName: string; re
       }
     }
 
-    // Only include if the region text looks like a region name
-    // (has at least one region match or is short enough to be a region)
-    if (region || regionText.length <= 40) {
+    // Only include if region was detected
+    if (region) {
       results.push({ vendorName, region });
     }
   }
 
+  // Stop parsing after hitting a blank line or a new section header
   return results;
 }
 
