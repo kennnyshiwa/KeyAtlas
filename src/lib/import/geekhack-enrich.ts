@@ -22,6 +22,7 @@ interface VendorRecord {
 interface ProjectForEnrichment {
   id: string;
   title: string;
+  status: string;
   designer: string | null;
   vendorId: string | null;
   priceMin: number | null;
@@ -715,6 +716,69 @@ function extractTags(text: string, existingTags: string[]): { add: string[]; rem
 // ---------------------------------------------------------------------------
 // Main enrichment function
 // ---------------------------------------------------------------------------
+// Status inference
+// ---------------------------------------------------------------------------
+
+/**
+ * Infer the correct project status from the title, body text, and dates.
+ * Returns a change only if the inferred status differs from the current one
+ * AND the inference is confident.
+ */
+function inferStatus(
+  project: ProjectForEnrichment,
+  title: string,
+  text: string
+): EnrichmentChange | null {
+  const t = title.trim();
+  const combined = `${t} ${text.slice(0, 500)}`;
+
+  let inferred: string | null = null;
+
+  // Strong title-based signals
+  if (/^\s*\[GB\]/i.test(t) || /\bGB\s+(?:Now\s+)?Live\b/i.test(t) || /^\s*\[Group\s+Buy\]/i.test(t) || /\bGroup\s+Buy\b.*\b(?:live|open|running|now)\b/i.test(t)) {
+    inferred = "GROUP_BUY";
+  } else if (/\bGB\s+Closed\b/i.test(t) || /\bGroup\s+Buy\s+(?:Closed|Ended|Over)\b/i.test(t) || /\bClosed\b/i.test(t) && /\bGB\b/i.test(t)) {
+    inferred = "COMPLETED";
+  } else if (/\b(?:In[\s-]?Stock|Instock)\b/i.test(t)) {
+    inferred = "IN_STOCK";
+  } else if (/\bExtras?\b/i.test(t)) {
+    inferred = "EXTRAS";
+  } else if (/\b(?:Pre[\s-]?order|Preorder)\b/i.test(t)) {
+    inferred = "GROUP_BUY";
+  } else if (/\bShipping\b/i.test(t) || /\b(?:currently|now)\s+shipping\b/i.test(combined)) {
+    inferred = "SHIPPING";
+  } else if (/^\s*\[IC\]/i.test(t) || /^\s*\[Interest\s+Check\]/i.test(t)) {
+    inferred = "INTEREST_CHECK";
+  }
+
+  // Date-based inference (only if title didn't give a strong signal)
+  if (!inferred) {
+    const now = new Date();
+
+    // Check newly extracted dates too (they may be in projectUpdate)
+    const gbEnd = project.gbEndDate;
+    const gbStart = project.gbStartDate;
+
+    // If GB end date is in the past and status is GROUP_BUY → completed
+    if (gbEnd && gbEnd < now && project.status === "GROUP_BUY") {
+      inferred = "COMPLETED";
+    }
+    // If GB start is in the future and status is GROUP_BUY → still IC
+    else if (gbStart && gbStart > now && project.status === "GROUP_BUY") {
+      inferred = "INTEREST_CHECK";
+    }
+    // If GB start is in past and end is in future → should be GROUP_BUY
+    else if (gbStart && gbStart <= now && gbEnd && gbEnd >= now && project.status === "INTEREST_CHECK") {
+      inferred = "GROUP_BUY";
+    }
+  }
+
+  if (!inferred || inferred === project.status) return null;
+
+  return { field: "status", oldValue: project.status, newValue: inferred };
+}
+
+// ---------------------------------------------------------------------------
 
 export function enrichProject(
   project: ProjectForEnrichment,
@@ -803,7 +867,14 @@ export function enrichProject(
     projectUpdate[change.field] = change.newValue;
   }
 
-  // 5. Tags
+  // 5. Status inference
+  const statusChange = inferStatus(project, project.title, text);
+  if (statusChange) {
+    changes.push(statusChange);
+    projectUpdate.status = statusChange.newValue;
+  }
+
+  // 6. Tags
   const tagResult = extractTags(text, project.tags);
   if (tagResult.add.length > 0 || tagResult.remove.length > 0) {
     const newTags = [

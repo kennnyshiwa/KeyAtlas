@@ -205,22 +205,151 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   });
   const primaryImage =
     toAbsoluteUrl(project.heroImage || project.images[0]?.url) || `${siteUrl}/window.svg`;
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": project.vendor ? "Product" : "CreativeWork",
-    name: project.title,
-    description,
-    url: canonical,
-    image: primaryImage,
-    brand: project.vendor?.name
-      ? { "@type": "Brand", name: project.vendor.name }
-      : undefined,
-    creator: project.creator?.name
-      ? { "@type": "Person", name: project.creator.name }
-      : undefined,
-    datePublished: project.createdAt?.toISOString?.(),
-    dateModified: project.updatedAt?.toISOString?.(),
+  // Build images array (absolute URLs)
+  const allImages = [
+    toAbsoluteUrl(project.heroImage),
+    ...project.images.map((img) => toAbsoluteUrl(img.url)),
+  ].filter((url): url is string => !!url);
+  const jsonLdImages = allImages.length > 0 ? allImages : [primaryImage];
+
+  // Map status to schema.org availability
+  const statusAvailabilityMap: Record<string, string | undefined> = {
+    GROUP_BUY: "https://schema.org/PreOrder",
+    EXTRAS: "https://schema.org/InStock",
+    IN_STOCK: "https://schema.org/InStock",
+    CLOSED: "https://schema.org/SoldOut",
+    SHIPPED: "https://schema.org/SoldOut",
+    PRODUCTION: "https://schema.org/PreOrder",
   };
+  const availability = statusAvailabilityMap[project.status];
+
+  // Build offers (only when price data + valid status)
+  const hasOfferableStatus = availability !== undefined;
+  const hasPricing = project.priceMin != null || project.priceMax != null;
+  const offersBlock =
+    hasOfferableStatus && hasPricing
+      ? {
+          "@type": "AggregateOffer" as const,
+          priceCurrency: project.currency || "USD",
+          ...(project.priceMin != null ? { lowPrice: project.priceMin / 100 } : {}),
+          ...(project.priceMax != null ? { highPrice: project.priceMax / 100 } : {}),
+          availability,
+          ...(project.projectVendors.length > 0
+            ? {
+                seller: {
+                  "@type": "Organization" as const,
+                  name: project.projectVendors[0].vendor.name,
+                },
+              }
+            : project.vendor?.name
+              ? {
+                  seller: {
+                    "@type": "Organization" as const,
+                    name: project.vendor.name,
+                  },
+                }
+              : {}),
+        }
+      : undefined;
+
+  // Designer / creator
+  const creatorName = project.designer || project.creator?.name;
+
+  // Category label
+  const categoryLabels: Record<string, string> = {
+    KEYBOARDS: "Keyboards",
+    KEYCAPS: "Keycaps",
+    SWITCHES: "Switches",
+    DESKMATS: "Desk Mats",
+    ARTISANS: "Artisans",
+    ACCESSORIES: "Accessories",
+  };
+
+  // Interaction statistics
+  const interactionStatistic = [
+    ...(project._count.followers > 0
+      ? [
+          {
+            "@type": "InteractionCounter" as const,
+            interactionType: "https://schema.org/FollowAction",
+            userInteractionCount: project._count.followers,
+          },
+        ]
+      : []),
+    ...(project._count.favorites > 0
+      ? [
+          {
+            "@type": "InteractionCounter" as const,
+            interactionType: "https://schema.org/LikeAction",
+            userInteractionCount: project._count.favorites,
+          },
+        ]
+      : []),
+    ...(project._count.comments > 0
+      ? [
+          {
+            "@type": "InteractionCounter" as const,
+            interactionType: "https://schema.org/CommentAction",
+            userInteractionCount: project._count.comments,
+          },
+        ]
+      : []),
+  ];
+
+  const jsonLd = JSON.parse(
+    JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: project.title,
+      description,
+      url: canonical,
+      image: jsonLdImages,
+      brand: project.vendor?.name
+        ? { "@type": "Brand", name: project.vendor.name }
+        : undefined,
+      creator: creatorName
+        ? { "@type": "Person", name: creatorName }
+        : undefined,
+      category: categoryLabels[project.category] || undefined,
+      datePublished: project.createdAt?.toISOString?.(),
+      dateModified: project.updatedAt?.toISOString?.(),
+      offers: offersBlock,
+      interactionStatistic:
+        interactionStatistic.length > 0 ? interactionStatistic : undefined,
+    })
+  );
+
+  // Group buy event JSON-LD (separate block)
+  const gbEventJsonLd =
+    project.status === "GROUP_BUY" && project.gbStartDate
+      ? JSON.parse(
+          JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Event",
+            name: `Group Buy: ${project.title}`,
+            startDate: project.gbStartDate.toISOString().split("T")[0],
+            endDate: project.gbEndDate
+              ? project.gbEndDate.toISOString().split("T")[0]
+              : undefined,
+            eventStatus: "https://schema.org/EventScheduled",
+            eventAttendanceMode:
+              "https://schema.org/OnlineEventAttendanceMode",
+            location: {
+              "@type": "VirtualLocation",
+              url: canonical,
+            },
+            organizer:
+              project.projectVendors.length > 0
+                ? {
+                    "@type": "Organization",
+                    name: project.projectVendors[0].vendor.name,
+                  }
+                : project.vendor?.name
+                  ? { "@type": "Organization", name: project.vendor.name }
+                  : undefined,
+          })
+        )
+      : null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -232,6 +361,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {gbEventJsonLd && (
+        <Script
+          id="project-event-json-ld"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(gbEventJsonLd) }}
+        />
+      )}
       <ProjectHero project={project} />
 
       <ProjectSocialProof

@@ -79,18 +79,35 @@ export default async function VendorPage({ params }: VendorPageProps) {
   const canonical = new URL(`/vendors/${vendor.slug}`, siteUrl).toString();
   const description = vendor.description?.trim() || `${vendor.name} on ${SITE_NAME}`;
   const image = vendor.logo || `${siteUrl}/window.svg`;
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: vendor.name,
-    description,
-    url: canonical,
-    logo: image,
-  };
-
   const publishedProjects = vendor.projectVendors
     .map((pv) => pv.project)
     .filter((p) => p.published);
+
+  const sameAs = [
+    vendor.storefrontUrl,
+  ].filter((u): u is string => !!u);
+
+  const makesOffer = publishedProjects.slice(0, 10).map((p) => ({
+    "@type": "Offer" as const,
+    itemOffered: {
+      "@type": "Product" as const,
+      name: p.title,
+      url: new URL(`/projects/${p.slug}`, siteUrl).toString(),
+    },
+  }));
+
+  const jsonLd = JSON.parse(
+    JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: vendor.name,
+      description,
+      url: canonical,
+      logo: image,
+      ...(sameAs.length > 0 ? { sameAs } : {}),
+      ...(makesOffer.length > 0 ? { makesOffer } : {}),
+    })
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">

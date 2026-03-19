@@ -116,17 +116,30 @@ export default async function GuidePage({ params }: Props) {
   const canonical = new URL(`/guides/${guide.slug}`, siteUrl).toString();
   const description = summarizeGuide(guide.content, guide.title);
   const image = guide.heroImage || `${siteUrl}/window.svg`;
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: guide.title,
-    description,
-    author: { "@type": "Person", name: authorName },
-    datePublished: guide.createdAt?.toISOString?.(),
-    dateModified: guide.updatedAt?.toISOString?.(),
-    image,
-    url: canonical,
-  };
+  // Approximate word count from content
+  const plainContent = guide.content ? stripHtml(guide.content) : "";
+  const wordCount = plainContent.split(/\s+/).filter(Boolean).length || undefined;
+
+  const jsonLd = JSON.parse(
+    JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      name: guide.title,
+      description,
+      author: { "@type": "Person", name: authorName },
+      publisher: {
+        "@type": "Organization",
+        name: SITE_NAME,
+        url: siteUrl,
+      },
+      datePublished: guide.createdAt?.toISOString?.(),
+      dateModified: guide.updatedAt?.toISOString?.(),
+      image,
+      url: canonical,
+      mainEntityOfPage: canonical,
+      wordCount,
+    })
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
