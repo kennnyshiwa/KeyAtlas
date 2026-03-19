@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { fetchGeekhackThread } from "@/lib/import/geekhack";
 import { enrichProject, buildVendorLookups } from "@/lib/import/geekhack-enrich";
 import { indexProject } from "@/lib/meilisearch";
+import { slugify } from "@/lib/slug";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -159,6 +160,27 @@ export async function GET(req: NextRequest) {
 
       // Apply updates in a transaction
       const updated = await prisma.$transaction(async (tx) => {
+        // Auto-create unknown vendors found in structured vendor lists
+        for (const uv of result.unknownVendors) {
+          const slug = slugify(uv.name);
+          // Check if slug already exists (avoid collision)
+          const existing = await tx.vendor.findUnique({ where: { slug }, select: { id: true } });
+          if (!existing) {
+            const newVendor = await tx.vendor.create({
+              data: { name: uv.name, slug },
+            });
+            console.log(`[cron/geekhack-enrich] Auto-created vendor "${uv.name}" (${newVendor.id})`);
+            // Link to project
+            await tx.projectVendor.create({
+              data: {
+                projectId: project.id,
+                vendorId: newVendor.id,
+                region: uv.region ?? null,
+              },
+            });
+          }
+        }
+
         // Update project fields
         const updatedProject = await tx.project.update({
           where: { id: project.id },
@@ -166,7 +188,7 @@ export async function GET(req: NextRequest) {
           include: { vendor: true },
         });
 
-        // Create ProjectVendor entries
+        // Create ProjectVendor entries for known vendors
         for (const pv of result.vendorsToLink) {
           // Check if this vendor link already exists (region can be null)
           const existing = await tx.projectVendor.findFirst({

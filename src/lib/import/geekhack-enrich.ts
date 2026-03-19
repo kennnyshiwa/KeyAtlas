@@ -45,6 +45,8 @@ export interface EnrichmentResult {
   changes: EnrichmentChange[];
   projectUpdate: Record<string, unknown>;
   vendorsToLink: { vendorId: string; region: string | null; storeLink: string | null }[];
+  /** Vendor names found in the structured list that don't exist in the DB yet */
+  unknownVendors: { name: string; region: string | null }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -171,15 +173,18 @@ interface VendorMatch {
 }
 
 const REGION_PATTERNS: Record<string, RegExp> = {
-  US: /\(US\)|\bUS\b|\bUSA\b|\bNorth\s+America\b|\bNA\b/i,
-  EU: /\(EU\)|\bEU\b|\bEurope\b/i,
-  Asia: /\(Asia\)|\bAsia\b|\bSEA\b|\bASIA\b/i,
-  OCE: /\(OCE\)|\bOCE\b|\bAustralia\b|\bAU\b/i,
-  CA: /\(CA\)|\bCanada\b/i,
-  UK: /\(UK\)|\bUK\b/i,
-  LATAM: /\(LATAM\)|\bLATAM\b|\bLatin\s+America\b/i,
-  JP: /\(JP\)|\bJapan\b/i,
-  CN: /\(CN\)|\bChina\b/i,
+  US: /\bUS\b|\bUSA\b|\bNorth\s+America\b|\bNA\b|\bRest\s+of\s+(?:the\s+)?world\b|\bROW\b/i,
+  EU: /\bEU\b|\bEurope\b/i,
+  UK: /\bUK\b|\bUnited\s+Kingdom\b/i,
+  OCE: /\bOCE\b|\bOceania\b|\bAustralia\b|\bAU\b/i,
+  CA: /\bCA\b|\bCanada\b/i,
+  SEA: /\bSEA\b|\bSouth(?:east|[\s-]*East)\s+Asia\b/i,
+  Asia: /\bAsia\b(?!.*(?:South(?:east|[\s-]*East)))/i,
+  KR: /\bKR\b|\bKorea\b|\bSouth\s+Korea\b/i,
+  JP: /\bJP\b|\bJapan\b/i,
+  CN: /\bCN\b|\bChina\b/i,
+  LATAM: /\bLATAM\b|\bLatin\s+America\b/i,
+  VN: /\bVN\b|\bVietnam\b/i,
 };
 
 function detectRegionNearVendor(text: string, vendorPos: number): string | null {
@@ -199,6 +204,55 @@ function extractUrlsFromText(text: string): string[] {
   return [...text.matchAll(urlRegex)].map((m) => m[0]);
 }
 
+/**
+ * Parse structured vendor lists commonly found in Geekhack posts.
+ * Format: "- Region: VendorName" or "Region — VendorName" per line.
+ * Returns vendor name → region pairs (vendor name as written in the post).
+ */
+function parseStructuredVendorList(text: string): Array<{ vendorName: string; region: string | null }> {
+  const results: Array<{ vendorName: string; region: string | null }> = [];
+
+  // Match lines like "- Region: VendorName" or "Region: VendorName"
+  // Common formats:
+  //   - The USA and Rest of the world: Click Clack
+  //   - Europe: EloquentKeys
+  //   United Kingdom: ProtoTypist
+  const linePattern = /^[-–—•*]?\s*(.+?)\s*[:：]\s*(.+?)$/gm;
+
+  for (const m of text.matchAll(linePattern)) {
+    const regionText = m[1].trim();
+    const vendorName = m[2].trim();
+
+    // Skip lines that are clearly not vendor entries (too long, contain URLs, etc.)
+    if (vendorName.length > 60 || vendorName.includes("http") || regionText.length > 60) continue;
+
+    // Detect region from the region text
+    let region: string | null = null;
+    for (const [regionCode, pattern] of Object.entries(REGION_PATTERNS)) {
+      if (pattern.test(regionText)) {
+        region = regionCode;
+        break;
+      }
+    }
+
+    // Only include if the region text looks like a region name
+    // (has at least one region match or is short enough to be a region)
+    if (region || regionText.length <= 40) {
+      results.push({ vendorName, region });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Fuzzy vendor name matching — handles spaces, dots, capitalization differences.
+ * "Click Clack" → "ClickClack", "iLumKB" → "ilumkb", etc.
+ */
+function normalizeVendorName(name: string): string {
+  return name.toLowerCase().replace(/[\s.\-_]+/g, "");
+}
+
 function findVendorMatches(
   text: string,
   urls: string[],
@@ -207,11 +261,32 @@ function findVendorMatches(
   const seen = new Set<string>();
   const matches: VendorMatch[] = [];
 
-  const textLower = text.toLowerCase();
+  // Build normalized name lookup for fuzzy matching
+  const byNormalized = new Map<string, VendorRecord>();
+  for (const [, vendor] of lookups.byNameLower) {
+    byNormalized.set(normalizeVendorName(vendor.name), vendor);
+  }
 
-  // 1) Match vendor names in text (case-insensitive, word-boundary)
+  // 1) Parse structured vendor list (highest priority — has region info)
+  const structuredVendors = parseStructuredVendorList(text);
+  for (const { vendorName, region } of structuredVendors) {
+    // Try exact match first, then normalized
+    const vendor =
+      lookups.byNameLower.get(vendorName.toLowerCase()) ??
+      byNormalized.get(normalizeVendorName(vendorName));
+
+    if (vendor && !seen.has(vendor.id)) {
+      seen.add(vendor.id);
+      const storeLink = findStoreLinkForVendor(urls, vendor, lookups.byDomain) ?? null;
+      matches.push({ vendor, storeLink, region });
+    }
+  }
+
+  // 2) Match vendor names in text (case-insensitive, word-boundary)
+  const textLower = text.toLowerCase();
   for (const [nameLower, vendor] of lookups.byNameLower) {
-    // Use word boundary for names >= 3 chars; exact match for shorter
+    if (seen.has(vendor.id)) continue;
+
     const escaped = nameLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pattern =
       nameLower.length >= 3
@@ -219,16 +294,15 @@ function findVendorMatches(
         : new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`, "i");
 
     const match = pattern.exec(textLower);
-    if (match && !seen.has(vendor.id)) {
+    if (match) {
       seen.add(vendor.id);
       const region = detectRegionNearVendor(text, match.index);
-      // Look for a URL from that vendor nearby
       const storeLink = findStoreLinkForVendor(urls, vendor, lookups.byDomain) ?? null;
       matches.push({ vendor, storeLink, region });
     }
   }
 
-  // 2) Match vendor domains in URLs
+  // 3) Match vendor domains in URLs
   for (const url of urls) {
     try {
       const host = new URL(url).hostname.replace(/^www\./, "");
@@ -242,20 +316,21 @@ function findVendorMatches(
     }
   }
 
-  // 3) Also look for "available at", "sold by" patterns
+  // 4) "available at", "sold by" patterns
   const vendorContextPatterns = [
     /(?:available\s+(?:at|from|through)|sold\s+(?:by|at|through)|order\s+(?:at|from|through))\s+(\S[\w\s&']+?)(?:\s*[\(\.,;:\n]|$)/gi,
   ];
   for (const pattern of vendorContextPatterns) {
     for (const m of text.matchAll(pattern)) {
-      const candidateName = m[1]?.trim().toLowerCase();
-      if (candidateName) {
-        const vendor = lookups.byNameLower.get(candidateName);
-        if (vendor && !seen.has(vendor.id)) {
-          seen.add(vendor.id);
-          const storeLink = findStoreLinkForVendor(urls, vendor, lookups.byDomain) ?? null;
-          matches.push({ vendor, storeLink, region: null });
-        }
+      const candidateName = m[1]?.trim();
+      if (!candidateName) continue;
+      const vendor =
+        lookups.byNameLower.get(candidateName.toLowerCase()) ??
+        byNormalized.get(normalizeVendorName(candidateName));
+      if (vendor && !seen.has(vendor.id)) {
+        seen.add(vendor.id);
+        const storeLink = findStoreLinkForVendor(urls, vendor, lookups.byDomain) ?? null;
+        matches.push({ vendor, storeLink, region: null });
       }
     }
   }
@@ -385,9 +460,10 @@ const MONTH_MAP: Record<string, number> = {
 };
 
 function parseNaturalDate(str: string): Date | null {
-  const cleaned = str.trim().replace(/,/g, "");
+  // Strip ordinal suffixes (1st, 2nd, 3rd, 4th, 10th, etc.) and commas
+  const cleaned = str.trim().replace(/(\d+)(?:st|nd|rd|th)\b/gi, "$1").replace(/,/g, "");
 
-  // "March 1 2024" or "1 March 2024" or "March 1, 2024"
+  // "March 1 2024" or "March 1, 2024" or "10th June 2025"
   const mdy = cleaned.match(/(\w+)\s+(\d{1,2})\s+(\d{4})/);
   if (mdy) {
     const month = MONTH_MAP[mdy[1].toLowerCase()];
@@ -397,6 +473,7 @@ function parseNaturalDate(str: string): Date | null {
     }
   }
 
+  // "1 March 2024" or "10 June 2025"
   const dmy = cleaned.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
   if (dmy) {
     const month = MONTH_MAP[dmy[2].toLowerCase()];
@@ -432,7 +509,9 @@ function extractDates(
   // GB date range patterns
   if (!project.gbStartDate || !project.gbEndDate) {
     const gbRangePatterns = [
-      /(?:GB|Group\s*Buy|Group\s*buy)\s*[:=]?\s*(.+?)\s*[-–—]\s*(.+?)(?:\n|$|\.)/i,
+      // "Time：10th June 2025 - 10th July 2025" (fullwidth or normal colon)
+      /(?:Time|Date)\s*[：:=]\s*(.+?)\s*[-–—]\s*(.+?)(?:\n|$)/i,
+      /(?:GB|Group\s*Buy|Group\s*buy)\s*(?:Date)?\s*[：:=]?\s*(.+?)\s*[-–—]\s*(.+?)(?:\n|$|\.)/i,
       /(?:Group\s*buy\s*(?:runs|starts|begins)\s*(?:from)?)\s*(.+?)\s*(?:to|through|until|-|–|—)\s*(.+?)(?:\n|$|\.)/i,
     ];
 
@@ -580,6 +659,22 @@ export function enrichProject(
   const vendorMatches = findVendorMatches(text, urls, vendorLookups);
   const existingVendorIds = new Set(project.projectVendors.map((pv) => pv.vendorId));
 
+  // Track vendors from structured list that weren't found in DB
+  const unknownVendors: EnrichmentResult["unknownVendors"] = [];
+  const structuredList = parseStructuredVendorList(text);
+  const byNormalized = new Map<string, VendorRecord>();
+  for (const [, vendor] of vendorLookups.byNameLower) {
+    byNormalized.set(normalizeVendorName(vendor.name), vendor);
+  }
+  for (const { vendorName, region } of structuredList) {
+    const found =
+      vendorLookups.byNameLower.get(vendorName.toLowerCase()) ??
+      byNormalized.get(normalizeVendorName(vendorName));
+    if (!found) {
+      unknownVendors.push({ name: vendorName, region });
+    }
+  }
+
   if (vendorMatches.length > 0) {
     // Set primary vendor if not already set
     if (!project.vendorId) {
@@ -642,9 +737,10 @@ export function enrichProject(
 
   return {
     projectId: project.id,
-    changed: changes.length > 0,
+    changed: changes.length > 0 || unknownVendors.length > 0,
     changes,
     projectUpdate,
     vendorsToLink,
+    unknownVendors,
   };
 }
