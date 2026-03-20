@@ -65,6 +65,7 @@ export async function GET(
         orderBy: { createdAt: "desc" },
       },
       creator: { select: { id: true, username: true, name: true, image: true } },
+      designerProfile: { select: { name: true, slug: true } },
       projectVendors: {
         include: { vendor: { select: { name: true } } },
       },
@@ -115,6 +116,9 @@ export async function GET(
       image: project.creator.image,
       role: "USER",
     },
+    designer_profile: project.designerProfile
+      ? { name: project.designerProfile.name, slug: project.designerProfile.slug }
+      : null,
     pricing: {
       min_price: project.priceMin,
       max_price: project.priceMax,
