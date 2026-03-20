@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SmartImage } from "@/components/shared/smart-image";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Palette, ExternalLink } from "lucide-react";
+import { Palette, ExternalLink, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
 
@@ -74,6 +75,12 @@ export default async function DesignerPage({ params }: DesignerPageProps) {
     notFound();
   }
 
+  const session = await auth();
+  const canEdit =
+    session?.user &&
+    (["ADMIN", "MODERATOR"].includes(session.user.role) ||
+      designer.ownerId === session.user.id);
+
   const siteUrl = getSiteUrl();
   const canonical = new URL(`/designers/${designer.slug}`, siteUrl).toString();
   const description =
@@ -137,18 +144,28 @@ export default async function DesignerPage({ params }: DesignerPageProps) {
             <p className="text-muted-foreground">{designer.description}</p>
           )}
 
-          {designer.websiteUrl && (
-            <Button variant="outline" size="sm" asChild>
-              <a
-                href={designer.websiteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                Visit Website
-              </a>
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {designer.websiteUrl && (
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={designer.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  Visit Website
+                </a>
+              </Button>
+            )}
+            {canEdit && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/designers/${designer.slug}/edit`}>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Edit Profile
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

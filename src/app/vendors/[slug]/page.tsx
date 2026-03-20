@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { SmartImage } from "@/components/shared/smart-image";
 import Script from "next/script";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Store, CheckCircle, ExternalLink } from "lucide-react";
+import { Store, CheckCircle, ExternalLink, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
 
@@ -74,6 +76,12 @@ export default async function VendorPage({ params }: VendorPageProps) {
   if (!vendor) {
     notFound();
   }
+
+  const session = await auth();
+  const canEdit =
+    session?.user &&
+    (["ADMIN", "MODERATOR"].includes(session.user.role) ||
+      vendor.ownerId === session.user.id);
 
   const siteUrl = getSiteUrl();
   const canonical = new URL(`/vendors/${vendor.slug}`, siteUrl).toString();
@@ -156,6 +164,14 @@ export default async function VendorPage({ params }: VendorPageProps) {
                   <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                   Visit Store
                 </a>
+              </Button>
+            )}
+            {canEdit && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/vendors/${vendor.slug}/edit`}>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Edit Profile
+                </Link>
               </Button>
             )}
           </div>

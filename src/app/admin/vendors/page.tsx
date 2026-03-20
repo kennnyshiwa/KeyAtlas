@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, CheckCircle, Trash2 } from "lucide-react";
 import { VendorDeleteButton } from "@/components/admin/vendor-delete-button";
+import { VendorMergeDialog } from "@/components/admin/vendor-merge-dialog";
 
 export const metadata = {
   title: "Manage Vendors",
@@ -34,12 +35,15 @@ export default async function AdminVendorsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Manage Vendors">
-        <Button asChild>
-          <Link href="/admin/vendors/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Vendor
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <VendorMergeDialog vendors={vendors} />
+          <Button asChild>
+            <Link href="/admin/vendors/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Vendor
+            </Link>
+          </Button>
+        </div>
       </PageHeader>
 
       <Table>

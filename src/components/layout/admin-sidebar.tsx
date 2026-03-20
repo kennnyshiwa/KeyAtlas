@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LayoutDashboard, FolderKanban, Store, ArrowLeft, Users, Tags, Flag, Shield } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Store, Palette, ArrowLeft, Users, Tags, Flag, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/vendors", label: "Vendors", icon: Store },
+  { href: "/admin/designers", label: "Designers", icon: Palette },
   { href: "/admin/keycap-profiles", label: "Keycap Profiles", icon: Tags },
   { href: "/admin/users", label: "Users", icon: Users, adminOnly: true },
   { href: "/admin/reports", label: "Reports", icon: Flag },

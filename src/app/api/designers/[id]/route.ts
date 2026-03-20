@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { vendorFormSchema } from "@/lib/validations/vendor";
-import { z } from "zod";
+import { designerFormSchema } from "@/lib/validations/designer";
 
 export async function GET(
   _req: NextRequest,
@@ -10,22 +9,20 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const vendor = await prisma.vendor.findUnique({
+  const designer = await prisma.designer.findUnique({
     where: { id },
     include: {
-      projectVendors: {
-        include: {
-          project: { select: { id: true, title: true, slug: true, status: true } },
-        },
+      projects: {
+        select: { id: true, title: true, slug: true, status: true },
       },
     },
   });
 
-  if (!vendor) {
+  if (!designer) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(vendor);
+  return NextResponse.json(designer);
 }
 
 export async function PUT(
@@ -39,18 +36,18 @@ export async function PUT(
   }
 
   const isAdmin = session.user.role === "ADMIN";
-  const vendor = await prisma.vendor.findUnique({ where: { id }, select: { ownerId: true } });
-  if (!vendor) {
+  const existing = await prisma.designer.findUnique({ where: { id }, select: { ownerId: true } });
+  if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const isOwner = vendor.ownerId === session.user.id;
+  const isOwner = existing.ownerId === session.user.id;
   if (!isAdmin && !isOwner) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const body = await req.json();
-  const result = vendorFormSchema.safeParse(body);
+  const result = designerFormSchema.safeParse(body);
 
   if (!result.success) {
     return NextResponse.json(
@@ -63,10 +60,9 @@ export async function PUT(
   const updateData: Record<string, unknown> = {
     name: result.data.name,
     logo: result.data.logo || null,
+    banner: result.data.banner || null,
     description: result.data.description || null,
-    storefrontUrl: result.data.storefrontUrl || null,
-    verified: result.data.verified,
-    regionsServed: result.data.regionsServed,
+    websiteUrl: result.data.websiteUrl || null,
   };
 
   if (isAdmin) {
@@ -77,23 +73,23 @@ export async function PUT(
       updateData.ownerId = body.ownerId || null;
     }
 
-    const slugConflict = await prisma.vendor.findFirst({
+    const slugConflict = await prisma.designer.findFirst({
       where: { slug: result.data.slug, NOT: { id } },
     });
     if (slugConflict) {
       return NextResponse.json(
-        { error: "A vendor with this slug already exists" },
+        { error: "A designer with this slug already exists" },
         { status: 409 }
       );
     }
   }
 
-  const updated = await prisma.vendor.update({
+  const designer = await prisma.designer.update({
     where: { id },
     data: updateData,
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json(designer);
 }
 
 export async function DELETE(
@@ -106,6 +102,6 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  await prisma.vendor.delete({ where: { id } });
+  await prisma.designer.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }

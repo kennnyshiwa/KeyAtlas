@@ -5,7 +5,7 @@ import { VendorForm } from "@/components/vendors/vendor-form";
 import { PageHeader } from "@/components/shared/page-header";
 
 interface EditVendorPageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 export const metadata = {
@@ -14,23 +14,28 @@ export const metadata = {
 
 export default async function EditVendorPage({ params }: EditVendorPageProps) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "MODERATOR"].includes(session.user.role)) {
-    redirect("/");
+  if (!session?.user) {
+    redirect("/auth/signin");
   }
 
-  const { id } = await params;
+  const { slug } = await params;
   const vendor = await prisma.vendor.findUnique({
-    where: { id },
+    where: { slug },
     include: { owner: { select: { username: true, name: true } } },
   });
 
   if (!vendor) notFound();
 
-  const isAdmin = session.user.role === "ADMIN";
+  const isAdmin = ["ADMIN", "MODERATOR"].includes(session.user.role);
+  const isOwner = vendor.ownerId === session.user.id;
+
+  if (!isAdmin && !isOwner) {
+    redirect(`/vendors/${slug}`);
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader title="Edit Vendor" />
+      <PageHeader title={`Edit ${vendor.name}`} />
       <VendorForm vendor={vendor} isAdmin={isAdmin} />
     </div>
   );
