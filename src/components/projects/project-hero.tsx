@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SmartImage } from "@/components/shared/smart-image";
 import { ProjectStatusBadge } from "./status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +44,17 @@ export function ProjectHero({ project }: ProjectHeroProps) {
         <h1 className="text-3xl font-bold tracking-tight">{project.title}</h1>
         {(project.designer || project.vendor) && (
           <p className="text-muted-foreground text-lg">
-            by {project.designer || project.vendor?.name}
+            by{" "}
+            {(project as any).designerProfile?.slug ? (
+              <Link
+                href={`/designers/${(project as any).designerProfile.slug}`}
+                className="text-foreground hover:underline"
+              >
+                {(project as any).designerProfile.name}
+              </Link>
+            ) : (
+              project.designer || project.vendor?.name
+            )}
           </p>
         )}
         {project.priceMin != null && (
