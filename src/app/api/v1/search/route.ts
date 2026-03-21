@@ -5,7 +5,6 @@ import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
 
 let searchProjects: typeof import("@/lib/meilisearch").searchProjects | null = null;
 try {
-  // Dynamic import so the endpoint still works if Meilisearch is not configured
   const mod = require("@/lib/meilisearch");
   searchProjects = mod.searchProjects;
 } catch {
@@ -24,21 +23,96 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Math.max(1, Number(searchParams.get("limit") ?? "20")), 50);
 
   if (!q.trim()) {
-    return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+    return NextResponse.json({
+      data: [],
+      vendors: [],
+      designers: [],
+      pagination: { page, limit, total: 0, totalPages: 0 },
+    });
   }
 
-  // Try Meilisearch first
+  // Search vendors and designers in parallel with projects
+  const vendorPromise = prisma.vendor.findMany({
+    where: {
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { slug: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      logo: true,
+      description: true,
+      storefrontUrl: true,
+      verified: true,
+      regionsServed: true,
+      _count: { select: { projectVendors: true } },
+    },
+    orderBy: { name: "asc" },
+    take: 10,
+  });
+
+  const designerPromise = prisma.designer.findMany({
+    where: {
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { slug: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      logo: true,
+      banner: true,
+      description: true,
+      websiteUrl: true,
+      _count: { select: { projects: true } },
+    },
+    orderBy: { name: "asc" },
+    take: 10,
+  });
+
+  // Try Meilisearch first for projects
   if (searchProjects) {
     try {
       const offset = (page - 1) * limit;
-      const results = await searchProjects(q, {
-        filter: "published = true",
-        sort: ["createdAt:desc"],
-        limit,
-        offset,
-      });
+      const [results, vendors, designers] = await Promise.all([
+        searchProjects(q, {
+          filter: "published = true",
+          sort: ["createdAt:desc"],
+          limit,
+          offset,
+        }),
+        vendorPromise,
+        designerPromise,
+      ]);
+
       return NextResponse.json({
         data: results.hits,
+        vendors: vendors.map((v) => ({
+          id: v.id,
+          name: v.name,
+          slug: v.slug,
+          description: v.description,
+          logo_url: v.logo,
+          website_url: v.storefrontUrl,
+          regions: v.regionsServed,
+          verified: v.verified,
+          project_count: v._count.projectVendors,
+        })),
+        designers: designers.map((d) => ({
+          id: d.id,
+          name: d.name,
+          slug: d.slug,
+          description: d.description,
+          logo_url: d.logo,
+          banner_url: d.banner,
+          website_url: d.websiteUrl,
+          project_count: d._count.projects,
+        })),
         pagination: {
           page,
           limit,
@@ -58,7 +132,7 @@ export async function GET(req: NextRequest) {
     title: { contains: q, mode: "insensitive" as const },
   };
 
-  const [projects, total] = await Promise.all([
+  const [projects, total, vendors, designers] = await Promise.all([
     prisma.project.findMany({
       where,
       select: {
@@ -76,10 +150,33 @@ export async function GET(req: NextRequest) {
       take: limit,
     }),
     prisma.project.count({ where }),
+    vendorPromise,
+    designerPromise,
   ]);
 
   return NextResponse.json({
     data: projects,
+    vendors: vendors.map((v) => ({
+      id: v.id,
+      name: v.name,
+      slug: v.slug,
+      description: v.description,
+      logo_url: v.logo,
+      website_url: v.storefrontUrl,
+      regions: v.regionsServed,
+      verified: v.verified,
+      project_count: v._count.projectVendors,
+    })),
+    designers: designers.map((d) => ({
+      id: d.id,
+      name: d.name,
+      slug: d.slug,
+      description: d.description,
+      logo_url: d.logo,
+      banner_url: d.banner,
+      website_url: d.websiteUrl,
+      project_count: d._count.projects,
+    })),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
