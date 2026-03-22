@@ -147,8 +147,8 @@ export async function POST(req: NextRequest) {
 
   const { images, links, soundTests, projectVendors, ...data } = result.data;
 
-  // Vendor required for GROUP_BUY status
-  if (data.status === "GROUP_BUY" && projectVendors.length === 0) {
+  // Vendor required for GROUP_BUY status — only enforce on publish, not drafts
+  if (intent !== "draft" && data.status === "GROUP_BUY" && projectVendors.length === 0) {
     return NextResponse.json(
       { error: "At least one vendor is required for Group Buy projects." },
       { status: 400 }

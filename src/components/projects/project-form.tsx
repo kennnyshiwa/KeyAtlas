@@ -632,7 +632,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     if (!(formData.heroImage ?? "").trim()) errors.push({ id: "hero-image", message: "Hero image is required" });
 
     if (formData.status === "GROUP_BUY") {
-      if (!formData.projectVendors.length) {
+      if (!(formData.projectVendors ?? []).filter((pv) => pv.vendorId).length) {
         errors.push({ id: "vendors", message: "At least one vendor is required for Group Buy" });
       }
       if (!formData.gbStartDate) {
