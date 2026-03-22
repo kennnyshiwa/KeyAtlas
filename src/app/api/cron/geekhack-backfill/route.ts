@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runGeekhackAutoImport } from "@/lib/import/geekhack-auto-import";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 3600;
 
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
