@@ -9,9 +9,9 @@ import { ArrowRight, Clock } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Ending Soon Group Buys | KeyAtlas",
+  title: "Group Buys Ending Soon - Don't Miss Out | KeyAtlas",
   description:
-    "Group buys ending in the next 7 days. See timelines and vendors so you don't miss closing windows.",
+    "Mechanical keyboard group buys closing in the next 7 days. Check deadlines, vendor links, and pricing before the window shuts — last chance to order.",
   alternates: { canonical: "/discover/ending-soon" },
 };
 

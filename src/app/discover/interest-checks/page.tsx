@@ -9,9 +9,9 @@ import { ArrowRight, Lightbulb } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Keyboard Interest Checks | KeyAtlas",
+  title: "Mechanical Keyboard Interest Checks | KeyAtlas",
   description:
-    "See the latest keyboard interest checks, concepts, and upcoming group buys. Follow the ideas that should go to production next.",
+    "Discover the latest mechanical keyboard interest checks and upcoming concepts. Vote on designs that should become group buys and shape the next wave of keyboard releases.",
   alternates: { canonical: "/discover/interest-checks" },
 };
 

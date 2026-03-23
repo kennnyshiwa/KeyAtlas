@@ -10,8 +10,9 @@ import type { Metadata } from "next";
 import { scoreTrendingProject } from "@/lib/project-discovery";
 
 export const metadata: Metadata = {
-  title: "New This Week | KeyAtlas",
-  description: "Projects created in the last 7 days across interest checks and group buys.",
+  title: "New Keyboard Projects This Week | KeyAtlas",
+  description:
+    "Fresh mechanical keyboard projects added in the last 7 days — new interest checks, group buys, and keycap sets. Stay on top of every new drop.",
   alternates: { canonical: "/discover/new-this-week" },
 };
 

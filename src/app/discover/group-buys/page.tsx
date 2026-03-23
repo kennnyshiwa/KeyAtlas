@@ -10,9 +10,9 @@ import { ArrowRight, Clock, Flame } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Mechanical Keyboard Group Buys | KeyAtlas",
+  title: "Active Keyboard Group Buys - March 2026 | KeyAtlas",
   description:
-    "Track mechanical keyboard group buys that are live right now. See what's trending, what's ending soon, and where to join before the window closes.",
+    "Browse all active mechanical keyboard group buys. Find live GBs, track pricing, check vendor availability, and join before the window closes.",
   alternates: { canonical: "/discover/group-buys" },
 };
 
