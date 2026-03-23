@@ -4,6 +4,7 @@ import { DEFAULT_NOTIFICATION_PREFERENCES } from "@/lib/notifications/preference
 import { getSiteUrl } from "@/lib/site";
 import { sendNotificationEmail } from "@/lib/notifications/email";
 import { sendAPNSNotification } from "@/lib/notifications/apns";
+import { sendWebPushToDevice } from "@/lib/notifications/web-push";
 
 interface NotificationDispatchInput {
   recipients: string[];
@@ -39,8 +40,8 @@ export async function dispatchNotification(input: NotificationDispatchInput) {
         take: 1,
       },
       pushDevices: {
-        where: { enabled: true, platform: "ios" },
-        select: { token: true },
+        where: { enabled: true },
+        select: { id: true, platform: true, token: true },
       },
     },
   });
@@ -61,15 +62,25 @@ export async function dispatchNotification(input: NotificationDispatchInput) {
       });
 
       for (const device of user.pushDevices) {
-        try {
-          await sendAPNSNotification({
-            token: device.token,
+        if (device.platform === "ios") {
+          try {
+            await sendAPNSNotification({
+              token: device.token,
+              title: input.title,
+              body: input.message,
+              link: input.link,
+            });
+          } catch (error) {
+            console.error("Failed to send APNS push", error);
+          }
+        } else if (device.platform === "web") {
+          await sendWebPushToDevice({
+            deviceId: device.id,
+            tokenJson: device.token,
             title: input.title,
             body: input.message,
             link: input.link,
           });
-        } catch (error) {
-          console.error("Failed to send APNS push", error);
         }
       }
     }
