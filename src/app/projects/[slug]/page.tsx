@@ -28,6 +28,7 @@ import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
 import { buildEmbedDescription } from "@/lib/embed-description";
+import { STATUS_LABELS, CATEGORY_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -101,15 +102,29 @@ export async function generateMetadata({
     return new URL(url, siteUrl).toString();
   };
   const canonical = new URL(`/projects/${project.slug}`, siteUrl).toString();
-  const title = project.metaTitle?.trim() || project.title || SITE_NAME;
-  const description = buildEmbedDescription({
-    ...project,
-    followerCount: project._count.followers,
-    favoriteCount: project._count.favorites,
-    priceMin: project.priceMin,
-    priceMax: project.priceMax,
-    currency: project.currency,
-  });
+
+  // Build keyword-rich title: "{name} - {status} {category} | KeyAtlas"
+  const statusLabel = STATUS_LABELS[project.status] ?? project.status;
+  const categoryLabel = CATEGORY_LABELS[project.category] ?? project.category;
+  const title =
+    project.metaTitle?.trim() ||
+    `${project.title} - ${statusLabel} ${categoryLabel} | ${SITE_NAME}`;
+
+  // Strip HTML tags from project.description and use first ~155 chars as meta description
+  const rawDescription = project.description
+    ? project.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 155)
+    : null;
+  const description =
+    rawDescription ||
+    buildEmbedDescription({
+      ...project,
+      followerCount: project._count.followers,
+      favoriteCount: project._count.favorites,
+      priceMin: project.priceMin,
+      priceMax: project.priceMax,
+      currency: project.currency,
+    });
+
   const primaryImage =
     toAbsoluteUrl(project.heroImage || project.images[0]?.url) || `${siteUrl}/window.svg`;
 
@@ -215,12 +230,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   // Map status to schema.org availability
   const statusAvailabilityMap: Record<string, string | undefined> = {
+    INTEREST_CHECK: "https://schema.org/PreOrder",
     GROUP_BUY: "https://schema.org/PreOrder",
+    PRODUCTION: "https://schema.org/PreOrder",
     EXTRAS: "https://schema.org/InStock",
     IN_STOCK: "https://schema.org/InStock",
-    CLOSED: "https://schema.org/SoldOut",
-    SHIPPED: "https://schema.org/SoldOut",
-    PRODUCTION: "https://schema.org/PreOrder",
+    COMPLETED: "https://schema.org/SoldOut",
+    ARCHIVED: "https://schema.org/SoldOut",
   };
   const availability = statusAvailabilityMap[project.status];
 
@@ -253,18 +269,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         }
       : undefined;
 
-  // Designer / creator
-  const creatorName = project.designerProfile?.name || project.designer || project.creator?.name;
-
-  // Category label
-  const categoryLabels: Record<string, string> = {
-    KEYBOARDS: "Keyboards",
-    KEYCAPS: "Keycaps",
-    SWITCHES: "Switches",
-    DESKMATS: "Desk Mats",
-    ARTISANS: "Artisans",
-    ACCESSORIES: "Accessories",
-  };
+  // Designer / creator (used for brand and creator fields)
+  const designerName = project.designerProfile?.name || project.designer || null;
+  const creatorName = designerName || project.creator?.name;
 
   // Interaction statistics
   const interactionStatistic = [
@@ -305,13 +312,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       description,
       url: canonical,
       image: jsonLdImages,
-      brand: project.vendor?.name
-        ? { "@type": "Brand", name: project.vendor.name }
-        : undefined,
+      brand: designerName
+        ? { "@type": "Brand", name: designerName }
+        : project.vendor?.name
+          ? { "@type": "Brand", name: project.vendor.name }
+          : undefined,
       creator: creatorName
         ? { "@type": "Person", name: creatorName }
         : undefined,
-      category: categoryLabels[project.category] || undefined,
+      category: CATEGORY_LABELS[project.category] || undefined,
       datePublished: project.createdAt?.toISOString?.(),
       dateModified: project.updatedAt?.toISOString?.(),
       offers: offersBlock,
