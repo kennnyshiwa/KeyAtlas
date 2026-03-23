@@ -9,9 +9,17 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
+        // Googlebot gets explicit allow with no crawl-delay
+        userAgent: "Googlebot",
+        allow: "/",
+        disallow: ["/api/", "/admin/"],
+      },
+      {
+        // Generic rule for all other bots with a crawl-delay
         userAgent: "*",
         allow: "/",
         disallow: ["/api/", "/admin/"],
+        crawlDelay: 10,
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,
