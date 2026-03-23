@@ -7,7 +7,7 @@ import { rateLimit, RATE_LIMIT_KEY_MGMT } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   token: z.string().min(16),
-  platform: z.literal("ios").default("ios"),
+  platform: z.enum(["ios", "web"]).default("ios"),
   app_bundle_id: z.string().optional(),
   app_version: z.string().optional(),
   device_name: z.string().optional(),
