@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Bell, Check } from "lucide-react";
+import { PushSubscribeButton } from "@/components/notifications/push-subscribe-button";
 import { formatDistanceToNow } from "date-fns";
 
 interface Notification {
@@ -33,6 +34,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState<boolean | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!session?.user) return;
@@ -76,6 +78,17 @@ export function NotificationBell() {
     }
   }
 
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setPushSubscribed(true); // Not supported — hide prompt
+      return;
+    }
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => setPushSubscribed(!!sub))
+      .catch(() => setPushSubscribed(true));
+  }, []);
+
   if (!session?.user) return null;
 
   return (
@@ -100,6 +113,16 @@ export function NotificationBell() {
             </Button>
           )}
         </div>
+        {pushSubscribed === false && (
+          <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2">
+            <p className="text-muted-foreground text-xs">Get notified instantly</p>
+            <PushSubscribeButton
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+            />
+          </div>
+        )}
         <div className="max-h-80 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="text-muted-foreground px-4 py-8 text-center text-sm">

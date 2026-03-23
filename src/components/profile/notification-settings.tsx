@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { PushSubscribeButton } from "@/components/notifications/push-subscribe-button";
 
 type PreferenceType =
   | "FORUM_REPLIES"
@@ -66,6 +67,18 @@ export function NotificationSettings() {
   }
 
   return (
+    <div className="space-y-4">
+    <Card>
+      <CardHeader>
+        <CardTitle>Push Notifications</CardTitle>
+        <CardDescription>
+          Get instant browser notifications even when KeyAtlas isn&apos;t open.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <PushSubscribeButton />
+      </CardContent>
+    </Card>
     <Card>
       <CardHeader>
         <CardTitle>Notification Preferences</CardTitle>
@@ -98,5 +111,6 @@ export function NotificationSettings() {
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }
