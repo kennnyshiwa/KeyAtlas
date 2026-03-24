@@ -55,7 +55,14 @@ export function PushSubscribeButton({
   }, [checkSubscription]);
 
   async function subscribe() {
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    let vapidPublicKey: string | null = null;
+    try {
+      const res = await fetch("/api/push/vapid-key");
+      if (res.ok) {
+        const data = await res.json();
+        vapidPublicKey = data.publicKey;
+      }
+    } catch { /* ignore */ }
     if (!vapidPublicKey) {
       toast.error("Push notifications are not configured.");
       return;
