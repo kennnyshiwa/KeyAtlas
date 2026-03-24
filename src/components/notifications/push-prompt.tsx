@@ -36,19 +36,29 @@ export function PushPrompt() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     if (localStorage.getItem(DISMISSED_KEY)) return;
 
-    // Check if already subscribed
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
+    // Check if permission was already denied
+    if (Notification.permission === "denied") return;
+
+    // Check if already subscribed (only if a SW is already registered)
+    navigator.serviceWorker.getRegistration()
+      .then((reg) => {
+        if (reg) {
+          return reg.pushManager.getSubscription();
+        }
+        return null;
+      })
       .then((sub) => {
+        // Show prompt if not already subscribed
         if (!sub) {
-          // Check if permission was already denied
-          if (Notification.permission === "denied") return;
-          // Show prompt after delay
           const timer = setTimeout(() => setVisible(true), PROMPT_DELAY_MS);
           return () => clearTimeout(timer);
         }
       })
-      .catch(() => {/* ignore */});
+      .catch(() => {
+        // No SW at all — show the prompt
+        const timer = setTimeout(() => setVisible(true), PROMPT_DELAY_MS);
+        return () => clearTimeout(timer);
+      });
   }, [mounted, session?.user]);
 
   function dismiss() {
