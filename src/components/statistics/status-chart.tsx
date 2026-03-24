@@ -48,9 +48,9 @@ export function StatusChart({ data }: StatusChartProps) {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => [
+                  formatter={(value: number, _name: string, props: { payload?: { name?: string } }) => [
                     `${value.toLocaleString()} (${((value / total) * 100).toFixed(1)}%)`,
-                    "Projects",
+                    props.payload?.name ?? "Projects",
                   ]}
                 />
               </PieChart>
