@@ -21,14 +21,20 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
 
 export function PushPrompt() {
   const { data: session } = useSession();
+  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     // Don't show if not logged in, not supported, or already dismissed
     if (!session?.user) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    if (typeof window !== "undefined" && localStorage.getItem(DISMISSED_KEY)) return;
+    if (localStorage.getItem(DISMISSED_KEY)) return;
 
     // Check if already subscribed
     navigator.serviceWorker.ready
@@ -43,7 +49,7 @@ export function PushPrompt() {
         }
       })
       .catch(() => {/* ignore */});
-  }, [session?.user]);
+  }, [mounted, session?.user]);
 
   function dismiss() {
     setVisible(false);

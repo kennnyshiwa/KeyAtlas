@@ -10,7 +10,7 @@ import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { SearchCommand } from "@/components/search/search-command";
 import { AttributionCapture } from "@/components/analytics/attribution-capture";
-import { ClientPushPrompt } from "@/components/notifications/client-push-prompt";
+import { PushPrompt } from "@/components/notifications/push-prompt";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
 
 const geistSans = Geist({
@@ -123,7 +123,7 @@ export default function RootLayout({
             <Suspense fallback={null}>
               <SearchCommand />
             </Suspense>
-            <ClientPushPrompt />
+            <PushPrompt />
             <Toaster />
           </ThemeProvider>
         </AuthProvider>
