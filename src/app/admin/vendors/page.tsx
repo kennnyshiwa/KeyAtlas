@@ -71,7 +71,7 @@ export default async function AdminVendorsPage() {
                   ))}
                 </div>
               </TableCell>
-              <TableCell>{vendor._count.projects + vendor._count.projectVendors}</TableCell>
+              <TableCell>{vendor._count.projectVendors}</TableCell>
               <TableCell>
                 {vendor.verified && (
                   <CheckCircle className="h-4 w-4 text-emerald-500" />
