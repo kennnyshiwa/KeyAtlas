@@ -38,6 +38,21 @@ const GB_BOARD_ID = 132;
 // ── Rate-limiting ─────────────────────────────────────────────────────────────
 const DELAY_BETWEEN_FETCHES_MS = 3_000;
 
+// ── HTML entity decoding ──────────────────────────────────────────────────────
+
+/** Decode numeric and common named HTML entities in a string (for titles). */
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&#(\d+);/g, (_m, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
 /**
  * Infer project status from the topic title.
  * Title prefixes like [GB], [Group Buy] override the board-based default.
@@ -263,6 +278,9 @@ async function importTopic(
 
   // 4. Build prefill
   const prefill = buildGeekhackPrefillPayload(thread);
+
+  // 4a. Decode HTML entities in the title (e.g. &#12304; → 【)
+  prefill.title = decodeHtmlEntities(prefill.title);
 
   // 5. Mirror images
   let mirroredDescription = prefill.description;
