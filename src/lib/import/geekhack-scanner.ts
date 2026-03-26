@@ -18,6 +18,19 @@ const FETCH_TIMEOUT_MS = 15_000;
 
 const USER_AGENT = "KeyAtlas Importer/1.0 (+https://keyatlas.app)";
 
+/** Decode numeric and common named HTML entities (mirrors geekhack-auto-import). */
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&#(\d+);/g, (_m, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
 /**
  * Titles (or substrings) that indicate meta/admin/rules posts — never real IC/GB topics.
  * Matched case-insensitively against the full title.
@@ -55,6 +68,7 @@ const JUNK_TITLE_PATTERNS = [
   /^anyone\s+(?:know|have|seen)\b/i,  // questions
   /^(?:rant|vent|complaint)\b/i,      // rants
   /\bshitpost\b/i,
+  /^poll$/i,                           // standalone "Poll" — not a product
 ];
 
 /** Check if a title matches known meta/admin post patterns. */
@@ -81,7 +95,7 @@ export function isJunkTitle(title: string): boolean {
  */
 export function normalizeTitleForDedup(title: string): string {
   return title
-    .replace(/^\s*\[(?:IC|GB|GH|Interest Check|Group Buy)\]\s*/gi, "")
+    .replace(/^\s*[\[【](?:IC|GB|GH|Interest Check|Group Buy)[\]】]\s*/gi, "")
     .replace(/^\s*(?:Interest Check|Group Buy)\s*[:\-–—]?\s*/gi, "")
     .trim()
     .toLowerCase();
@@ -96,8 +110,8 @@ export function normalizeTitleForDedup(title: string): string {
 export function extractCoreName(title: string): string {
   return (
     title
-      // Strip IC/GB prefix tags
-      .replace(/^\s*\[(?:IC|GB|GH|Interest Check|Group Buy)\]\s*/gi, "")
+      // Strip IC/GB prefix tags (standard and fullwidth brackets)
+      .replace(/^\s*[\[【](?:IC|GB|GH|Interest Check|Group Buy)[\]】]\s*/gi, "")
       .replace(/^\s*(?:Interest Check|Group Buy)\s*[:\-–—]?\s*/gi, "")
       // Strip trailing date patterns: "03/09 - 03/23/2026", "March 9th 2026", "FEB 20 - MAR 13", etc.
       .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\s*[-–—]?\s*\d{0,2}[\/\-]?\d{0,2}[\/\-]?\d{0,4}\s*$/gi, "")
@@ -176,16 +190,12 @@ export function parseTopicsFromBoardHtml(html: string, boardId: number): Geekhac
 
   for (const match of scopedHtml.matchAll(topicLinkRe)) {
     const topicId = match[1];
-    const rawTitle = match[2]
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;|&apos;/g, "'")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/\s+/g, " ")
-      .trim();
+    const rawTitle = decodeHtmlEntities(
+      match[2]
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+    );
 
     if (!topicId || !rawTitle) continue;
     if (seen.has(topicId)) continue;
