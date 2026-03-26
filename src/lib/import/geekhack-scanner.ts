@@ -41,9 +41,33 @@ const META_POST_PATTERNS = [
   /\bwarning\b.*\bfraud\b/i,
 ];
 
+/**
+ * Titles that are clearly off-topic / junk — not actual IC/GB product topics.
+ * These are casual posts, rants, memes, or non-product threads that sometimes
+ * appear in IC/GB boards.
+ */
+const JUNK_TITLE_PATTERNS = [
+  /^rip\b/i,                          // "rip bad internet", "rip my wallet" etc.
+  /^(?:help|halp)\b/i,                // help requests, not products
+  /^(?:wtb|wts|wtt)\b/i,             // want to buy/sell/trade — not IC/GB
+  /^(?:lol|lmao|bruh)\b/i,           // meme posts
+  /^looking\s+for\b/i,               // search requests
+  /^anyone\s+(?:know|have|seen)\b/i,  // questions
+  /^(?:rant|vent|complaint)\b/i,      // rants
+  /\bshitpost\b/i,
+];
+
 /** Check if a title matches known meta/admin post patterns. */
 export function isMetaPost(title: string): boolean {
   return META_POST_PATTERNS.some((pattern) => pattern.test(title));
+}
+
+/** Check if a title looks like off-topic junk rather than a real product. */
+export function isJunkTitle(title: string): boolean {
+  const stripped = title
+    .replace(/^\s*\[(?:IC|GB|Interest Check|Group Buy)\]\s*/gi, "")
+    .trim();
+  return JUNK_TITLE_PATTERNS.some((pattern) => pattern.test(stripped));
 }
 
 /**
@@ -175,6 +199,9 @@ export function parseTopicsFromBoardHtml(html: string, boardId: number): Geekhac
 
     // Skip known meta/admin posts by title pattern
     if (isMetaPost(rawTitle)) continue;
+
+    // Skip junk/off-topic titles
+    if (isJunkTitle(rawTitle)) continue;
 
     seen.add(topicId);
     entries.push({

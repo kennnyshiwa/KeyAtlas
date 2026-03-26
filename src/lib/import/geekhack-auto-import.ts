@@ -26,6 +26,7 @@ import {
   normalizeTitleForDedup,
   extractCoreName,
   isMetaPost,
+  isJunkTitle,
   type GeekhackTopicEntry,
 } from "@/lib/import/geekhack-scanner";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
@@ -491,6 +492,13 @@ async function _doImport(
 
     // Skip meta/admin posts that slipped through the scanner
     if (isMetaPost(entry.title)) {
+      summary.skipped++;
+      continue;
+    }
+
+    // Skip junk/off-topic titles (rants, memes, non-product posts)
+    if (isJunkTitle(entry.title)) {
+      console.log(`[geekhack-auto-import] skipped junk title: "${entry.title}"`);
       summary.skipped++;
       continue;
     }
