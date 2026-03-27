@@ -3,7 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { EndingSoonCard } from "@/components/projects/ending-soon-card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, TrendingUp, Clock, Sparkles, RefreshCw } from "lucide-react";
+import {
+  ArrowRight,
+  TrendingUp,
+  Clock,
+  Sparkles,
+  RefreshCw,
+  ShoppingCart,
+  MessageSquare,
+  Store,
+  BookOpen,
+  CalendarDays,
+  PenTool,
+} from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { addDays } from "date-fns";
 import type { Metadata } from "next";
@@ -319,6 +331,32 @@ export default async function HomePage() {
           <ProjectGrid projects={recentlyUpdatedProjects} />
         </section>
       )}
+
+      {/* Discover */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-bold tracking-tight">Discover</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {[
+            { href: "/discover/group-buys", label: "Active Group Buys", icon: ShoppingCart },
+            { href: "/discover/interest-checks", label: "Interest Checks", icon: MessageSquare },
+            { href: "/discover/ending-soon", label: "Ending Soon", icon: Clock },
+            { href: "/discover/new-this-week", label: "New This Week", icon: Sparkles },
+            { href: "/discover/vendors", label: "Top Vendors", icon: Store },
+            { href: "/discover/build-guides", label: "Build Guides", icon: BookOpen },
+            { href: "/calendar", label: "Calendar", icon: CalendarDays },
+            { href: "/designers", label: "Designers", icon: PenTool },
+          ].map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className="border-border hover:border-primary/50 hover:bg-accent flex items-center gap-3 rounded-lg border p-3 transition-colors"
+            >
+              <Icon className="text-muted-foreground h-5 w-5 shrink-0" />
+              <span className="text-sm font-medium">{label}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* Recent Projects */}
       {recentProjects.length > 0 && (

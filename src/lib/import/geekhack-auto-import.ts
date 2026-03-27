@@ -29,6 +29,7 @@ import {
   isJunkTitle,
   type GeekhackTopicEntry,
 } from "@/lib/import/geekhack-scanner";
+import { notifyGoogleIndexing, notifyGoogleOfSitemap } from "@/lib/google-indexing";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
 // ── Board IDs ────────────────────────────────────────────────────────────────
@@ -401,6 +402,14 @@ async function importTopic(
     console.warn(`${logPrefix} watchlist notification failed:`, err);
   }
 
+  // 13. Notify Google Indexing API (non-fatal)
+  try {
+    const projectUrl = `https://keyatlas.io/projects/${project.slug}`;
+    await notifyGoogleIndexing(projectUrl);
+  } catch (err) {
+    console.warn(`${logPrefix} Google indexing notification failed:`, err);
+  }
+
   return { imported: true };
 }
 
@@ -566,6 +575,15 @@ async function _doImport(
   console.log(
     `[geekhack-auto-import] Done. scanned=${summary.scanned} imported=${summary.imported} skipped=${summary.skipped} errors=${summary.errors.length}`
   );
+
+  // Resubmit sitemap if any projects were imported
+  if (summary.imported > 0) {
+    try {
+      await notifyGoogleOfSitemap();
+    } catch (err) {
+      console.warn("[geekhack-auto-import] Sitemap resubmit failed:", err);
+    }
+  }
 
   return summary;
 }

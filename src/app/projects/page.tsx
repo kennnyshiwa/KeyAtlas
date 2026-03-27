@@ -155,6 +155,17 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
         description="Browse mechanical keyboard interest checks, group buys, and more."
       />
 
+      <nav className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <Link href="/discover/group-buys" className="hover:text-foreground transition-colors">Group Buys</Link>
+        <Link href="/discover/interest-checks" className="hover:text-foreground transition-colors">Interest Checks</Link>
+        <Link href="/discover/ending-soon" className="hover:text-foreground transition-colors">Ending Soon</Link>
+        <Link href="/discover/new-this-week" className="hover:text-foreground transition-colors">New This Week</Link>
+        <Link href="/discover/vendors" className="hover:text-foreground transition-colors">Vendors</Link>
+        <Link href="/discover/build-guides" className="hover:text-foreground transition-colors">Build Guides</Link>
+        <Link href="/calendar" className="hover:text-foreground transition-colors">Calendar</Link>
+        <Link href="/designers" className="hover:text-foreground transition-colors">Designers</Link>
+      </nav>
+
       <Suspense>
         <ProjectStatusTabs />
       </Suspense>
