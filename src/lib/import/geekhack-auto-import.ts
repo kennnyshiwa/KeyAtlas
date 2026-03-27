@@ -283,6 +283,15 @@ async function importTopic(
   // 4a. Decode HTML entities in the title (e.g. &#12304; → 【)
   prefill.title = decodeHtmlEntities(prefill.title);
 
+  // 4b. Re-check junk/meta after full-thread title extraction — the listing
+  //     title (entry.title) and the parsed thread title can differ. Old topics
+  //     often have listing titles like "[IC] Community Poll" that pass the
+  //     scanner filter but whose parsed thread title reduces to just "Poll".
+  if (isMetaPost(prefill.title) || isJunkTitle(prefill.title)) {
+    console.log(`${logPrefix} skipped junk/meta prefill title: "${prefill.title}" (listing: "${entry.title}")`);
+    return { imported: false };
+  }
+
   // 5. Mirror images
   let mirroredDescription = prefill.description;
   try {
