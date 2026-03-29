@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SmartImage } from "@/components/shared/smart-image";
 import { ProjectStatusBadge } from "./status-badge";
+import { AdaptiveHeadline } from "./adaptive-headline";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import { formatPrice, formatDate } from "@/lib/utils";
@@ -41,7 +42,7 @@ export function ProjectHero({ project }: ProjectHeroProps) {
             <Badge className="bg-yellow-500 text-white">Featured</Badge>
           )}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight">{project.title}</h1>
+        <AdaptiveHeadline title={project.title} />
         {(project.designer || project.vendor) && (
           <p className="text-muted-foreground text-lg">
             by{" "}

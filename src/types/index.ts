@@ -39,4 +39,6 @@ export type ProjectListItem = Pick<
 > & {
   vendor: Pick<Vendor, "name" | "slug"> | null;
   _count?: { favorites: number };
+  /** Plain-text preview of the project description (first ~120 chars, HTML stripped). */
+  descriptionPreview?: string | null;
 };

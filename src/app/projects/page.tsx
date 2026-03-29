@@ -3,13 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { ProjectSearch } from "@/components/projects/project-search";
 import { ProjectStatusTabs } from "@/components/projects/project-status-tabs";
-import { ProjectViewWrapper } from "@/components/projects/project-view-wrapper";
+import { InfiniteProjectList } from "@/components/projects/infinite-project-list";
 import { AdvancedFilters } from "@/components/projects/advanced-filters";
 import { SaveFilterButton } from "@/components/projects/save-filter-button";
 import { ProjectSort } from "@/components/projects/project-sort";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import type { Metadata } from "next";
@@ -146,8 +145,6 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
       })
     : [];
 
-  const totalPages = Math.ceil(total / limit);
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -197,40 +194,13 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
       )}
 
       {projects.length > 0 ? (
-        <>
-          <ProjectViewWrapper key={JSON.stringify(params)} projects={projects} />
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2">
-              {page > 1 && (
-                <Button variant="outline" size="sm" asChild>
-                  <Link
-                    href={{
-                      pathname: "/projects",
-                      query: { ...params, page: page - 1 },
-                    }}
-                  >
-                    Previous
-                  </Link>
-                </Button>
-              )}
-              <span className="text-muted-foreground text-sm">
-                Page {page} of {totalPages}
-              </span>
-              {page < totalPages && (
-                <Button variant="outline" size="sm" asChild>
-                  <Link
-                    href={{
-                      pathname: "/projects",
-                      query: { ...params, page: page + 1 },
-                    }}
-                  >
-                    Next
-                  </Link>
-                </Button>
-              )}
-            </div>
-          )}
-        </>
+        <InfiniteProjectList
+          key={JSON.stringify(params)}
+          initialProjects={projects}
+          total={total}
+          pageSize={limit}
+          searchParams={params}
+        />
       ) : (
         <EmptyState
           title="No projects found"

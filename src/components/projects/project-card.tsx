@@ -12,16 +12,17 @@ import type { ProjectListItem } from "@/types";
 
 interface ProjectCardProps {
   project: ProjectListItem;
+  fullHeight?: boolean;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, fullHeight = true }: ProjectCardProps) {
   const href = project.published === false
     ? `/projects/submit/${project.id}/edit`
     : `/projects/${project.slug}`;
 
   return (
-    <Link href={href} className="h-full">
-      <Card className="group flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg">
+    <Link href={href} className={fullHeight ? "h-full" : ""}>
+      <Card className={`group flex flex-col overflow-hidden transition-shadow hover:shadow-lg ${fullHeight ? "h-full" : ""}`}>
         <div className="relative aspect-[16/10] overflow-hidden">
           {project.heroImage ? (
             <SmartImage
@@ -76,8 +77,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
           </div>
           <h3 className="mb-1 line-clamp-1 font-semibold">{project.title}</h3>
           {(project.designer || project.vendor) && (
-            <p className="text-muted-foreground mb-2 text-sm">
+            <p className="text-muted-foreground mb-1 text-sm">
               {project.designer ? `by ${project.designer}` : `by ${project.vendor!.name}`}
+            </p>
+          )}
+          {project.descriptionPreview && (
+            <p className="text-muted-foreground mb-2 line-clamp-2 text-xs leading-relaxed">
+              {project.descriptionPreview}
             </p>
           )}
           <div className="mt-auto flex items-center justify-between">

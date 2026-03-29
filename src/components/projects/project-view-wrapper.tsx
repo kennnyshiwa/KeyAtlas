@@ -16,7 +16,7 @@ export function ProjectViewWrapper({ projects }: ProjectViewWrapperProps) {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as ViewMode | null;
-    if (stored && ["card", "compact", "image"].includes(stored)) {
+    if (stored && ["card", "compact", "image", "masonry"].includes(stored)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setViewMode(stored);
     }
