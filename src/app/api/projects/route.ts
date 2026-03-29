@@ -128,13 +128,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  // Rate limit (admins bypass)
-  const isAdminUser = session.user.role === "ADMIN";
-  const rateLimited = await rateLimit(session.user.id, "project:create", RATE_LIMIT_PROJECT_CREATE, { skipIfAdmin: isAdminUser });
-  if (rateLimited) return rateLimited;
-
   const { searchParams } = new URL(req.url);
   const intent = searchParams.get("intent");
+
+  // Rate limit only publish actions — skip for draft autosaves
+  const isAdminUser = session.user.role === "ADMIN";
+  if (intent !== "draft") {
+    const rateLimited = await rateLimit(session.user.id, "project:create", RATE_LIMIT_PROJECT_CREATE, { skipIfAdmin: isAdminUser });
+    if (rateLimited) return rateLimited;
+  }
   const body = await req.json();
   const result = projectFormSchema.safeParse(body);
 
