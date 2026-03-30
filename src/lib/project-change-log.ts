@@ -2,8 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { STATUS_LABELS, CATEGORY_LABELS } from "@/lib/constants";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
-/** Fields we track for the "What Changed" timeline */
-const TRACKED_FIELDS = ["status", "category", "profile", "designer", "title", "vendorId"] as const;
+/** Fields we track for the "What Changed" timeline.
+ *  vendorId is excluded — it's derived from projectVendors and was
+ *  generating spurious "Removed vendor" entries on every save because
+ *  the request body doesn't include vendorId directly.
+ */
+const TRACKED_FIELDS = ["status", "category", "profile", "designer", "title"] as const;
 
 type TrackedField = (typeof TRACKED_FIELDS)[number];
 
@@ -22,28 +26,9 @@ function formatFieldValue(field: TrackedField, value: string | null | undefined)
 }
 
 function summarize(field: TrackedField, oldVal: string | null, newVal: string | null): string {
-  const fieldLabel =
-    field === "vendorId" ? "vendor" : field;
-  if (!oldVal) return `Set ${fieldLabel} to ${newVal}`;
-  if (!newVal) return `Removed ${fieldLabel} (was ${oldVal})`;
-  return `Changed ${fieldLabel} from ${oldVal} to ${newVal}`;
-}
-
-/**
- * Resolve a vendor ID (cuid) to its display name.
- * Returns the raw value if lookup fails.
- */
-async function resolveVendorName(vendorId: string | null): Promise<string | null> {
-  if (!vendorId) return null;
-  try {
-    const vendor = await prisma.vendor.findUnique({
-      where: { id: vendorId },
-      select: { name: true },
-    });
-    return vendor?.name ?? vendorId;
-  } catch {
-    return vendorId;
-  }
+  if (!oldVal) return `Set ${field} to ${newVal}`;
+  if (!newVal) return `Removed ${field} (was ${oldVal})`;
+  return `Changed ${field} from ${oldVal} to ${newVal}`;
 }
 
 /**
@@ -67,20 +52,11 @@ export async function logProjectChanges(
     const n = newRaw || null;
 
     if (o !== n) {
-      // Resolve vendor IDs to names
-      if (field === "vendorId") {
-        const [oldName, newName] = await Promise.all([
-          resolveVendorName(o),
-          resolveVendorName(n),
-        ]);
-        diffs.push({ field, oldValue: oldName, newValue: newName });
-      } else {
-        diffs.push({
-          field,
-          oldValue: formatFieldValue(field, o),
-          newValue: formatFieldValue(field, n),
-        });
-      }
+      diffs.push({
+        field,
+        oldValue: formatFieldValue(field, o),
+        newValue: formatFieldValue(field, n),
+      });
     }
   }
 
