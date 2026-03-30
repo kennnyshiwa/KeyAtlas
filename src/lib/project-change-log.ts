@@ -17,6 +17,7 @@ function formatFieldValue(field: TrackedField, value: string | null | undefined)
   if (value == null || value === "") return null;
   if (field === "status") return STATUS_LABELS[value as ProjectStatus] ?? value;
   if (field === "category") return CATEGORY_LABELS[value as ProjectCategory] ?? value;
+  // vendorId is resolved async in logProjectChanges — don't format here
   return value;
 }
 
@@ -26,6 +27,23 @@ function summarize(field: TrackedField, oldVal: string | null, newVal: string | 
   if (!oldVal) return `Set ${fieldLabel} to ${newVal}`;
   if (!newVal) return `Removed ${fieldLabel} (was ${oldVal})`;
   return `Changed ${fieldLabel} from ${oldVal} to ${newVal}`;
+}
+
+/**
+ * Resolve a vendor ID (cuid) to its display name.
+ * Returns the raw value if lookup fails.
+ */
+async function resolveVendorName(vendorId: string | null): Promise<string | null> {
+  if (!vendorId) return null;
+  try {
+    const vendor = await prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { name: true },
+    });
+    return vendor?.name ?? vendorId;
+  } catch {
+    return vendorId;
+  }
 }
 
 /**
@@ -49,16 +67,22 @@ export async function logProjectChanges(
     const n = newRaw || null;
 
     if (o !== n) {
-      diffs.push({
-        field,
-        oldValue: formatFieldValue(field, o),
-        newValue: formatFieldValue(field, n),
-      });
+      // Resolve vendor IDs to names
+      if (field === "vendorId") {
+        const [oldName, newName] = await Promise.all([
+          resolveVendorName(o),
+          resolveVendorName(n),
+        ]);
+        diffs.push({ field, oldValue: oldName, newValue: newName });
+      } else {
+        diffs.push({
+          field,
+          oldValue: formatFieldValue(field, o),
+          newValue: formatFieldValue(field, n),
+        });
+      }
     }
   }
-
-  // Also detect vendor name changes via resolved vendor entries
-  // (vendorId is tracked above which covers primary vendor)
 
   if (diffs.length === 0) return;
 
