@@ -13,6 +13,7 @@ import { DesignerLeaderboard } from "@/components/statistics/designer-leaderboar
 import { VendorMarketShare } from "@/components/statistics/vendor-market-share";
 import { SeasonalHeatmap } from "@/components/statistics/seasonal-heatmap";
 import { TagTrendsChart } from "@/components/statistics/tag-trends-chart";
+import { ProfileTrendsChart } from "@/components/statistics/profile-trends-chart";
 import { ProjectTimeline } from "@/components/statistics/project-timeline";
 import { CATEGORY_LABELS, STATUS_LABELS } from "@/lib/constants";
 
@@ -133,7 +134,7 @@ export default async function StatisticsPage() {
       SELECT EXTRACT(YEAR FROM "createdAt")::int as year, unnest(tags) as tag, COUNT(*)::int as count
       FROM projects WHERE published = true AND array_length(tags, 1) > 0
       GROUP BY year, tag
-      HAVING COUNT(*) > 5
+      HAVING COUNT(*) > 2
       ORDER BY year, count DESC
     `,
 
@@ -250,6 +251,8 @@ export default async function StatisticsPage() {
       />
 
       <TagTrendsChart data={tagTrends} />
+
+      <ProfileTrendsChart data={tagTrends} />
     </div>
   );
 }
