@@ -1,11 +1,13 @@
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
 import Google from "next-auth/providers/google";
+import Apple from "next-auth/providers/apple";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/generated/prisma/client";
 import { normalizeEmail, verifyPassword } from "@/lib/password";
+import { generateAppleClientSecret } from "@/lib/apple-secret";
 
 function slugifyUsername(input: string): string {
   return input
@@ -121,6 +123,31 @@ const providers: any[] = [
   }),
 ];
 
+if (
+  process.env.APPLE_TEAM_ID &&
+  process.env.APPLE_KEY_ID &&
+  process.env.APPLE_CLIENT_ID &&
+  process.env.APPLE_PRIVATE_KEY
+) {
+  (async () => {
+    try {
+      const clientSecret = await generateAppleClientSecret();
+      providers.push(
+        Apple({
+          clientId: process.env.APPLE_CLIENT_ID!,
+          clientSecret,
+        })
+      );
+    } catch (err) {
+      console.warn("[auth] Apple OAuth disabled: failed to generate client secret", err);
+    }
+  })();
+} else {
+  console.warn(
+    "[auth] Apple OAuth disabled: APPLE_TEAM_ID/APPLE_KEY_ID/APPLE_CLIENT_ID/APPLE_PRIVATE_KEY missing"
+  );
+}
+
 if (process.env.AUTH_DISCORD_ID && process.env.AUTH_DISCORD_SECRET) {
   providers.push(
     Discord({
@@ -171,7 +198,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         console.error("[auth] ensureAtLeastOneAdmin failed", error);
       }
 
-      if (account?.provider === "discord" || account?.provider === "google") {
+      if (
+        account?.provider === "discord" ||
+        account?.provider === "google" ||
+        account?.provider === "apple"
+      ) {
         try {
           await ensureOAuthEmailVerified(targetUserId);
         } catch (error) {
@@ -197,7 +228,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.sub = user.id;
       }
 
-      if (token.sub && (account?.provider === "discord" || account?.provider === "google")) {
+      if (
+        token.sub &&
+        (account?.provider === "discord" ||
+          account?.provider === "google" ||
+          account?.provider === "apple")
+      ) {
         ensureOAuthEmailVerified(token.sub).catch((error) => {
           console.error("[auth] jwt ensureOAuthEmailVerified failed", error);
         });
