@@ -95,3 +95,58 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json(updated);
 }
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: { confirmation?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  if (body.confirmation !== "DELETE") {
+    return NextResponse.json(
+      { error: 'Confirmation required. Send { "confirmation": "DELETE" } to proceed.' },
+      { status: 400 }
+    );
+  }
+
+  const userId = session.user.id;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.follow.deleteMany({ where: { userId } });
+    await tx.follow.deleteMany({ where: { targetUserId: userId } });
+    await tx.favorite.deleteMany({ where: { userId } });
+    await tx.userCollection.deleteMany({ where: { userId } });
+    await tx.comment.deleteMany({ where: { userId } });
+    await tx.forumPost.deleteMany({ where: { authorId: userId } });
+    await tx.forumThread.deleteMany({ where: { authorId: userId } });
+    await tx.notification.deleteMany({ where: { userId } });
+    await tx.notificationPreference.deleteMany({ where: { userId } });
+    await tx.pushDevice.deleteMany({ where: { userId } });
+    await tx.savedFilter.deleteMany({ where: { userId } });
+    await tx.apiKey.deleteMany({ where: { userId } });
+    await tx.session.deleteMany({ where: { userId } });
+    await tx.account.deleteMany({ where: { userId } });
+    await tx.emailVerificationToken.deleteMany({ where: { userId } });
+    await tx.passwordResetToken.deleteMany({ where: { userId } });
+    await tx.imageAsset.deleteMany({ where: { uploaderId: userId } });
+    await tx.adminAuditLog.deleteMany({ where: { actorId: userId } });
+    await tx.projectReport.deleteMany({ where: { reporterId: userId } });
+    await tx.projectChangeLog.deleteMany({ where: { actorId: userId } });
+    await tx.buildGuide.deleteMany({ where: { authorId: userId } });
+    await tx.vendorSuggestion.deleteMany({ where: { submittedById: userId } });
+
+    // Anonymize projects (preserve community data, remove ownership)
+    await tx.$executeRaw`UPDATE projects SET "creatorId" = NULL WHERE "creatorId" = ${userId}`;
+
+    await tx.user.delete({ where: { id: userId } });
+  });
+
+  return NextResponse.json({ message: "Account successfully deleted." });
+}

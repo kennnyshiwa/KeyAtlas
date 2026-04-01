@@ -14,8 +14,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Camera, Loader2, Save, User } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Camera, Loader2, Save, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
+import { signOut } from "next-auth/react";
 import { NotificationSettings } from "@/components/profile/notification-settings";
 
 interface ProfileSettingsProps {
@@ -38,6 +50,8 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
   const [image, setImage] = useState(user.image);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initials = (displayName || user.name || "U")
@@ -224,6 +238,91 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
       </Card>
 
       <NotificationSettings />
+
+      {/* Danger Zone */}
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
+          <CardDescription>
+            Permanently delete your account and all associated data. This action
+            cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AlertDialog onOpenChange={(open) => { if (!open) setDeleteConfirm(""); }}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={deleting}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Account
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-2">
+                  <span className="block">
+                    This will permanently delete your account, including your
+                    profile, favorites, follows, comments, forum posts, and API
+                    keys. Your submitted projects will be preserved but
+                    anonymized.
+                  </span>
+                  <span className="block font-medium">
+                    Type <span className="font-mono text-destructive">DELETE</span> below to confirm.
+                  </span>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Input
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="Type DELETE to confirm"
+                className="font-mono"
+              />
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={deleteConfirm !== "DELETE" || deleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await handleDeleteAccount();
+                  }}
+                >
+                  {deleting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  Delete Account
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardContent>
+      </Card>
     </div>
   );
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: "DELETE" }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to delete account");
+        return;
+      }
+
+      toast.success("Account deleted.");
+      await signOut({ callbackUrl: "/" });
+    } catch {
+      toast.error("Failed to delete account");
+    } finally {
+      setDeleting(false);
+    }
+  }
 }
