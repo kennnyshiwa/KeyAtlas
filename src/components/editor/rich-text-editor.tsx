@@ -11,7 +11,9 @@ import { Color } from "@tiptap/extension-color";
 import TextAlign from "@tiptap/extension-text-align";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+import Mention from "@tiptap/extension-mention";
 import { FontSize } from "@/components/editor/extensions/font-size";
+import { mentionSuggestion } from "@/components/editor/extensions/mention-suggestion";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -264,6 +266,23 @@ export function RichTextEditor({
         },
       }),
       createImagePastePlugin(handleImageUpload),
+      Mention.configure({
+        HTMLAttributes: {
+          class: "mention",
+        },
+        suggestion: mentionSuggestion,
+        renderHTML({ options, node }) {
+          return [
+            "a",
+            {
+              class: options.HTMLAttributes.class,
+              href: `/users/${node.attrs.id}`,
+              "data-mention": node.attrs.id,
+            },
+            `@${node.attrs.label ?? node.attrs.id}`,
+          ];
+        },
+      }),
       Placeholder.configure({ placeholder }),
     ],
     content: normalizedContent,

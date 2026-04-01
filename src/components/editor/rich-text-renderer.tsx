@@ -47,7 +47,7 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     "font",
   ],
   allowedAttributes: {
-    a: ["href", "target", "rel", "style"],
+    a: ["href", "target", "rel", "style", "class", "data-mention"],
     p: ["style"],
     h1: ["style"],
     h2: ["style"],

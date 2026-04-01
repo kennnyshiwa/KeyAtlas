@@ -100,5 +100,46 @@ export async function POST(
     emailCtaLabel: "View comments",
   });
 
+  // Extract mentioned usernames from comment HTML
+  const mentionRegex = /data-mention="([^"]+)"/g;
+  const mentionedUsernames: string[] = [];
+  let mentionMatch;
+  while ((mentionMatch = mentionRegex.exec(result.data.content)) !== null) {
+    mentionedUsernames.push(mentionMatch[1]);
+  }
+
+  if (mentionedUsernames.length > 0) {
+    const mentionedUsers = await prisma.user.findMany({
+      where: { username: { in: mentionedUsernames } },
+      select: { id: true },
+    });
+
+    // Filter out the comment author and anyone already getting notified
+    const existingRecipients = new Set([
+      session.user.id,
+      parentComment?.userId || "",
+      ...followers.map((f) => f.userId),
+    ]);
+
+    const mentionRecipients = mentionedUsers
+      .map((u) => u.id)
+      .filter((id) => !existingRecipients.has(id));
+
+    if (mentionRecipients.length > 0) {
+      await dispatchNotification({
+        recipients: mentionRecipients,
+        actorId: session.user.id,
+        preferenceType: "PROJECT_COMMENTS",
+        notificationType: "COMMENT_REPLY",
+        title: "You were mentioned in a comment",
+        message: `${session.user.name || "Someone"} mentioned you in a comment on ${project.title}.`,
+        link: `/projects/${project.slug}`,
+        emailSubject: `You were mentioned on ${project.title}`,
+        emailHeading: `${session.user.name || "Someone"} mentioned you`,
+        emailCtaLabel: "View comment",
+      });
+    }
+  }
+
   return NextResponse.json(comment, { status: 201 });
 }
