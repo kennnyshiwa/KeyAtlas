@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
 
   // Rate limit only publish actions — skip for draft autosaves
   const isAdminUser = session.user.role === "ADMIN";
-  if (intent !== "draft") {
+  if (intent === "publish") {
     const rateLimited = await rateLimit(session.user.id, "project:create", RATE_LIMIT_PROJECT_CREATE, { skipIfAdmin: isAdminUser });
     if (rateLimited) return rateLimited;
   }

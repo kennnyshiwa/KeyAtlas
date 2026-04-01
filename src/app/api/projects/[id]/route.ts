@@ -103,7 +103,7 @@ export async function PUT(
   }
 
   // Rate limit — skip for draft autosaves
-  if (intent !== "draft") {
+  if (intent === "publish") {
     const rateLimited = await rateLimit(session.user.id, "project:update", RATE_LIMIT_PROJECT_UPDATE, { skipIfAdmin: isAdmin });
     if (rateLimited) return rateLimited;
   }
