@@ -102,9 +102,11 @@ export async function PUT(
     }
   }
 
-  // Rate limit
-  const rateLimited = await rateLimit(session.user.id, "project:update", RATE_LIMIT_PROJECT_UPDATE, { skipIfAdmin: isAdmin });
-  if (rateLimited) return rateLimited;
+  // Rate limit — skip for draft autosaves
+  if (intent !== "draft") {
+    const rateLimited = await rateLimit(session.user.id, "project:update", RATE_LIMIT_PROJECT_UPDATE, { skipIfAdmin: isAdmin });
+    if (rateLimited) return rateLimited;
+  }
 
   const body = await req.json();
   const result = projectFormSchema.safeParse(body);
