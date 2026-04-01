@@ -4,6 +4,7 @@ import {
   buildGeekhackPrefillPayload,
   type ExtractedThread,
 } from "./geekhack";
+import { extractCoreName } from "./geekhack-scanner";
 
 describe("validateGeekhackTopicUrl", () => {
   it("parses a valid topic URL", () => {
@@ -36,6 +37,28 @@ describe("validateGeekhackTopicUrl", () => {
 
   it("rejects garbage input", () => {
     expect(validateGeekhackTopicUrl("not a url")).toBeNull();
+  });
+});
+
+describe("extractCoreName", () => {
+  it("strips bracket-wrapped status suffixes", () => {
+    expect(extractCoreName("[IC] GMK Bingsu R2 [GB Starts July 7]")).toBe("gmk bingsu r2");
+  });
+
+  it("strips [NOW SHIPPING] suffix", () => {
+    expect(extractCoreName("[GB] SA Dreameater [NOW SHIPPING]")).toBe("sa dreameater");
+  });
+
+  it("strips [Update: ...] suffix", () => {
+    expect(extractCoreName("[IC] KAT Cyberspace [Update: New Renders]")).toBe("kat cyberspace");
+  });
+
+  it("handles simple IC prefix with no suffix", () => {
+    expect(extractCoreName("[IC] GMK Phosphorous")).toBe("gmk phosphorous");
+  });
+
+  it("handles title with no prefix or suffix", () => {
+    expect(extractCoreName("GMK CYL Desert Nights")).toBe("gmk cyl desert nights");
   });
 });
 

@@ -113,6 +113,8 @@ export function extractCoreName(title: string): string {
       // Strip IC/GB prefix tags (standard and fullwidth brackets)
       .replace(/^\s*[\[【](?:IC|GB|GH|Interest Check|Group Buy)[\]】]\s*/gi, "")
       .replace(/^\s*(?:Interest Check|Group Buy)\s*[:\-–—]?\s*/gi, "")
+      // Strip bracket-wrapped status/date suffixes: [GB Starts July 7], [NOW SHIPPING], etc.
+      .replace(/\s*\[(?:GB|IC|Group Buy|Interest Check|Now Shipping|Shipping|Shipped|In Stock|Extras|Update|Launched?|Live|Open|Closed)[\s\S]*?\]/gi, "")
       // Strip trailing date patterns: "03/09 - 03/23/2026", "March 9th 2026", "FEB 20 - MAR 13", etc.
       .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\s*[-–—]?\s*\d{0,2}[\/\-]?\d{0,2}[\/\-]?\d{0,4}\s*$/gi, "")
       .replace(/\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b[\s\S]*$/gi, "")
@@ -124,6 +126,8 @@ export function extractCoreName(title: string): string {
       .replace(/\b(?:launching|update|added|new renders)\b[\s\S]*/gi, "")
       // Strip common separators and trailing punctuation
       .replace(/\s*[|–—\-:]\s*$/g, "")
+      // Strip orphaned brackets at end
+      .replace(/\s*\[?\s*$/g, "")
       // Collapse whitespace and trim
       .replace(/\s+/g, " ")
       .trim()

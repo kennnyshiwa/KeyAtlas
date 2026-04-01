@@ -307,7 +307,21 @@ async function importTopic(
     console.warn(`${logPrefix} image mirroring (prefill images) failed:`, err);
   }
 
-  // 6. Validate image URLs — filter out broken ones, pick a working hero
+  // 6. Skip imports with no meaningful content
+  // Cleanup SQL for existing junk imports (run manually):
+  // DELETE FROM projects WHERE published = true AND tags @> ARRAY['geekhack'] AND (description IS NULL OR length(description) < 200);
+  const plainTextLength = (mirroredDescription || "")
+    .replace(/<[^>]*>/g, "")  // strip HTML tags
+    .replace(/https?:\/\/\S+/g, "")  // strip URLs
+    .trim()
+    .length;
+
+  if (plainTextLength < 100) {
+    console.log(`${logPrefix} skipped (insufficient content: ${plainTextLength} chars)`);
+    return { imported: false };
+  }
+
+  // 7. Validate image URLs — filter out broken ones, pick a working hero
   const validatedImages: typeof mirroredImages = [];
   for (const img of mirroredImages) {
     if (await isImageUrlReachable(img.url)) {
@@ -317,16 +331,16 @@ async function importTopic(
     }
   }
 
-  // 7. Infer category from title + OP content
+  // 8. Infer category from title + OP content
   const category = inferCategory(prefill.title, thread.op?.contentText);
 
-  // 8. Generate slug with collision handling
+  // 9. Generate slug with collision handling
   const slug = await uniqueSlug(prefill.title);
 
-  // 9. Build heroImage from first valid image
+  // 10. Build heroImage from first valid image
   const heroImage = validatedImages[0]?.url ?? null;
 
-  // 10. Create project via Prisma — with atomic duplicate guard
+  // 11. Create project via Prisma — with atomic duplicate guard
   const ghUrl = normalizeGeekhackUrl(entry.topicId);
   let project;
   try {
@@ -385,14 +399,14 @@ async function importTopic(
 
   console.log(`${logPrefix} imported as project id=${project.id} slug="${project.slug}" category=${category} status=${inferredStatus}`);
 
-  // 11. Index in Meilisearch (non-fatal)
+  // 12. Index in Meilisearch (non-fatal)
   try {
     await indexProject(project);
   } catch (err) {
     console.warn(`${logPrefix} Meilisearch indexing failed:`, err);
   }
 
-  // 12. Watchlist notifications (non-fatal)
+  // 13. Watchlist notifications (non-fatal)
   try {
     await notifyWatchlistMatches({
       id: project.id,
@@ -411,7 +425,7 @@ async function importTopic(
     console.warn(`${logPrefix} watchlist notification failed:`, err);
   }
 
-  // 13. Notify Google Indexing API (non-fatal)
+  // 14. Notify Google Indexing API (non-fatal)
   try {
     const projectUrl = `https://keyatlas.io/projects/${project.slug}`;
     await notifyGoogleIndexing(projectUrl);
