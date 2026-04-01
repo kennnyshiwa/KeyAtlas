@@ -531,13 +531,15 @@ export function RichTextEditor({
             max={48}
             value={fontSizeInput}
             onChange={(e) => {
-              const next = e.target.value;
-              setFontSizeInput(next);
-              if (/^\d{1,2}$/.test(next)) {
-                applyFontSize(next);
-              }
+              setFontSizeInput(e.target.value);
             }}
             onBlur={() => applyFontSize(fontSizeInput)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyFontSize(fontSizeInput);
+              }
+            }}
             className="border-input bg-background h-8 w-20 rounded-md border px-2 text-xs"
             aria-label="Font size in pixels"
           />

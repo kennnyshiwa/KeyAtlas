@@ -36,7 +36,7 @@ export function ProjectSpecs({ project }: ProjectSpecsProps) {
           <RichTextRenderer
             content={project.description}
             unstyled
-            className={`${alignClass} ${fontClass} ${widthClass} space-y-3 leading-7 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_a]:underline [&_a]:underline-offset-2`}
+            className={`${alignClass} ${fontClass} ${widthClass} space-y-3 leading-7 [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_a]:underline [&_a]:underline-offset-2`}
             style={{ color: safeColor }}
           />
         </div>
