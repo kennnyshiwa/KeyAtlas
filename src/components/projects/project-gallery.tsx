@@ -76,6 +76,9 @@ export function ProjectGallery({ images }: ProjectGalleryProps) {
           </>
         )}
       </div>
+      {selected.alt && (
+        <p className="text-sm text-muted-foreground text-center">{selected.alt}</p>
+      )}
       {sorted.length > 1 && (
         <div className="flex gap-2 overflow-x-auto">
           {sorted.map((image, i) => (
