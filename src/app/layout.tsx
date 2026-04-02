@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { AppStoreBanner } from "@/components/layout/app-store-banner";
 import { Toaster } from "@/components/ui/sonner";
 import { SearchCommand } from "@/components/search/search-command";
 import { AttributionCapture } from "@/components/analytics/attribution-capture";
@@ -111,6 +112,7 @@ export default function RootLayout({
               }}
             />
             <div className="flex min-h-screen flex-col">
+              <AppStoreBanner />
               <Suspense fallback={null}>
                 <Navbar />
               </Suspense>
