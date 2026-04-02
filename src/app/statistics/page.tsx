@@ -20,6 +20,7 @@ import { CATEGORY_LABELS, STATUS_LABELS } from "@/lib/constants";
 export const metadata = {
   title: "Statistics",
   description: "KeyAtlas community statistics and trends.",
+  alternates: { canonical: "/statistics" },
 };
 
 export default async function StatisticsPage() {

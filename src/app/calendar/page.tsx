@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 export const metadata = {
   title: "Calendar",
   description: "Project timeline calendar view.",
+  alternates: { canonical: "/calendar" },
 };
 
 interface CalendarPageProps {

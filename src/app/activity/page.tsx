@@ -16,6 +16,7 @@ import { formatDistanceToNow } from "date-fns";
 export const metadata = {
   title: "Activity",
   description: "Recent community activity on KeyAtlas.",
+  alternates: { canonical: "/activity" },
 };
 
 export default async function ActivityPage() {
