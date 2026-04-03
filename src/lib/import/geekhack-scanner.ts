@@ -69,6 +69,23 @@ const JUNK_TITLE_PATTERNS = [
   /^(?:rant|vent|complaint)\b/i,      // rants
   /\bshitpost\b/i,
   /^poll$/i,                           // standalone "Poll" — not a product
+  // Question-style titles — not real product ICs/GBs
+  /^how\s+(?:do|does|to|can|should)\b/i,
+  /^what\s+(?:is|are|do|does|should|would)\b/i,
+  /^where\s+(?:can|do|to)\b/i,
+  /^why\s+(?:do|does|is|are|don't)\b/i,
+  /^when\s+(?:do|does|is|will|should)\b/i,
+  /^(?:is|are)\s+(?:there|it|this|these)\b/i,
+  /^(?:can|should)\s+(?:i|you|we|someone)\b/i,
+  /^(?:does|do)\s+(?:anyone|somebody)\b/i,
+  /\?\s*$/,                            // titles ending in a question mark
+  // Accidental reposts / meta about posting
+  /^awkward/i,
+  /\bno\s+clue\s+how\s+this\s+(?:re)?posted\b/i,
+  /\bignore\s+this\b/i,
+  /\bplease\s+delete\b/i,
+  /\bwrong\s+(?:board|forum|section)\b/i,
+  /\btest\s+post\b/i,
 ];
 
 /** Check if a title matches known meta/admin post patterns. */
