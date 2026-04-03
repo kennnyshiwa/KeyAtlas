@@ -26,7 +26,7 @@ export function AppStoreBanner() {
   if (!visible) return null;
 
   return (
-    <div className="bg-primary text-primary-foreground relative">
+    <div className="bg-muted/60 text-muted-foreground border-border relative border-b backdrop-blur-sm">
       <div className="container flex items-center justify-center gap-2 py-2 text-sm">
         <Smartphone className="h-4 w-4 shrink-0" />
         <span>
@@ -35,14 +35,14 @@ export function AppStoreBanner() {
             href={APP_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold underline underline-offset-2 hover:opacity-90"
+            className="text-foreground font-semibold underline underline-offset-2 hover:opacity-80"
           >
             Download for iOS →
           </a>
         </span>
         <button
           onClick={dismiss}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 hover:bg-primary-foreground/20"
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 hover:bg-accent"
           aria-label="Dismiss banner"
         >
           <X className="h-4 w-4" />
