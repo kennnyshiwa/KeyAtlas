@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { designerFormSchema } from "@/lib/validations/designer";
+import { indexDesigner } from "@/lib/meilisearch";
 
 export async function GET() {
   const designers = await prisma.designer.findMany({
@@ -48,5 +49,8 @@ export async function POST(req: NextRequest) {
       websiteUrl: result.data.websiteUrl || null,
     },
   });
+
+  await indexDesigner(designer);
+
   return NextResponse.json(designer, { status: 201 });
 }

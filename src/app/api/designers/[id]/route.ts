@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { designerFormSchema } from "@/lib/validations/designer";
+import { indexDesigner, removeDesignerFromIndex } from "@/lib/meilisearch";
 
 export async function GET(
   _req: NextRequest,
@@ -89,6 +90,8 @@ export async function PUT(
     data: updateData,
   });
 
+  await indexDesigner(designer);
+
   return NextResponse.json(designer);
 }
 
@@ -103,5 +106,6 @@ export async function DELETE(
   }
 
   await prisma.designer.delete({ where: { id } });
+  await removeDesignerFromIndex(id);
   return NextResponse.json({ success: true });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { vendorFormSchema } from "@/lib/validations/vendor";
+import { indexVendor } from "@/lib/meilisearch";
 
 export async function GET() {
   const vendors = await prisma.vendor.findMany({
@@ -45,5 +46,8 @@ export async function POST(req: NextRequest) {
       ownerId: session.user.id,
     },
   });
+
+  await indexVendor(vendor);
+
   return NextResponse.json(vendor, { status: 201 });
 }

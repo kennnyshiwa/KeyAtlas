@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { vendorFormSchema } from "@/lib/validations/vendor";
 import { z } from "zod";
+import { indexVendor, removeVendorFromIndex } from "@/lib/meilisearch";
 
 export async function GET(
   _req: NextRequest,
@@ -93,6 +94,8 @@ export async function PUT(
     data: updateData,
   });
 
+  await indexVendor(updated);
+
   return NextResponse.json(updated);
 }
 
@@ -107,5 +110,6 @@ export async function DELETE(
   }
 
   await prisma.vendor.delete({ where: { id } });
+  await removeVendorFromIndex(id);
   return NextResponse.json({ success: true });
 }

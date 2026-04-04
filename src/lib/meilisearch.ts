@@ -1,5 +1,5 @@
 import { MeiliSearch } from "meilisearch";
-import type { Project } from "@/generated/prisma/client";
+import type { Project, Designer, Vendor } from "@/generated/prisma/client";
 
 const client = new MeiliSearch({
   host: process.env.MEILISEARCH_HOST ?? "http://localhost:7700",
@@ -7,6 +7,8 @@ const client = new MeiliSearch({
 });
 
 const PROJECTS_INDEX = "projects";
+const DESIGNERS_INDEX = "designers";
+const VENDORS_INDEX = "vendors";
 
 export async function configureProjectsIndex() {
   const index = client.index(PROJECTS_INDEX);
@@ -131,6 +133,134 @@ export async function searchProjects(
     limit: options?.limit ?? 20,
     offset: options?.offset ?? 0,
   });
+}
+
+// ─── Designers ───────────────────────────────────────────────────────────────
+
+export async function configureDesignersIndex() {
+  const index = client.index(DESIGNERS_INDEX);
+  await index.updateSettings({
+    searchableAttributes: ["name", "description"],
+    filterableAttributes: [],
+    displayedAttributes: ["id", "name", "slug", "logo", "description"],
+  });
+}
+
+interface DesignerSearchDocument {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  description?: string | null;
+}
+
+function designerToSearchDocument(designer: Designer): DesignerSearchDocument {
+  return {
+    id: designer.id,
+    name: designer.name,
+    slug: designer.slug,
+    logo: designer.logo,
+    description: designer.description,
+  };
+}
+
+export async function indexDesigner(designer: Designer) {
+  try {
+    const index = client.index(DESIGNERS_INDEX);
+    await index.addDocuments([designerToSearchDocument(designer)]);
+  } catch (error) {
+    console.error("Failed to index designer:", error);
+  }
+}
+
+export async function removeDesignerFromIndex(id: string) {
+  try {
+    const index = client.index(DESIGNERS_INDEX);
+    await index.deleteDocument(id);
+  } catch (error) {
+    console.error("Failed to remove designer from index:", error);
+  }
+}
+
+export async function searchDesigners(
+  query: string,
+  options?: { limit?: number; offset?: number }
+) {
+  const index = client.index(DESIGNERS_INDEX);
+  return index.search(query, {
+    limit: options?.limit ?? 20,
+    offset: options?.offset ?? 0,
+  });
+}
+
+// ─── Vendors ─────────────────────────────────────────────────────────────────
+
+export async function configureVendorsIndex() {
+  const index = client.index(VENDORS_INDEX);
+  await index.updateSettings({
+    searchableAttributes: ["name", "description", "regionsServed"],
+    filterableAttributes: [],
+    displayedAttributes: ["id", "name", "slug", "logo", "verified", "regionsServed"],
+  });
+}
+
+interface VendorSearchDocument {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  verified: boolean;
+  regionsServed: string[];
+}
+
+function vendorToSearchDocument(vendor: Vendor): VendorSearchDocument {
+  return {
+    id: vendor.id,
+    name: vendor.name,
+    slug: vendor.slug,
+    logo: vendor.logo,
+    verified: vendor.verified,
+    regionsServed: vendor.regionsServed,
+  };
+}
+
+export async function indexVendor(vendor: Vendor) {
+  try {
+    const index = client.index(VENDORS_INDEX);
+    await index.addDocuments([vendorToSearchDocument(vendor)]);
+  } catch (error) {
+    console.error("Failed to index vendor:", error);
+  }
+}
+
+export async function removeVendorFromIndex(id: string) {
+  try {
+    const index = client.index(VENDORS_INDEX);
+    await index.deleteDocument(id);
+  } catch (error) {
+    console.error("Failed to remove vendor from index:", error);
+  }
+}
+
+export async function searchVendors(
+  query: string,
+  options?: { limit?: number; offset?: number }
+) {
+  const index = client.index(VENDORS_INDEX);
+  return index.search(query, {
+    limit: options?.limit ?? 20,
+    offset: options?.offset ?? 0,
+  });
+}
+
+// ─── Configure all indexes ────────────────────────────────────────────────────
+
+export async function configureAllIndexes() {
+  await Promise.all([
+    configureProjectsIndex(),
+    configureDesignersIndex(),
+    configureVendorsIndex(),
+  ]);
 }
 
 export { client as meilisearchClient };
