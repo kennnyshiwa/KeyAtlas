@@ -9,6 +9,7 @@ import { SaveFilterButton } from "@/components/projects/save-filter-button";
 import { ProjectSort } from "@/components/projects/project-sort";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
+import { SearchResultsBar } from "@/components/search/search-results-bar";
 import Link from "next/link";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import type { Metadata } from "next";
@@ -94,7 +95,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
   const session = await auth();
 
-  const [projects, total, allVendors, followedProjectIds, anchorFollowedProject] = await Promise.all([
+  const [projects, total, allVendors, followedProjectIds, anchorFollowedProject, matchingDesigners, matchingVendors] = await Promise.all([
     prisma.project.findMany({
       where,
       include: {
@@ -123,6 +124,20 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve(null),
+    params.q
+      ? prisma.designer.findMany({
+          where: { name: { contains: params.q, mode: "insensitive" } },
+          include: { _count: { select: { projects: true } } },
+          take: 5,
+        })
+      : Promise.resolve([]),
+    params.q
+      ? prisma.vendor.findMany({
+          where: { name: { contains: params.q, mode: "insensitive" } },
+          include: { _count: { select: { projects: true } } },
+          take: 5,
+        })
+      : Promise.resolve([]),
   ]);
 
   const followedIds = new Set(followedProjectIds.map((f) => f.targetId));
@@ -185,6 +200,10 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
           </div>
         </div>
       </div>
+
+      {params.q && (
+        <SearchResultsBar matchingDesigners={matchingDesigners} matchingVendors={matchingVendors} />
+      )}
 
       {followedRecommendations.length > 0 && anchorFollowedProject?.targetProject && (
         <section className="space-y-3 rounded-lg border p-4">
