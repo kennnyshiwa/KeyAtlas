@@ -60,7 +60,7 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     em: ["style"],
     figure: ["style", "class"],
     figcaption: ["style", "class"],
-    img: ["src", "alt", "loading", "decoding", "width", "height", "style", "class"],
+    img: ["src", "alt", "loading", "decoding", "fetchpriority", "width", "height", "style", "class"],
   },
   allowedStyles: {
     "*": {
@@ -92,6 +92,31 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
         tagName: "span",
         attribs: {
           style: styleParts.join(";"),
+        },
+      };
+    },
+    img: (tagName, attribs) => {
+      const style = attribs.style || "";
+      const hasMaxWidth = /max-width\s*:/i.test(style);
+      const hasHeight = /height\s*:/i.test(style);
+      const hasDisplay = /display\s*:/i.test(style);
+      const normalizedStyle = [
+        style,
+        hasMaxWidth ? "" : "max-width:100%",
+        hasHeight ? "" : "height:auto",
+        hasDisplay ? "" : "display:block",
+      ]
+        .filter(Boolean)
+        .join(";");
+
+      return {
+        tagName: "img",
+        attribs: {
+          ...attribs,
+          loading: attribs.loading || "lazy",
+          decoding: attribs.decoding || "async",
+          fetchpriority: attribs.fetchpriority || "low",
+          style: normalizedStyle,
         },
       };
     },
