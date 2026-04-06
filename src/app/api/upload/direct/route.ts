@@ -38,19 +38,22 @@ export async function POST() {
     );
   }
 
+  const formData = new FormData();
+  formData.set(
+    "metadata",
+    JSON.stringify({
+      userId: session.user.id,
+    })
+  );
+
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v2/direct_upload`,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiToken}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        metadata: {
-          userId: session.user.id,
-        },
-      }),
+      body: formData,
       cache: "no-store",
     }
   );
