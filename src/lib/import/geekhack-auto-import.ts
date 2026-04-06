@@ -24,7 +24,6 @@ import {
 import {
   scanBoardForTopics,
   normalizeTitleForDedup,
-  extractCoreName,
   isMetaPost,
   isJunkTitle,
   type GeekhackTopicEntry,
@@ -224,26 +223,58 @@ async function isUrlAlreadyImported(topicId: string): Promise<boolean> {
   return existing !== null;
 }
 
+const LIFECYCLE_NOISE_PATTERNS: RegExp[] = [
+  /\b(?:ic|interest\s+check|gb|group\s+buy)\b/gi,
+  /\b(?:final\s+ic|final\s+update|update|updates?)\b/gi,
+  /\b(?:live|open|opened|opening|starts?|starting|running|ended|ending|closed|closing|phase\s*\d+)\b/gi,
+  /\b(?:shipping|shipped|delivering|delivered|production|manufacturing|extras|in[-\s]?stock|pre[-\s]?order)\b/gi,
+  /\b(?:now|soon|today|tomorrow)\b/gi,
+  /\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g,
+  /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/gi,
+  /\b\d{4}\b/g,
+];
+
 /**
- * Check whether a project with a similar normalised title already exists.
- * We compare both exact normalised titles AND "core names" (product name
- * stripped of dates, status suffixes, etc.) so that IC and GB posts for the
- * same keyset are recognised as duplicates.
+ * Build a conservative dedupe key that strips lifecycle churn but keeps product-defining tokens
+ * (e.g. GMK vs SA, profile names, material words, collab names).
+ */
+export function buildLifecycleStableTitleKey(title: string): string {
+  let v = normalizeTitleForDedup(title)
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/[(){}]/g, " ");
+
+  for (const pattern of LIFECYCLE_NOISE_PATTERNS) {
+    v = v.replace(pattern, " ");
+  }
+
+  return v
+    .replace(/[|:/\\]+/g, " ")
+    .replace(/[-–—]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Check whether a project with a similar lifecycle-stable title already exists.
+ * Conservative by design: only compares against existing Geekhack imports.
  */
 async function isTitleAlreadyImported(rawTitle: string): Promise<boolean> {
   const needle = normalizeTitleForDedup(rawTitle);
-  const needleCore = extractCoreName(rawTitle);
-  if (!needle && !needleCore) return false;
+  const lifecycleNeedle = buildLifecycleStableTitleKey(rawTitle);
+  if (!needle && !lifecycleNeedle) return false;
 
-  // Fetch all project titles (only title column — cheap)
-  const projects = await prisma.project.findMany({ select: { title: true } });
+  const projects = await prisma.project.findMany({
+    where: { tags: { has: "geekhack" } },
+    select: { title: true },
+  });
 
   return projects.some((p) => {
-    // Exact normalised match
-    if (needle && normalizeTitleForDedup(p.title) === needle) return true;
-    // Fuzzy core name match (must be non-empty to avoid false positives)
-    if (needleCore && needleCore.length >= 5 && extractCoreName(p.title) === needleCore) return true;
-    return false;
+    const existing = normalizeTitleForDedup(p.title);
+    if (needle && existing === needle) return true;
+
+    const existingLifecycle = buildLifecycleStableTitleKey(p.title);
+    if (!lifecycleNeedle || lifecycleNeedle.length < 8) return false;
+    return existingLifecycle === lifecycleNeedle;
   });
 }
 
