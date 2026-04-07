@@ -17,6 +17,11 @@ function getImageMode(src: string): "next" | "direct" | "unoptimized" {
   if (!src) return "direct";
   // Serve uploaded images directly — they're already stored locally
   if (src.startsWith("/uploads/")) return "direct";
+  // Cloudflare Images already handles optimization via variants (public,
+  // thumbnail, card, hero). Routing them through Next.js Image Optimizer
+  // triggers TransformStream runtime errors ("transformAlgorithm is not a
+  // function") because sharp re-encodes an already-optimized stream.
+  if (/imagedelivery\.net/i.test(src)) return "direct";
   // Animated GIFs can't be optimized — skip the optimizer
   if (/\.gif(\?|$)/i.test(src)) return "unoptimized";
   // Geekhack session URLs aren't real images (PHP redirects)

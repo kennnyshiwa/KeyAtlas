@@ -3,6 +3,7 @@ import path from "path";
 import { safeFetch } from "@/lib/security/ssrf-guard";
 import { validateImageBuffer } from "@/lib/security/upload-validation";
 import { getStorageProvider } from "@/lib/storage";
+import { prisma } from "@/lib/prisma";
 
 const MAX_REMOTE_IMAGE_BYTES = 20 * 1024 * 1024; // Match upload API limit
 const REMOTE_IMAGE_TIMEOUT_MS = 12_000;
@@ -87,14 +88,38 @@ export async function mirrorImgurUrlToLocal(inputUrl: string, userId?: string): 
     throw new Error(validation.error);
   }
 
+  // Content-hash dedup: return existing URL if we've seen this exact image
+  const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+  const existing = await prisma.imageAsset.findUnique({ where: { sha256 } });
+  if (existing) {
+    return existing.url;
+  }
+
   const ext = MIME_TO_EXT[validation.detectedMime] ?? ".jpg";
   const filename = `${crypto.randomUUID()}-${getFilenameHint(parsed, ext)}`;
 
   const storage = getStorageProvider();
-  return storage.upload(bytes, filename, validation.detectedMime, {
+  const url = await storage.upload(bytes, filename, validation.detectedMime, {
     userId,
     originalFilename: path.basename(parsed.pathname || filename),
   });
+
+  // Record in dedup table so future uploads of the same image are caught.
+  // Some mirror paths may run without a user context, so only persist the
+  // dedup row when we have a valid uploaderId.
+  if (userId) {
+    await prisma.imageAsset.create({
+      data: {
+        sha256,
+        url,
+        bytes: bytes.length,
+        contentType: validation.detectedMime,
+        uploaderId: userId,
+      },
+    });
+  }
+
+  return url;
 }
 
 export async function mirrorImgurUrlOrOriginal(url: string, userId?: string): Promise<string> {

@@ -1,75 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate-limit";
 
-const RATE_LIMIT_UPLOAD_DIRECT = { limit: 20, window: 300 };
-
-interface CloudflareDirectUploadResult {
-  id: string;
-  uploadURL: string;
-}
-
-interface CloudflareDirectUploadResponse {
-  success: boolean;
-  errors?: Array<{ message?: string }>;
-  result?: CloudflareDirectUploadResult;
-}
-
+// Direct upload bypasses content-hash dedup (the server never sees the bytes),
+// which caused duplicate Cloudflare images. All clients should use /api/upload
+// instead, which hashes, deduplicates, and records every image in ImageAsset.
+// This endpoint is intentionally disabled.
 export async function POST() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const limited = await rateLimit(
-    session.user.id,
-    "upload:direct",
-    RATE_LIMIT_UPLOAD_DIRECT
+  return NextResponse.json(
+    { error: "Direct upload is disabled. Use /api/upload instead." },
+    { status: 410 }
   );
-  if (limited) return limited;
-
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiToken = process.env.CLOUDFLARE_API_TOKEN;
-
-  if (!accountId || !apiToken) {
-    return NextResponse.json(
-      { error: "Cloudflare Images is not configured" },
-      { status: 500 }
-    );
-  }
-
-  const formData = new FormData();
-  formData.set(
-    "metadata",
-    JSON.stringify({
-      userId: session.user.id,
-    })
-  );
-
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v2/direct_upload`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: formData,
-      cache: "no-store",
-    }
-  );
-
-  const payload = (await response.json()) as CloudflareDirectUploadResponse;
-
-  if (!response.ok || !payload.success || !payload.result?.uploadURL || !payload.result?.id) {
-    const reason = payload.errors?.[0]?.message ?? "Unknown direct upload error";
-    return NextResponse.json(
-      { error: `Failed to create direct upload URL: ${reason}` },
-      { status: 502 }
-    );
-  }
-
-  return NextResponse.json({
-    uploadURL: payload.result.uploadURL,
-    id: payload.result.id,
-  });
 }
