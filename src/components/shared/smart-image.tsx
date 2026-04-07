@@ -28,7 +28,11 @@ function getImageMode(src: string): "next" | "direct" | "unoptimized" {
   if (/PHPSESSID/i.test(src)) return "direct";
   // Expired Discord CDN links (signed URLs with ex= param) tend to 403
   if (/discord(app)?\.net.*[?&]ex=/i.test(src)) return "direct";
-  // All other URLs (https://) go through Next.js Image optimizer
+  // All other remote URLs bypass the Next.js optimizer too.
+  // External image sources have been the recurring source of transform and
+  // upstream-response errors, so we prefer direct rendering over brittle
+  // double-optimization.
+  if (/^https?:\/\//i.test(src)) return "direct";
   return "next";
 }
 
