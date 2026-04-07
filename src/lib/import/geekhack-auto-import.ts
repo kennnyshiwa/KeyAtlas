@@ -204,6 +204,16 @@ function normalizeGeekhackUrl(topicId: string): string {
   return `https://geekhack.org/index.php?topic=${topicId}.0`;
 }
 
+function extractGeekhackTopicIdFromUrl(rawUrl: string): string | null {
+  try {
+    const parsed = new URL(rawUrl);
+    if (!/geekhack\.org$/i.test(parsed.hostname)) return null;
+    return parsed.searchParams.get("topic")?.match(/^(\d+)/)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Check whether a Geekhack topic URL is already in project_links.
  * We check both the exact normalised URL and any URL containing the topic ID
@@ -215,12 +225,121 @@ async function isUrlAlreadyImported(topicId: string): Promise<boolean> {
   const existing = await prisma.projectLink.findFirst({
     where: {
       type: "GEEKHACK",
-      url: normalised,
+      OR: [
+        { url: normalised },
+        { url: { contains: `topic=${topicId}.` } },
+        { url: { contains: `topic=${topicId}` } },
+      ],
     },
     select: { id: true },
   });
 
   return existing !== null;
+}
+
+const TOKEN_STOPWORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "set",
+  "with",
+  "from",
+  "edition",
+  "base",
+  "kit",
+  "keycaps",
+  "keycap",
+  "project",
+]);
+
+const PROFILE_OR_FAMILY_TOKENS = new Set([
+  "gmk",
+  "sa",
+  "dsa",
+  "dcs",
+  "dss",
+  "kat",
+  "kam",
+  "mt3",
+  "mda",
+  "cherry",
+  "oem",
+  "xda",
+  "moa",
+  "msa",
+  "osa",
+  "hsa",
+  "pbtfans",
+  "epbt",
+  "kkb",
+  "keykobo",
+  "pbs",
+  "abs",
+  "pbt",
+]);
+
+function tokenizeFingerprintKey(value: string): string[] {
+  return value
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z0-9]/gi, "").toLowerCase())
+    .filter((t) => t.length >= 2)
+    .filter((t) => !TOKEN_STOPWORDS.has(t));
+}
+
+export interface GeekhackTitleFingerprint {
+  key: string;
+  brandOrProfile: string[];
+  rounds: string[];
+  tokens: string[];
+}
+
+/**
+ * Conservative fingerprint for lifecycle churn dedupe.
+ * Keeps product-defining tokens (profile/material/round), strips status churn.
+ */
+export function buildGeekhackTitleFingerprint(title: string): GeekhackTitleFingerprint {
+  const key = buildLifecycleStableTitleKey(title);
+  const tokens = tokenizeFingerprintKey(key);
+  const brandOrProfile = tokens.filter((t) => PROFILE_OR_FAMILY_TOKENS.has(t)).sort();
+  const rounds = tokens.filter((t) => /^r\d{1,2}$/.test(t)).sort();
+
+  return {
+    key,
+    brandOrProfile,
+    rounds,
+    tokens: Array.from(new Set(tokens)).sort(),
+  };
+}
+
+function sortedJoin(values: string[]): string {
+  return Array.from(new Set(values)).sort().join("|");
+}
+
+/**
+ * True only when we have a high-confidence lifecycle match.
+ * Conservative by design: false negatives are preferred over false positives.
+ */
+export function isConservativeLifecycleDuplicate(aTitle: string, bTitle: string): boolean {
+  const a = buildGeekhackTitleFingerprint(aTitle);
+  const b = buildGeekhackTitleFingerprint(bTitle);
+  if (!a.key || !b.key) return false;
+
+  // Strong exact stable-key match first.
+  if (a.key === b.key && a.key.length >= 8) return true;
+
+  // Keep product-defining signatures aligned (don't merge GMK vs SA, PBT vs ABS, R1 vs R2).
+  if (sortedJoin(a.brandOrProfile) !== sortedJoin(b.brandOrProfile)) return false;
+  if (sortedJoin(a.rounds) !== sortedJoin(b.rounds)) return false;
+
+  const aTokens = new Set(a.tokens);
+  const bTokens = new Set(b.tokens);
+  const intersection = [...aTokens].filter((t) => bTokens.has(t));
+  if (intersection.length < 2) return false;
+
+  const unionSize = new Set([...a.tokens, ...b.tokens]).size;
+  const jaccard = unionSize > 0 ? intersection.length / unionSize : 0;
+
+  return jaccard >= 0.75;
 }
 
 const LIFECYCLE_NOISE_PATTERNS: RegExp[] = [
@@ -260,8 +379,7 @@ export function buildLifecycleStableTitleKey(title: string): string {
  */
 async function isTitleAlreadyImported(rawTitle: string): Promise<boolean> {
   const needle = normalizeTitleForDedup(rawTitle);
-  const lifecycleNeedle = buildLifecycleStableTitleKey(rawTitle);
-  if (!needle && !lifecycleNeedle) return false;
+  if (!needle) return false;
 
   const projects = await prisma.project.findMany({
     where: { tags: { has: "geekhack" } },
@@ -271,10 +389,7 @@ async function isTitleAlreadyImported(rawTitle: string): Promise<boolean> {
   return projects.some((p) => {
     const existing = normalizeTitleForDedup(p.title);
     if (needle && existing === needle) return true;
-
-    const existingLifecycle = buildLifecycleStableTitleKey(p.title);
-    if (!lifecycleNeedle || lifecycleNeedle.length < 8) return false;
-    return existingLifecycle === lifecycleNeedle;
+    return isConservativeLifecycleDuplicate(rawTitle, p.title);
   });
 }
 
@@ -372,12 +487,20 @@ async function importTopic(
   const heroImage = validatedImages[0]?.url ?? null;
 
   // 11. Create project via Prisma — with atomic duplicate guard
-  const ghUrl = normalizeGeekhackUrl(entry.topicId);
+  const canonicalTopicId = thread.topicId || entry.topicId;
+  const ghUrl = normalizeGeekhackUrl(canonicalTopicId);
   let project;
   try {
     // Final DB-level dedup check right before insert (prevents race conditions)
     const existingLink = await prisma.projectLink.findFirst({
-      where: { type: "GEEKHACK", url: ghUrl },
+      where: {
+        type: "GEEKHACK",
+        OR: [
+          { url: ghUrl },
+          { url: { contains: `topic=${canonicalTopicId}.` } },
+          { url: { contains: `topic=${canonicalTopicId}` } },
+        ],
+      },
       select: { id: true },
     });
     if (existingLink) {
@@ -591,7 +714,8 @@ async function _doImport(
     }
 
     // DB-level dedup checks before fetching the full thread
-    const urlDup = await isUrlAlreadyImported(entry.topicId);
+    const topicIdFromListingUrl = extractGeekhackTopicIdFromUrl(entry.url) || entry.topicId;
+    const urlDup = await isUrlAlreadyImported(topicIdFromListingUrl);
     const titleDup = !urlDup && (await isTitleAlreadyImported(entry.title));
 
     if (urlDup || titleDup) {
