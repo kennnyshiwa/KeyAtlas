@@ -50,11 +50,10 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
-    remotePatterns: [
-      // Allow all HTTPS images through the optimizer — we import from
-      // many external hosts (Geekhack, Shopify, cargo.site, etc.)
-      { protocol: "https", hostname: "**" },
-    ],
+    // Disable Next's built-in optimizer entirely. KeyAtlas already relies on
+    // remote image sources and Cloudflare variants, and the optimizer has been
+    // a recurring source of upstream 404 + transform failures in production.
+    unoptimized: true,
   },
 };
 
