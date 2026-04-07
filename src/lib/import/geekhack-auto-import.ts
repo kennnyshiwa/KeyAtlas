@@ -293,6 +293,17 @@ export interface GeekhackTitleFingerprint {
   tokens: string[];
 }
 
+export interface GeekhackDuplicateCandidate {
+  id: string;
+  title: string;
+  links: Array<{ url: string }>;
+}
+
+interface GeekhackDuplicateMatch {
+  projectId: string;
+  reason: "topic-lineage" | "title-fingerprint";
+}
+
 /**
  * Conservative fingerprint for lifecycle churn dedupe.
  * Keeps product-defining tokens (profile/material/round), strips status churn.
@@ -391,6 +402,43 @@ async function isTitleAlreadyImported(rawTitle: string): Promise<boolean> {
     if (needle && existing === needle) return true;
     return isConservativeLifecycleDuplicate(rawTitle, p.title);
   });
+}
+
+/**
+ * Final pre-create brake: block import when an existing Geekhack project matches
+ * by topic lineage first, then conservative lifecycle fingerprint.
+ */
+export function findHardDuplicateMatch(
+  incoming: { topicId: string; title: string; sourceUrls?: string[] },
+  candidates: GeekhackDuplicateCandidate[]
+): GeekhackDuplicateMatch | null {
+  const incomingTopicIds = new Set<string>();
+  if (incoming.topicId) incomingTopicIds.add(incoming.topicId);
+  for (const url of incoming.sourceUrls ?? []) {
+    const topicId = extractGeekhackTopicIdFromUrl(url);
+    if (topicId) incomingTopicIds.add(topicId);
+  }
+
+  // Primary identity: topic lineage from any known Geekhack URL form.
+  if (incomingTopicIds.size > 0) {
+    for (const candidate of candidates) {
+      for (const link of candidate.links) {
+        const candidateTopicId = extractGeekhackTopicIdFromUrl(link.url);
+        if (candidateTopicId && incomingTopicIds.has(candidateTopicId)) {
+          return { projectId: candidate.id, reason: "topic-lineage" };
+        }
+      }
+    }
+  }
+
+  // Secondary identity: conservative lifecycle fingerprint match.
+  for (const candidate of candidates) {
+    if (isConservativeLifecycleDuplicate(incoming.title, candidate.title)) {
+      return { projectId: candidate.id, reason: "title-fingerprint" };
+    }
+  }
+
+  return null;
 }
 
 // ── Per-topic import logic ────────────────────────────────────────────────────
@@ -505,6 +553,38 @@ async function importTopic(
     });
     if (existingLink) {
       console.log(`${logPrefix} skipped (URL already imported — final check)`);
+      return { imported: false };
+    }
+
+    // Hard final dedupe gate: topic lineage + conservative fingerprint before insert.
+    const duplicateCandidates = await prisma.project.findMany({
+      where: {
+        tags: { has: "geekhack" },
+        links: { some: { type: "GEEKHACK" } },
+      },
+      select: {
+        id: true,
+        title: true,
+        links: {
+          where: { type: "GEEKHACK" },
+          select: { url: true },
+        },
+      },
+    });
+
+    const duplicateMatch = findHardDuplicateMatch(
+      {
+        topicId: canonicalTopicId,
+        title: prefill.title,
+        sourceUrls: [ghUrl, entry.url],
+      },
+      duplicateCandidates
+    );
+
+    if (duplicateMatch) {
+      console.log(
+        `${logPrefix} skipped (hard duplicate gate: ${duplicateMatch.reason}, existing project=${duplicateMatch.projectId})`
+      );
       return { imported: false };
     }
 

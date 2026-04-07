@@ -3,6 +3,7 @@ import {
   buildLifecycleStableTitleKey,
   buildGeekhackTitleFingerprint,
   isConservativeLifecycleDuplicate,
+  findHardDuplicateMatch,
 } from "./geekhack-auto-import";
 
 describe("buildLifecycleStableTitleKey", () => {
@@ -73,5 +74,64 @@ describe("buildGeekhackTitleFingerprint", () => {
     expect(fp.brandOrProfile).toEqual(["abs", "gmk"]);
     expect(fp.rounds).toEqual(["r2"]);
     expect(fp.tokens).toContain("blossom");
+  });
+});
+
+describe("findHardDuplicateMatch", () => {
+  it("blocks by Geekhack topic lineage even with URL variants", () => {
+    const match = findHardDuplicateMatch(
+      {
+        topicId: "12345",
+        title: "[GB] GMK Bordeaux",
+        sourceUrls: ["https://geekhack.org/index.php?topic=12345.0"],
+      },
+      [
+        {
+          id: "p1",
+          title: "[IC] GMK Bordeaux",
+          links: [{ url: "https://geekhack.org/index.php?topic=12345.25" }],
+        },
+      ]
+    );
+
+    expect(match).toEqual({ projectId: "p1", reason: "topic-lineage" });
+  });
+
+  it("falls back to conservative title fingerprint match", () => {
+    const match = findHardDuplicateMatch(
+      {
+        topicId: "77777",
+        title: "[GB] GMK Bordeaux - GB Live 03/09/2026",
+        sourceUrls: ["https://geekhack.org/index.php?topic=77777.0"],
+      },
+      [
+        {
+          id: "p2",
+          title: "[IC] GMK Bordeaux - Final IC Update",
+          links: [{ url: "https://geekhack.org/index.php?topic=55555.0" }],
+        },
+      ]
+    );
+
+    expect(match).toEqual({ projectId: "p2", reason: "title-fingerprint" });
+  });
+
+  it("stays conservative for distinct projects", () => {
+    const match = findHardDuplicateMatch(
+      {
+        topicId: "11111",
+        title: "[IC] SA Cosmos",
+        sourceUrls: ["https://geekhack.org/index.php?topic=11111.0"],
+      },
+      [
+        {
+          id: "p3",
+          title: "[IC] GMK Cosmos",
+          links: [{ url: "https://geekhack.org/index.php?topic=22222.0" }],
+        },
+      ]
+    );
+
+    expect(match).toBeNull();
   });
 });
