@@ -24,6 +24,7 @@ import {
 import {
   scanBoardForTopics,
   normalizeTitleForDedup,
+  extractCoreName,
   isMetaPost,
   isJunkTitle,
   type GeekhackTopicEntry,
@@ -338,6 +339,36 @@ export function isConservativeLifecycleDuplicate(aTitle: string, bTitle: string)
   // Strong exact stable-key match first.
   if (a.key === b.key && a.key.length >= 8) return true;
 
+  // Core-name match: aggressively strip lifecycle/date/status noise and compare.
+  // This catches cases like "Typemaster 180 75% Premium Board" vs
+  // "Typemaster 180 75% Magnetic Board - In Production" where a single descriptor
+  // word changes between IC and GB threads.
+  const coreA = extractCoreName(aTitle);
+  const coreB = extractCoreName(bTitle);
+  if (coreA && coreB && coreA.length >= 8 && coreA === coreB) return true;
+
+  // Core-name token overlap: for short product names where a single word swap
+  // (e.g. "premium" → "magnetic") drops Jaccard below 0.75, use a containment
+  // check on core-name tokens instead.
+  if (coreA && coreB) {
+    const coreATokens = tokenizeFingerprintKey(coreA);
+    const coreBTokens = tokenizeFingerprintKey(coreB);
+    if (coreATokens.length >= 2 && coreBTokens.length >= 2) {
+      const smaller = coreATokens.length <= coreBTokens.length ? coreATokens : coreBTokens;
+      const larger = coreATokens.length <= coreBTokens.length ? new Set(coreBTokens) : new Set(coreATokens);
+      const contained = smaller.filter((t) => larger.has(t)).length;
+      // If the smaller core name is ≥80% contained in the larger one, it's likely
+      // the same product with minor title evolution.
+      if (smaller.length >= 2 && contained / smaller.length >= 0.8) {
+        // Still respect brand/profile/round constraints
+        if (sortedJoin(a.brandOrProfile) === sortedJoin(b.brandOrProfile) &&
+            sortedJoin(a.rounds) === sortedJoin(b.rounds)) {
+          return true;
+        }
+      }
+    }
+  }
+
   // Keep product-defining signatures aligned (don't merge GMK vs SA, PBT vs ABS, R1 vs R2).
   if (sortedJoin(a.brandOrProfile) !== sortedJoin(b.brandOrProfile)) return false;
   if (sortedJoin(a.rounds) !== sortedJoin(b.rounds)) return false;
@@ -441,6 +472,21 @@ export function findHardDuplicateMatch(
   return null;
 }
 
+/**
+ * Extract all Geekhack topic IDs referenced in HTML content (e.g. the OP body).
+ * IC threads often link to their GB thread and vice versa — these cross-references
+ * are a strong signal that the topics are the same project.
+ */
+function extractReferencedTopicIds(html: string): string[] {
+  const ids = new Set<string>();
+  // Match topic=NNNN patterns in href attributes and plain text URLs
+  const re = /(?:topic=|topic%3D)(\d+)/gi;
+  for (const m of html.matchAll(re)) {
+    ids.add(m[1]);
+  }
+  return [...ids];
+}
+
 // ── Per-topic import logic ────────────────────────────────────────────────────
 async function importTopic(
   entry: GeekhackTopicEntry,
@@ -469,6 +515,23 @@ async function importTopic(
     const msg = `Failed to fetch thread ${entry.url}: ${err instanceof Error ? err.message : String(err)}`;
     console.error(`${logPrefix} ${msg}`);
     return { imported: false, error: msg };
+  }
+
+  // 3a. Cross-thread link check: if the OP references another Geekhack topic
+  //     that we already imported, this is almost certainly the same project
+  //     (e.g. an IC thread linking to its GB thread or vice versa).
+  const opHtml = thread.op?.contentHtml ?? thread.op?.contentText ?? "";
+  const referencedTopicIds = extractReferencedTopicIds(opHtml)
+    .filter((id) => id !== entry.topicId && id !== (thread.topicId ?? entry.topicId));
+  if (referencedTopicIds.length > 0) {
+    for (const refId of referencedTopicIds) {
+      if (await isUrlAlreadyImported(refId)) {
+        console.log(
+          `${logPrefix} skipped (OP cross-references already-imported topic=${refId})`
+        );
+        return { imported: false };
+      }
+    }
   }
 
   // 4. Build prefill
@@ -572,11 +635,14 @@ async function importTopic(
       },
     });
 
+    // Include cross-referenced topic URLs so the hard gate also catches
+    // IC↔GB thread lineage links found in the OP body.
+    const crossRefUrls = referencedTopicIds.map((id) => normalizeGeekhackUrl(id));
     const duplicateMatch = findHardDuplicateMatch(
       {
         topicId: canonicalTopicId,
         title: prefill.title,
-        sourceUrls: [ghUrl, entry.url],
+        sourceUrls: [ghUrl, entry.url, ...crossRefUrls],
       },
       duplicateCandidates
     );
