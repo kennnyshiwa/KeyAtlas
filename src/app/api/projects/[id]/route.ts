@@ -6,6 +6,7 @@ import { indexProject, removeProjectFromIndex } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 import { dispatchNotification } from "@/lib/notifications/service";
+import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
 import { STATUS_LABELS } from "@/lib/constants";
 import { rateLimit, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
 import { logProjectChanges } from "@/lib/project-change-log";
@@ -154,7 +155,16 @@ export async function PUT(
   // Fetch current project to detect status transitions and log changes
   const currentProject = await prisma.project.findUnique({
     where: { id },
-    select: { status: true, title: true, slug: true, category: true, profile: true, designer: true, vendorId: true },
+    select: {
+      published: true,
+      status: true,
+      title: true,
+      slug: true,
+      category: true,
+      profile: true,
+      designer: true,
+      vendorId: true,
+    },
   });
 
   const slugConflict = await prisma.project.findFirst({
@@ -240,8 +250,28 @@ export async function PUT(
     });
   });
 
+  const wasPublished = currentProject?.published === true;
+
   if (project.published) {
     await indexProject(project);
+
+    if (!wasPublished) {
+      await notifyWatchlistMatches({
+        id: project.id,
+        title: project.title,
+        slug: project.slug,
+        category: project.category,
+        status: project.status,
+        profile: project.profile,
+        designer: project.designer,
+        vendorId: project.vendorId,
+        shipped: project.shipped,
+        tags: project.tags,
+        creatorId: project.creatorId,
+      });
+    }
+  } else if (wasPublished) {
+    await removeProjectFromIndex(id);
   }
 
   if (isStaff) {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { indexProject, removeProjectFromIndex } from "@/lib/meilisearch";
+import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
 import { prisma } from "@/lib/prisma";
-import { removeProjectFromIndex } from "@/lib/meilisearch";
 import { z } from "zod";
 
 const resolveSchema = z.object({
@@ -70,13 +71,16 @@ export async function PATCH(
   }
 
   if (action === "restore_project") {
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.project.update({
+    const { updated, project } = await prisma.$transaction(async (tx) => {
+      const project = await tx.project.update({
         where: { id: report.projectId },
         data: { published: true },
+        include: {
+          vendor: { select: { name: true, slug: true } },
+        },
       });
 
-      return tx.projectReport.update({
+      const updated = await tx.projectReport.update({
         where: { id },
         data: {
           status: "RESOLVED",
@@ -85,6 +89,23 @@ export async function PATCH(
           resolutionNote: note || "Project restored and republished",
         },
       });
+
+      return { updated, project };
+    });
+
+    await indexProject(project);
+    await notifyWatchlistMatches({
+      id: project.id,
+      title: project.title,
+      slug: project.slug,
+      category: project.category,
+      status: project.status,
+      profile: project.profile,
+      designer: project.designer,
+      vendorId: project.vendorId,
+      shipped: project.shipped,
+      tags: project.tags,
+      creatorId: project.creatorId,
     });
 
     return NextResponse.json(updated);
