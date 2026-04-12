@@ -63,5 +63,11 @@ GROWTH-PLAN.md
 
 # Repowise
 .repowise/
+repowise.db
 .mcp.json
 .claude/
+
+# Generated maintenance outputs
+plans/*.json
+plans/*.jsonl
+plans/*-summary.md
