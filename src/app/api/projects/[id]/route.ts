@@ -49,7 +49,6 @@ async function findOrCreateVendorByEntry(entry: {
   return created.id;
 }
 
-
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

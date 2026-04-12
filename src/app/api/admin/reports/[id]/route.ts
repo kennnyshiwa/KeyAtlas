@@ -72,14 +72,6 @@ export async function PATCH(
 
   if (action === "restore_project") {
     const { updated, project } = await prisma.$transaction(async (tx) => {
-      const project = await tx.project.update({
-        where: { id: report.projectId },
-        data: { published: true },
-        include: {
-          vendor: { select: { name: true, slug: true } },
-        },
-      });
-
       const updated = await tx.projectReport.update({
         where: { id },
         data: {
@@ -87,6 +79,14 @@ export async function PATCH(
           resolvedAt: new Date(),
           resolvedById: check.session.user.id,
           resolutionNote: note || "Project restored and republished",
+        },
+      });
+
+      const project = await tx.project.update({
+        where: { id: report.projectId },
+        data: { published: true },
+        include: {
+          vendor: { select: { name: true, slug: true } },
         },
       });
 
