@@ -12,6 +12,7 @@ import {
   parseTopicsFromBoardHtml,
   parseSubBoardIds,
   normalizeTitleForDedup,
+  isJunkTitle,
 } from "./geekhack-scanner";
 
 // ── Realistic mock board HTML ─────────────────────────────────────────────────
@@ -123,6 +124,18 @@ describe("parseTopicsFromBoardHtml", () => {
     const topics = parseTopicsFromBoardHtml("<html><body>No topics here</body></html>", 70);
     expect(topics).toHaveLength(0);
   });
+
+  it("skips explicitly ignored Geekhack topic IDs", () => {
+    const html = `
+      <div id="messageindex">
+        <a href="https://geekhack.org/index.php?topic=19878.0">NIB IBM 122 key terminal emulators</a>
+        <a href="https://geekhack.org/index.php?topic=123999.0">[IC] Totally Real Keyboard</a>
+      </div>
+    `;
+
+    const topics = parseTopicsFromBoardHtml(html, 70);
+    expect(topics.map((t) => t.topicId)).toEqual(["123999"]);
+  });
 });
 
 // ── parseSubBoardIds ──────────────────────────────────────────────────────────
@@ -151,6 +164,12 @@ describe("parseSubBoardIds", () => {
 });
 
 // ── normalizeTitleForDedup ────────────────────────────────────────────────────
+
+describe("isJunkTitle", () => {
+  it("flags the explicitly ignored IBM terminal emulator thread", () => {
+    expect(isJunkTitle("NIB IBM 122 key terminal emulators")).toBe(true);
+  });
+});
 
 describe("normalizeTitleForDedup", () => {
   it("[IC] prefix stripped and lowercased", () => {

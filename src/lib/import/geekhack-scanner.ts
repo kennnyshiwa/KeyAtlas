@@ -86,7 +86,12 @@ const JUNK_TITLE_PATTERNS = [
   /\bplease\s+delete\b/i,
   /\bwrong\s+(?:board|forum|section)\b/i,
   /\btest\s+post\b/i,
+  /^nib\s+ibm\s+122\s+key\s+terminal\s+emulators$/i,
 ];
+
+const IGNORED_TOPIC_IDS = new Set([
+  "19878", // NIB IBM 122 key terminal emulators
+]);
 
 /** Check if a title matches known meta/admin post patterns. */
 export function isMetaPost(title: string): boolean {
@@ -223,6 +228,9 @@ export function parseTopicsFromBoardHtml(html: string, boardId: number): Geekhac
 
     // Skip sticky/pinned topics (rules, guidelines, etc.)
     if (stickyIds.has(topicId)) continue;
+
+    // Explicit project/topic ignores
+    if (IGNORED_TOPIC_IDS.has(topicId)) continue;
 
     // Skip non-topic anchors — SMF sometimes reuses href?topic= in pagination/nav
     // Filter: title must be meaningful (len > 2) and not a number-only string
