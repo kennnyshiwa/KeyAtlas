@@ -417,14 +417,15 @@ export function buildLifecycleStableTitleKey(title: string): string {
 
 /**
  * Check whether a project with a similar lifecycle-stable title already exists.
- * Conservative by design: only compares against existing Geekhack imports.
+ * Conservative by design, but it must consider manual KeyAtlas projects too,
+ * otherwise the importer can create a second copy of something Kenneth already made.
  */
 async function isTitleAlreadyImported(rawTitle: string): Promise<boolean> {
   const needle = normalizeTitleForDedup(rawTitle);
   if (!needle) return false;
 
   const projects = await prisma.project.findMany({
-    where: { tags: { has: "geekhack" } },
+    where: { published: true },
     select: { title: true },
   });
 
@@ -620,10 +621,10 @@ async function importTopic(
     }
 
     // Hard final dedupe gate: topic lineage + conservative fingerprint before insert.
+    // Include manual published projects too, so a real KeyAtlas entry wins over a new auto-import.
     const duplicateCandidates = await prisma.project.findMany({
       where: {
-        tags: { has: "geekhack" },
-        links: { some: { type: "GEEKHACK" } },
+        published: true,
       },
       select: {
         id: true,

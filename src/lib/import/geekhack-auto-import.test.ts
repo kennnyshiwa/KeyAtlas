@@ -116,6 +116,25 @@ describe("findHardDuplicateMatch", () => {
     expect(match).toEqual({ projectId: "p2", reason: "title-fingerprint" });
   });
 
+  it("blocks against a manual KeyAtlas project with no Geekhack link", () => {
+    const match = findHardDuplicateMatch(
+      {
+        topicId: "126526",
+        title: "DSS Distortion 40s",
+        sourceUrls: ["https://geekhack.org/index.php?topic=126526.0"],
+      },
+      [
+        {
+          id: "manual-project",
+          title: "DSS Distortion 40s",
+          links: [],
+        },
+      ]
+    );
+
+    expect(match).toEqual({ projectId: "manual-project", reason: "title-fingerprint" });
+  });
+
   it("stays conservative for distinct projects", () => {
     const match = findHardDuplicateMatch(
       {
