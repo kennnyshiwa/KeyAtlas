@@ -87,10 +87,12 @@ const JUNK_TITLE_PATTERNS = [
   /\bwrong\s+(?:board|forum|section)\b/i,
   /\btest\s+post\b/i,
   /^nib\s+ibm\s+122\s+key\s+terminal\s+emulators$/i,
+  /^team\s+liquid\s+key$/i,
 ];
 
 const IGNORED_TOPIC_IDS = new Set([
   "19878", // NIB IBM 122 key terminal emulators
+  "16830", // team liquid key
 ]);
 
 /** Check if a title matches known meta/admin post patterns. */
