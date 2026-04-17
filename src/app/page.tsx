@@ -20,7 +20,10 @@ import { Logo } from "@/components/layout/logo";
 import { addDays } from "date-fns";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
-import { scoreTrendingProject } from "@/lib/project-discovery";
+import {
+  scoreFollowedProjectRecommendation,
+  scoreTrendingProject,
+} from "@/lib/project-discovery";
 
 export const metadata: Metadata = {
   title: "KeyAtlas - Mechanical Keyboard Community Hub",
@@ -34,6 +37,7 @@ export default async function HomePage() {
   const now = new Date();
   const sevenDaysFromNow = addDays(now, 7);
   const fourteenDaysAgo = addDays(now, -14);
+  const ninetyDaysAgo = addDays(now, -90);
 
   const [
     featuredProjects,
@@ -45,6 +49,7 @@ export default async function HomePage() {
     recentlyUpdatedProjects,
     followedProjectIds,
     anchorFollowedProject,
+    followedRecommendationCandidates,
   ] = await Promise.all([
     prisma.project.findMany({
       where: { published: true, featured: true },
@@ -112,11 +117,24 @@ export default async function HomePage() {
       ? prisma.follow.findFirst({
           where: { userId: session.user.id, targetType: "PROJECT", targetProject: { published: true } },
           select: {
-            targetProject: { select: { id: true, title: true, category: true, status: true } },
+            targetProject: {
+              select: { id: true, title: true, category: true, status: true, profile: true },
+            },
           },
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve(null),
+    session?.user
+      ? prisma.project.findMany({
+          where: { published: true, updatedAt: { gte: ninetyDaysAgo } },
+          include: {
+            vendor: { select: { name: true, slug: true } },
+            _count: { select: { favorites: true, followers: true, comments: true, updates: true } },
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 48,
+        })
+      : Promise.resolve([]),
   ]);
 
   const trendingProjects = trendingCandidates
@@ -151,20 +169,40 @@ export default async function HomePage() {
     .slice(0, 8);
 
   const followedIds = new Set(followedProjectIds.map((f) => f.targetId));
-  const followedRecommendations = anchorFollowedProject?.targetProject
-    ? await prisma.project.findMany({
-        where: {
-          published: true,
-          id: { notIn: [...followedIds, anchorFollowedProject.targetProject.id] },
-          OR: [
-            { category: anchorFollowedProject.targetProject.category },
-            { status: anchorFollowedProject.targetProject.status },
-          ],
-        },
-        include: { vendor: { select: { name: true, slug: true } }, _count: { select: { favorites: true } } },
-        orderBy: { updatedAt: "desc" },
-        take: 6,
-      })
+  const anchorProject = anchorFollowedProject?.targetProject ?? null;
+  const followedRecommendations = anchorProject
+    ? followedRecommendationCandidates
+        .filter(
+          (project) =>
+            !followedIds.has(project.id) &&
+            project.id !== anchorProject.id &&
+            project.category === anchorProject.category
+        )
+        .sort((a, b) => {
+          const scoreCandidate = (project: (typeof followedRecommendationCandidates)[number]) =>
+            scoreFollowedProjectRecommendation(
+              anchorProject,
+              {
+                category: project.category,
+                status: project.status,
+                profile: project.profile,
+                favoritesCount: project._count.favorites,
+                followersCount: project._count.followers,
+                commentsCount: project._count.comments,
+                updatesCount: project._count.updates,
+                updatedAt: project.updatedAt,
+                createdAt: project.createdAt,
+              },
+              now
+            );
+
+          const scoreDelta =
+            scoreCandidate(b) - scoreCandidate(a);
+
+          if (scoreDelta !== 0) return scoreDelta;
+          return b.updatedAt.getTime() - a.updatedAt.getTime();
+        })
+        .slice(0, 6)
     : [];
 
   return (
@@ -239,11 +277,11 @@ export default async function HomePage() {
         </section>
       )}
 
-      {followedRecommendations.length > 0 && anchorFollowedProject?.targetProject && (
+      {followedRecommendations.length > 0 && anchorProject && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold tracking-tight">
-              Because you follow {anchorFollowedProject.targetProject.title}
+              Because you follow {anchorProject.title}
             </h2>
             <Button variant="ghost" asChild>
               <Link href="/projects">

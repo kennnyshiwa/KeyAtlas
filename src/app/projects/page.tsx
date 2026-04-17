@@ -14,6 +14,8 @@ import Link from "next/link";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
+import { addDays } from "date-fns";
+import { scoreFollowedProjectRecommendation } from "@/lib/project-discovery";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,8 @@ interface ProjectsPageProps {
 
 export default async function ProjectsPage({ searchParams }: ProjectsPageProps) {
   const params = await searchParams;
+  const now = new Date();
+  const ninetyDaysAgo = addDays(now, -90);
   const page = Number(params.page ?? "1");
   const limit = 12;
   const offset = (page - 1) * limit;
@@ -95,7 +99,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
   const session = await auth();
 
-  const [projects, total, allVendors, followedProjectIds, anchorFollowedProject, matchingDesigners, matchingVendors] = await Promise.all([
+  const [projects, total, allVendors, followedProjectIds, anchorFollowedProject, followedRecommendationCandidates, matchingDesigners, matchingVendors] = await Promise.all([
     prisma.project.findMany({
       where,
       include: {
@@ -120,10 +124,25 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     session?.user
       ? prisma.follow.findFirst({
           where: { userId: session.user.id, targetType: "PROJECT", targetProject: { published: true } },
-          select: { targetProject: { select: { id: true, title: true, category: true, status: true } } },
+          select: {
+            targetProject: {
+              select: { id: true, title: true, category: true, status: true, profile: true },
+            },
+          },
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve(null),
+    session?.user
+      ? prisma.project.findMany({
+          where: { published: true, updatedAt: { gte: ninetyDaysAgo } },
+          include: {
+            vendor: { select: { name: true, slug: true } },
+            _count: { select: { favorites: true, followers: true, comments: true, updates: true } },
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 48,
+        })
+      : Promise.resolve([]),
     params.q
       ? prisma.designer.findMany({
           where: { name: { contains: params.q, mode: "insensitive" } },
@@ -141,23 +160,40 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   ]);
 
   const followedIds = new Set(followedProjectIds.map((f) => f.targetId));
-  const followedRecommendations = anchorFollowedProject?.targetProject
-    ? await prisma.project.findMany({
-        where: {
-          published: true,
-          id: { notIn: [...followedIds, anchorFollowedProject.targetProject.id] },
-          OR: [
-            { category: anchorFollowedProject.targetProject.category },
-            { status: anchorFollowedProject.targetProject.status },
-          ],
-        },
-        include: {
-          vendor: { select: { name: true, slug: true } },
-          _count: { select: { favorites: true } },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 4,
-      })
+  const anchorProject = anchorFollowedProject?.targetProject ?? null;
+  const followedRecommendations = anchorProject
+    ? followedRecommendationCandidates
+        .filter(
+          (project) =>
+            !followedIds.has(project.id) &&
+            project.id !== anchorProject.id &&
+            project.category === anchorProject.category
+        )
+        .sort((a, b) => {
+          const scoreCandidate = (project: (typeof followedRecommendationCandidates)[number]) =>
+            scoreFollowedProjectRecommendation(
+              anchorProject,
+              {
+                category: project.category,
+                status: project.status,
+                profile: project.profile,
+                favoritesCount: project._count.favorites,
+                followersCount: project._count.followers,
+                commentsCount: project._count.comments,
+                updatesCount: project._count.updates,
+                updatedAt: project.updatedAt,
+                createdAt: project.createdAt,
+              },
+              now
+            );
+
+          const scoreDelta =
+            scoreCandidate(b) - scoreCandidate(a);
+
+          if (scoreDelta !== 0) return scoreDelta;
+          return b.updatedAt.getTime() - a.updatedAt.getTime();
+        })
+        .slice(0, 4)
     : [];
 
   return (
@@ -205,9 +241,9 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
         <SearchResultsBar matchingDesigners={matchingDesigners} matchingVendors={matchingVendors} />
       )}
 
-      {followedRecommendations.length > 0 && anchorFollowedProject?.targetProject && (
+      {followedRecommendations.length > 0 && anchorProject && (
         <section className="space-y-3 rounded-lg border p-4">
-          <h2 className="text-lg font-semibold">From projects you follow: {anchorFollowedProject.targetProject.title}</h2>
+          <h2 className="text-lg font-semibold">From projects you follow: {anchorProject.title}</h2>
           <ProjectGrid projects={followedRecommendations} viewMode="compact" />
         </section>
       )}
