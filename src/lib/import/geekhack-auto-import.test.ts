@@ -4,6 +4,7 @@ import {
   buildGeekhackTitleFingerprint,
   isConservativeLifecycleDuplicate,
   findHardDuplicateMatch,
+  stripBrokenImageBlocksFromHtml,
 } from "./geekhack-auto-import";
 
 describe("buildLifecycleStableTitleKey", () => {
@@ -152,5 +153,20 @@ describe("findHardDuplicateMatch", () => {
     );
 
     expect(match).toBeNull();
+  });
+});
+
+describe("stripBrokenImageBlocksFromHtml", () => {
+  it("removes unreachable gallery-style images but keeps nearby text", async () => {
+    const html =
+      '<strong>Kits</strong><br /><a href="https://i.postimg.cc/example/kit.png"><img src="https://i.postimg.cc/example/kit.png" class="bbc_img" /></a><br /><br /><strong>Renders</strong><br /><a href="https://i.postimg.cc/example/render.png"><img src="https://i.postimg.cc/example/render.png" class="bbc_img" /></a><br />Amano by h40';
+
+    const cleaned = await stripBrokenImageBlocksFromHtml(html, async (url) => !url.includes("postimg"));
+
+    expect(cleaned).toContain("<strong>Kits</strong>");
+    expect(cleaned).toContain("<strong>Renders</strong>");
+    expect(cleaned).toContain("Amano by h40");
+    expect(cleaned).not.toContain("https://i.postimg.cc/example/kit.png");
+    expect(cleaned).not.toContain("https://i.postimg.cc/example/render.png");
   });
 });

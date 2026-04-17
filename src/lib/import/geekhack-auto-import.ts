@@ -144,6 +144,25 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isDecorativeImportedImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const lowerPath = parsed.pathname.toLowerCase();
+
+    if (lowerPath.includes("/smileys/")) return true;
+    if (/\/themes\/[^/]+\/images\//i.test(lowerPath)) return true;
+    if (parsed.hostname.includes("tapatalk-cdn.com") && lowerPath.includes("emoji")) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * HEAD-check a URL to verify it returns a valid image response.
  * Returns true if the URL is reachable and returns an image content-type.
@@ -170,6 +189,38 @@ async function isImageUrlReachable(url: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function stripBrokenImageBlocksFromHtml(
+  html: string,
+  isReachable: (url: string) => Promise<boolean> = isImageUrlReachable
+): Promise<string> {
+  if (!html.trim()) return html;
+
+  const imageUrls = [...new Set(Array.from(html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi), (m) => m[1]))]
+    .filter(Boolean)
+    .filter((url) => !isDecorativeImportedImageUrl(url));
+
+  let cleaned = html;
+
+  for (const url of imageUrls) {
+    if (await isReachable(url)) continue;
+
+    const escapedUrl = escapeRegExp(url);
+    const linkedImagePattern = new RegExp(
+      `<a\\b[^>]*href=["']${escapedUrl}["'][^>]*>\\s*<img\\b[^>]*src=["']${escapedUrl}["'][^>]*\\/?>(?:\\s*</a>)?`,
+      "gi"
+    );
+    const imagePattern = new RegExp(`<img\\b[^>]*src=["']${escapedUrl}["'][^>]*\\/?>`, "gi");
+
+    cleaned = cleaned.replace(linkedImagePattern, "");
+    cleaned = cleaned.replace(imagePattern, "");
+  }
+
+  return cleaned
+    .replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br /><br />")
+    .replace(/(<strong>[^<]+<\/strong>)<br \/><br \/>/gi, "$1<br />")
+    .trim();
 }
 
 // ── Result summary type ───────────────────────────────────────────────────────
@@ -556,6 +607,12 @@ async function importTopic(
     mirroredDescription = await mirrorImgurImageSrcsInHtml(prefill.description, creatorId);
   } catch (err) {
     console.warn(`${logPrefix} image mirroring (description) failed:`, err);
+  }
+
+  try {
+    mirroredDescription = await stripBrokenImageBlocksFromHtml(mirroredDescription);
+  } catch (err) {
+    console.warn(`${logPrefix} image cleanup (description) failed:`, err);
   }
 
   let mirroredImages = prefill.images;
