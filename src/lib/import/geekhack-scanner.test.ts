@@ -130,6 +130,7 @@ describe("parseTopicsFromBoardHtml", () => {
       <div id="messageindex">
         <a href="https://geekhack.org/index.php?topic=19878.0">NIB IBM 122 key terminal emulators</a>
         <a href="https://geekhack.org/index.php?topic=16830.0">team liquid key</a>
+        <a href="https://geekhack.org/index.php?topic=21961.0">[Intrest Check] Finger Print function key</a>
         <a href="https://geekhack.org/index.php?topic=123999.0">[IC] Totally Real Keyboard</a>
       </div>
     `;
@@ -173,6 +174,10 @@ describe("isJunkTitle", () => {
 
   it("flags the explicitly ignored team liquid thread", () => {
     expect(isJunkTitle("team liquid key")).toBe(true);
+  });
+
+  it("flags the explicitly ignored finger print thread", () => {
+    expect(isJunkTitle("[Intrest Check] Finger Print function key")).toBe(true);
   });
 });
 
