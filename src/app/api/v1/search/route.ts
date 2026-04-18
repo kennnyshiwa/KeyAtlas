@@ -11,6 +11,32 @@ try {
   // Meilisearch unavailable — will fallback to Prisma
 }
 
+async function filterToLiveProjectHits<T>(hits: T[]): Promise<T[]> {
+  if (hits.length === 0) return hits;
+
+  const getId = (hit: T) => {
+    const id = (hit as { id?: unknown }).id;
+    return typeof id === "string" ? id : null;
+  };
+
+  const ids = hits.map(getId).filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return [];
+
+  const liveProjects = await prisma.project.findMany({
+    where: {
+      id: { in: ids },
+      published: true,
+    },
+    select: { id: true },
+  });
+
+  const liveIds = new Set(liveProjects.map((project) => project.id));
+  return hits.filter((hit) => {
+    const id = getId(hit);
+    return id !== null && liveIds.has(id);
+  });
+}
+
 export async function GET(req: NextRequest) {
   const user = await authenticateApiKey(req).catch(() => null);
   const rateLimitKey = user?.id ?? (req.headers.get("x-forwarded-for") ?? "anon");
@@ -90,8 +116,10 @@ export async function GET(req: NextRequest) {
         designerPromise,
       ]);
 
+      const projectHits = await filterToLiveProjectHits(results.hits);
+
       return NextResponse.json({
-        data: results.hits,
+        data: projectHits,
         vendors: vendors.map((v) => ({
           id: v.id,
           name: v.name,
@@ -116,8 +144,8 @@ export async function GET(req: NextRequest) {
         pagination: {
           page,
           limit,
-          total: results.estimatedTotalHits ?? results.hits.length,
-          totalPages: Math.ceil((results.estimatedTotalHits ?? results.hits.length) / limit),
+          total: projectHits.length,
+          totalPages: Math.ceil(projectHits.length / limit),
         },
       });
     } catch {

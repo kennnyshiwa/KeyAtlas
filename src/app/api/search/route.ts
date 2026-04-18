@@ -1,5 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchProjects, searchDesigners, searchVendors } from "@/lib/meilisearch";
+import { prisma } from "@/lib/prisma";
+
+async function filterToLiveProjectHits<T>(hits: T[]): Promise<T[]> {
+  if (hits.length === 0) return hits;
+
+  const getId = (hit: T) => {
+    const id = (hit as { id?: unknown }).id;
+    return typeof id === "string" ? id : null;
+  };
+
+  const ids = hits.map(getId).filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return [];
+
+  const liveProjects = await prisma.project.findMany({
+    where: {
+      id: { in: ids },
+      published: true,
+    },
+    select: { id: true },
+  });
+
+  const liveIds = new Set(liveProjects.map((project) => project.id));
+  return hits.filter((hit) => {
+    const id = getId(hit);
+    return id !== null && liveIds.has(id);
+  });
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,7 +49,8 @@ export async function GET(req: NextRequest) {
       limit,
       offset,
     });
-    return NextResponse.json({ ...results, hits: results.hits });
+    const hits = await filterToLiveProjectHits(results.hits);
+    return NextResponse.json({ ...results, hits, estimatedTotalHits: hits.length });
   }
 
   if (type === "designers") {
@@ -51,11 +79,13 @@ export async function GET(req: NextRequest) {
     searchVendors(q, { limit, offset }),
   ]);
 
+  const projectHits = await filterToLiveProjectHits(projectResults.hits);
+
   return NextResponse.json({
-    projects: projectResults.hits,
+    projects: projectHits,
     designers: designerResults.hits,
     vendors: vendorResults.hits,
     // Backward compat: legacy consumers reading `hits` get project hits
-    hits: projectResults.hits,
+    hits: projectHits,
   });
 }

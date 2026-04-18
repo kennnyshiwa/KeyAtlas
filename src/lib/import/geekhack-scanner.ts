@@ -110,6 +110,12 @@ export function isJunkTitle(title: string): boolean {
   return JUNK_TITLE_PATTERNS.some((pattern) => pattern.test(stripped));
 }
 
+function canonicalizeTitleAliases(title: string): string {
+  return title
+    .replace(/\bkey\s*kobo\b/gi, "keykobo")
+    .replace(/\bkkb\b/gi, "keykobo");
+}
+
 /**
  * Normalise a topic title for dedup comparison:
  * Strip common IC/GB prefix tags, lowercase, trim.
@@ -120,7 +126,7 @@ export function isJunkTitle(title: string): boolean {
  *   "[Interest Check] ..." → ...
  */
 export function normalizeTitleForDedup(title: string): string {
-  return title
+  return canonicalizeTitleAliases(title)
     .replace(/^\s*[\[【](?:IC|GB|GH|Interest Check|Group Buy)[\]】]\s*/gi, "")
     .replace(/^\s*(?:Interest Check|Group Buy)\s*[:\-–—]?\s*/gi, "")
     .trim()
@@ -135,7 +141,7 @@ export function normalizeTitleForDedup(title: string): string {
  */
 export function extractCoreName(title: string): string {
   return (
-    title
+    canonicalizeTitleAliases(title)
       // Strip IC/GB prefix tags (standard and fullwidth brackets)
       .replace(/^\s*[\[【](?:IC|GB|GH|Interest Check|Group Buy)[\]】]\s*/gi, "")
       .replace(/^\s*(?:Interest Check|Group Buy)\s*[:\-–—]?\s*/gi, "")

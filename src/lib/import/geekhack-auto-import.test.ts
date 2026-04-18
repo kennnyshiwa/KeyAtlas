@@ -32,6 +32,15 @@ describe("buildLifecycleStableTitleKey", () => {
     expect(pbt).not.toBe(abs);
   });
 
+  it("normalizes Key Kobo aliases for duplicate detection", () => {
+    const spaced = buildLifecycleStableTitleKey("[GB] Key Kobo Nori Keycap Set");
+    const collapsed = buildLifecycleStableTitleKey("[IC] KeyKobo Nori Keycap Set");
+    const short = buildLifecycleStableTitleKey("[IC] KKB Nori Keycap Set");
+
+    expect(spaced).toBe(collapsed);
+    expect(collapsed).toBe(short);
+  });
+
   it("keeps round/version token", () => {
     const r1 = buildLifecycleStableTitleKey("[IC] GMK Blossom R1");
     const r2 = buildLifecycleStableTitleKey("[IC] GMK Blossom R2 - GB Live");
@@ -66,6 +75,15 @@ describe("isConservativeLifecycleDuplicate", () => {
     expect(
       isConservativeLifecycleDuplicate("[IC] GMK Blossom R1", "[IC] GMK Blossom R2")
     ).toBe(false);
+  });
+
+  it("merges Key Kobo alias churn for the same set", () => {
+    expect(
+      isConservativeLifecycleDuplicate(
+        "[GB] Key Kobo Nori Keycap Set",
+        "[IC] KeyKobo Nori Keycap Set"
+      )
+    ).toBe(true);
   });
 });
 
