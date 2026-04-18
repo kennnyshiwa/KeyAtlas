@@ -752,13 +752,10 @@ async function importTopic(
     return { imported: false };
   }
 
-  // 2. Dedup by title
-  if (await isTitleAlreadyImported(entry.title)) {
-    console.log(`${logPrefix} skipped (title match: "${entry.title}")`);
-    return { imported: false };
-  }
-
-  // 3. Fetch full thread
+  // 2. Fetch full thread.
+  // Intentionally do not short-circuit on listing-title matches here, because
+  // a duplicate thread may still carry a newer Geekhack topic we want to attach
+  // onto the existing KeyAtlas project for enrichment/display lineage.
   let thread;
   try {
     thread = await fetchGeekhackThread(entry.url);
@@ -1137,12 +1134,13 @@ async function _doImport(
       continue;
     }
 
-    // DB-level dedup checks before fetching the full thread
+    // DB-level URL dedup check before fetching the full thread.
+    // Do not short-circuit on title here: a same-project newer GH thread may
+    // need to be attached to an existing KeyAtlas project as a secondary link.
     const topicIdFromListingUrl = extractGeekhackTopicIdFromUrl(entry.url) || entry.topicId;
     const urlDup = await isUrlAlreadyImported(topicIdFromListingUrl);
-    const titleDup = !urlDup && (await isTitleAlreadyImported(entry.title));
 
-    if (urlDup || titleDup) {
+    if (urlDup) {
       summary.skipped++;
       continue;
     }
