@@ -30,6 +30,11 @@ import {
   type GeekhackTopicEntry,
 } from "@/lib/import/geekhack-scanner";
 import { notifyGoogleIndexing, notifyGoogleOfSitemap } from "@/lib/google-indexing";
+import {
+  extractGeekhackTopicIdFromUrl,
+  inferGeekhackLinkLabel,
+  normalizeGeekhackUrl,
+} from "@/lib/import/geekhack-links";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
 // ── Board IDs ────────────────────────────────────────────────────────────────
@@ -263,20 +268,6 @@ async function uniqueSlug(base: string): Promise<string> {
 // ── Dedup helpers ─────────────────────────────────────────────────────────────
 
 /** Normalised Geekhack topic URL: always ?topic=NNNN.0 */
-function normalizeGeekhackUrl(topicId: string): string {
-  return `https://geekhack.org/index.php?topic=${topicId}.0`;
-}
-
-function extractGeekhackTopicIdFromUrl(rawUrl: string): string | null {
-  try {
-    const parsed = new URL(rawUrl);
-    if (!/geekhack\.org$/i.test(parsed.hostname)) return null;
-    return parsed.searchParams.get("topic")?.match(/^(\d+)/)?.[1] ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function getLatestImportedGeekhackTopicId(): Promise<number> {
   const links = await prisma.projectLink.findMany({
     where: { type: "GEEKHACK" },
@@ -295,6 +286,57 @@ async function getLatestImportedGeekhackTopicId(): Promise<number> {
   }
 
   return maxTopicId;
+}
+
+async function findProjectIdByGeekhackTopicId(topicId: string): Promise<string | null> {
+  const existing = await prisma.projectLink.findFirst({
+    where: {
+      type: "GEEKHACK",
+      OR: [
+        { url: normalizeGeekhackUrl(topicId) },
+        { url: { contains: `topic=${topicId}.` } },
+        { url: { contains: `topic=${topicId}` } },
+      ],
+    },
+    select: { projectId: true },
+  });
+
+  return existing?.projectId ?? null;
+}
+
+async function attachGeekhackLinkToProject(
+  projectId: string,
+  url: string,
+  projectStatus: ProjectStatus
+): Promise<"attached" | "already-linked"> {
+  const topicId = extractGeekhackTopicIdFromUrl(url);
+  const existing = await prisma.projectLink.findFirst({
+    where: {
+      projectId,
+      type: "GEEKHACK",
+      OR: topicId
+        ? [
+            { url },
+            { url: { contains: `topic=${topicId}.` } },
+            { url: { contains: `topic=${topicId}` } },
+          ]
+        : [{ url }],
+    },
+    select: { id: true },
+  });
+
+  if (existing) return "already-linked";
+
+  await prisma.projectLink.create({
+    data: {
+      projectId,
+      label: inferGeekhackLinkLabel(projectStatus),
+      url,
+      type: "GEEKHACK",
+    },
+  });
+
+  return "attached";
 }
 
 /**
@@ -726,17 +768,22 @@ async function importTopic(
     return { imported: false, error: msg };
   }
 
+  const canonicalTopicId = thread.topicId || entry.topicId;
+  const ghUrl = normalizeGeekhackUrl(canonicalTopicId);
+
   // 3a. Cross-thread link check: if the OP references another Geekhack topic
   //     that we already imported, this is almost certainly the same project
   //     (e.g. an IC thread linking to its GB thread or vice versa).
   const opHtml = thread.op?.contentHtml ?? thread.op?.contentText ?? "";
   const referencedTopicIds = extractReferencedTopicIds(opHtml)
-    .filter((id) => id !== entry.topicId && id !== (thread.topicId ?? entry.topicId));
+    .filter((id) => id !== entry.topicId && id !== canonicalTopicId);
   if (referencedTopicIds.length > 0) {
     for (const refId of referencedTopicIds) {
-      if (await isUrlAlreadyImported(refId)) {
+      const existingProjectId = await findProjectIdByGeekhackTopicId(refId);
+      if (existingProjectId) {
+        const linkAction = await attachGeekhackLinkToProject(existingProjectId, ghUrl, inferredStatus);
         console.log(
-          `${logPrefix} skipped (OP cross-references already-imported topic=${refId})`
+          `${logPrefix} skipped (OP cross-references already-imported topic=${refId}, existing project=${existingProjectId}, link=${linkAction})`
         );
         return { imported: false };
       }
@@ -813,8 +860,6 @@ async function importTopic(
   const heroImage = validatedImages[0]?.url ?? null;
 
   // 11. Create project via Prisma — with atomic duplicate guard
-  const canonicalTopicId = thread.topicId || entry.topicId;
-  const ghUrl = normalizeGeekhackUrl(canonicalTopicId);
   let project;
   try {
     // Final DB-level dedup check right before insert (prevents race conditions)
@@ -863,8 +908,13 @@ async function importTopic(
     );
 
     if (duplicateMatch) {
+      const linkAction = await attachGeekhackLinkToProject(
+        duplicateMatch.projectId,
+        ghUrl,
+        inferredStatus
+      );
       console.log(
-        `${logPrefix} skipped (hard duplicate gate: ${duplicateMatch.reason}, existing project=${duplicateMatch.projectId})`
+        `${logPrefix} skipped (hard duplicate gate: ${duplicateMatch.reason}, existing project=${duplicateMatch.projectId}, link=${linkAction})`
       );
       return { imported: false };
     }
@@ -890,7 +940,7 @@ async function importTopic(
         links: {
           create: [
             {
-              label: inferredStatus === "GROUP_BUY" ? "Geekhack GB" : "Geekhack IC",
+              label: inferGeekhackLinkLabel(inferredStatus),
               url: ghUrl,
               type: "GEEKHACK" as const,
             },

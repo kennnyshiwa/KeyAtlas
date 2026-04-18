@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchGeekhackThread } from "@/lib/import/geekhack";
 import { enrichProject, buildVendorLookups, cleanProjectText } from "@/lib/import/geekhack-enrich";
+import { selectCanonicalGeekhackLink } from "@/lib/import/geekhack-links";
 import { indexProject } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
 
@@ -82,8 +83,7 @@ export async function GET(req: NextRequest) {
       createdAt: true,
       links: {
         where: { type: "GEEKHACK" },
-        select: { url: true },
-        take: 1,
+        select: { url: true, label: true },
       },
       projectVendors: {
         select: { vendorId: true, region: true },
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
     summary.processed++;
 
     try {
-      const ghLink = project.links[0]?.url;
+      const ghLink = selectCanonicalGeekhackLink(project.status, project.links);
       if (!ghLink) {
         console.log(`[cron/geekhack-enrich] No Geekhack link for "${project.title}" — skipping`);
         summary.skipped++;
@@ -125,8 +125,10 @@ export async function GET(req: NextRequest) {
       }
 
       // Fetch thread
-      console.log(`[cron/geekhack-enrich] Fetching thread for "${project.title}": ${ghLink}`);
-      const thread = await fetchGeekhackThread(ghLink);
+      console.log(
+        `[cron/geekhack-enrich] Fetching canonical thread for "${project.title}": ${ghLink.url}`
+      );
+      const thread = await fetchGeekhackThread(ghLink.url);
 
       if (!thread.op) {
         console.log(`[cron/geekhack-enrich] No OP found for "${project.title}" — skipping`);
