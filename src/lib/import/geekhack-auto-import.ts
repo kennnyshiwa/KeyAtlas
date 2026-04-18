@@ -277,6 +277,26 @@ function extractGeekhackTopicIdFromUrl(rawUrl: string): string | null {
   }
 }
 
+async function getLatestImportedGeekhackTopicId(): Promise<number> {
+  const links = await prisma.projectLink.findMany({
+    where: { type: "GEEKHACK" },
+    select: { url: true },
+  });
+
+  let maxTopicId = 0;
+  for (const link of links) {
+    const topicId = extractGeekhackTopicIdFromUrl(link.url);
+    if (!topicId) continue;
+
+    const parsed = Number(topicId);
+    if (Number.isFinite(parsed) && parsed > maxTopicId) {
+      maxTopicId = parsed;
+    }
+  }
+
+  return maxTopicId;
+}
+
 /**
  * Check whether a Geekhack topic URL is already in project_links.
  * We check both the exact normalised URL and any URL containing the topic ID
@@ -313,6 +333,75 @@ const TOKEN_STOPWORDS = new Set([
   "keycaps",
   "keycap",
   "project",
+]);
+
+const PRODUCT_FAMILY_STOPWORDS = new Set([
+  ...TOKEN_STOPWORDS,
+  "a",
+  "an",
+  "by",
+  "of",
+  "to",
+  "on",
+  "now",
+  "new",
+  "more",
+  "choice",
+  "choices",
+  "bigger",
+  "available",
+  "live",
+  "open",
+  "opened",
+  "opening",
+  "starts",
+  "start",
+  "starting",
+  "ends",
+  "end",
+  "ending",
+  "until",
+  "through",
+  "update",
+  "updates",
+  "redefining",
+  "sound",
+  "customization",
+  "premium",
+  "affordable",
+  "aluminum",
+  "artisan",
+  "artisans",
+  "case",
+  "cases",
+  "display",
+  "stand",
+  "keyboard",
+  "keyboards",
+  "keycap",
+  "keycaps",
+  "pad",
+  "pads",
+  "sold",
+  "out",
+  "complete",
+  "sale",
+  "instock",
+  "stock",
+  "shipping",
+  "shipped",
+  "production",
+  "manufacturing",
+  "version",
+  "versions",
+  "project",
+  "projects",
+  "gb",
+  "ic",
+  "group",
+  "buy",
+  "interest",
+  "check",
 ]);
 
 const PROFILE_OR_FAMILY_TOKENS = new Set([
@@ -352,6 +441,7 @@ function tokenizeFingerprintKey(value: string): string[] {
 export interface GeekhackTitleFingerprint {
   key: string;
   brandOrProfile: string[];
+  productFamilyKey: string;
   rounds: string[];
   tokens: string[];
 }
@@ -375,11 +465,13 @@ export function buildGeekhackTitleFingerprint(title: string): GeekhackTitleFinge
   const key = buildLifecycleStableTitleKey(title);
   const tokens = tokenizeFingerprintKey(key);
   const brandOrProfile = tokens.filter((t) => PROFILE_OR_FAMILY_TOKENS.has(t)).sort();
+  const productFamilyKey = buildProductFamilyKey(title);
   const rounds = tokens.filter((t) => /^r\d{1,2}$/.test(t)).sort();
 
   return {
     key,
     brandOrProfile,
+    productFamilyKey,
     rounds,
     tokens: Array.from(new Set(tokens)).sort(),
   };
@@ -387,6 +479,41 @@ export function buildGeekhackTitleFingerprint(title: string): GeekhackTitleFinge
 
 function sortedJoin(values: string[]): string {
   return Array.from(new Set(values)).sort().join("|");
+}
+
+function tokenizeProductFamilyKey(value: string): string[] {
+  return value
+    .replace(/\+/g, "plus")
+    .replace(/&/g, " ")
+    .split(/[^a-z0-9]+/gi)
+    .map((t) => t.toLowerCase())
+    .filter((t) => t.length >= 2)
+    .filter((t) => !PRODUCT_FAMILY_STOPWORDS.has(t))
+    .filter((t) => !/^\d{1,2}(?:st|nd|rd|th)?$/.test(t))
+    .filter((t) => !/^\d{1,2}x\d{1,2}$/.test(t));
+}
+
+function buildProductFamilyKey(title: string): string {
+  return tokenizeProductFamilyKey(extractCoreName(title)).slice(0, 4).join(" ");
+}
+
+function hasStrongProductFamilyIdentity(key: string): boolean {
+  return key
+    .split(/\s+/)
+    .filter(Boolean)
+    .some((token) => /\d/.test(token) || token.includes("plus") || token.length >= 6);
+}
+
+function isTokenPrefixMatch(a: string, b: string): boolean {
+  if (!a || !b) return false;
+
+  const aTokens = a.split(/\s+/).filter(Boolean);
+  const bTokens = b.split(/\s+/).filter(Boolean);
+  const shorter = aTokens.length <= bTokens.length ? aTokens : bTokens;
+  const longer = aTokens.length <= bTokens.length ? bTokens : aTokens;
+
+  if (shorter.length === 0) return false;
+  return shorter.every((token, idx) => longer[idx] === token);
 }
 
 /**
@@ -431,6 +558,25 @@ export function isConservativeLifecycleDuplicate(aTitle: string, bTitle: string)
     }
   }
 
+  // Product-family prefix match: tolerate descriptive tail churn when the
+  // core model/family anchor is clearly the same project.
+  if (a.productFamilyKey && b.productFamilyKey) {
+    if (
+      sortedJoin(a.brandOrProfile) === sortedJoin(b.brandOrProfile) &&
+      sortedJoin(a.rounds) === sortedJoin(b.rounds) &&
+      isTokenPrefixMatch(a.productFamilyKey, b.productFamilyKey)
+    ) {
+      const shorterKey =
+        a.productFamilyKey.length <= b.productFamilyKey.length
+          ? a.productFamilyKey
+          : b.productFamilyKey;
+
+      if (hasStrongProductFamilyIdentity(shorterKey)) {
+        return true;
+      }
+    }
+  }
+
   // Keep product-defining signatures aligned (don't merge GMK vs SA, PBT vs ABS, R1 vs R2).
   if (sortedJoin(a.brandOrProfile) !== sortedJoin(b.brandOrProfile)) return false;
   if (sortedJoin(a.rounds) !== sortedJoin(b.rounds)) return false;
@@ -471,7 +617,7 @@ export function buildLifecycleStableTitleKey(title: string): string {
   }
 
   return v
-    .replace(/[|:/\\]+/g, " ")
+    .replace(/[|:/\\,!.]+/g, " ")
     .replace(/[-–—]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -821,6 +967,8 @@ export async function runGeekhackAutoImport(opts?: {
   maxImports?: number;
   /** Max board listing pages to scan per board (default 3). */
   maxPages?: number;
+  /** Only consider topic IDs newer than this. Default: current latest imported Geekhack topic. */
+  minTopicIdExclusive?: number;
 }): Promise<AutoImportSummary> {
   // Prevent concurrent runs — lock auto-expires after LOCK_TTL_MS to avoid stuck state
   const now = Date.now();
@@ -833,11 +981,12 @@ export async function runGeekhackAutoImport(opts?: {
 
   const maxImports = opts?.maxImports ?? Infinity;
   const maxPages = opts?.maxPages ?? 3;
+  const minTopicIdExclusive = opts?.minTopicIdExclusive ?? (await getLatestImportedGeekhackTopicId());
   const creatorId =
     process.env.GEEKHACK_IMPORT_USER_ID ?? "cmlwzwwpn000001qpgnkb363r";
 
   try {
-    return await _doImport(maxImports, maxPages, creatorId);
+    return await _doImport(maxImports, maxPages, creatorId, minTopicIdExclusive);
   } finally {
     _runningUntil = 0;
   }
@@ -846,7 +995,8 @@ export async function runGeekhackAutoImport(opts?: {
 async function _doImport(
   maxImports: number,
   maxPages: number,
-  creatorId: string
+  creatorId: string,
+  minTopicIdExclusive: number
 ): Promise<AutoImportSummary> {
   const summary: AutoImportSummary = {
     scanned: 0,
@@ -899,15 +1049,24 @@ async function _doImport(
     }
   }
 
-  summary.scanned = allWork.length;
-  console.log(`[geekhack-auto-import] Total unique topics to evaluate: ${summary.scanned}`);
+  const filteredWork = minTopicIdExclusive > 0
+    ? allWork.filter(({ entry }) => Number(entry.topicId) > minTopicIdExclusive)
+    : allWork;
+
+  summary.scanned = filteredWork.length;
+  console.log(
+    `[geekhack-auto-import] Total unique topics to evaluate: ${summary.scanned}` +
+      (minTopicIdExclusive > 0
+        ? ` (recent-only, topicId > ${minTopicIdExclusive}; filtered out ${allWork.length - filteredWork.length} older topics)`
+        : "")
+  );
 
   // ── Process topics one at a time with rate-limiting ───────────────────────
   // In-memory dedup to prevent duplicates within a single run
   const importedThisRun = new Set<string>();
 
-  for (let i = 0; i < allWork.length; i++) {
-    const { entry, status } = allWork[i];
+  for (let i = 0; i < filteredWork.length; i++) {
+    const { entry, status } = filteredWork[i];
 
     // Skip meta/admin posts that slipped through the scanner
     if (isMetaPost(entry.title)) {

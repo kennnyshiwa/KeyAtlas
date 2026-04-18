@@ -39,13 +39,18 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const maxImports = searchParams.get("maxImports") ? Number(searchParams.get("maxImports")) : undefined;
   const maxPages = searchParams.get("maxPages") ? Number(searchParams.get("maxPages")) : undefined;
+  const minTopicIdExclusive = searchParams.get("minTopicIdExclusive")
+    ? Number(searchParams.get("minTopicIdExclusive"))
+    : undefined;
 
-  console.log(`[cron/geekhack-scan] Triggered — starting auto-import (maxImports=${maxImports ?? "∞"}, maxPages=${maxPages ?? 3})`);
+  console.log(
+    `[cron/geekhack-scan] Triggered — starting auto-import (maxImports=${maxImports ?? "∞"}, maxPages=${maxPages ?? 3}, minTopicIdExclusive=${minTopicIdExclusive ?? "latest-imported"})`
+  );
 
   const startedAt = Date.now();
 
   try {
-    const summary = await runGeekhackAutoImport({ maxImports, maxPages });
+    const summary = await runGeekhackAutoImport({ maxImports, maxPages, minTopicIdExclusive });
 
     const durationMs = Date.now() - startedAt;
 

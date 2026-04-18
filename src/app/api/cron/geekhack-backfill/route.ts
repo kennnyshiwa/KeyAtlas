@@ -45,7 +45,11 @@ export async function GET(req: NextRequest) {
   const startedAt = Date.now();
 
   try {
-    const summary = await runGeekhackAutoImport({ maxImports, maxPages });
+    const summary = await runGeekhackAutoImport({
+      maxImports,
+      maxPages,
+      minTopicIdExclusive: 0,
+    });
     const durationMs = Date.now() - startedAt;
 
     console.log(

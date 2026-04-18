@@ -85,12 +85,31 @@ describe("isConservativeLifecycleDuplicate", () => {
       )
     ).toBe(true);
   });
+
+  it("merges lifecycle title churn for WIND X98 R2", () => {
+    expect(
+      isConservativeLifecycleDuplicate(
+        "WIND X98 R2,Southpaw available,GB 28th Dec to 11th Jan",
+        "【IC】WIND X98 R2"
+      )
+    ).toBe(true);
+  });
+
+  it("merges product-family headline churn for Zoom75", () => {
+    expect(
+      isConservativeLifecycleDuplicate(
+        "Zoom75 Update - GB ends on April 20",
+        "ZOOM75 TIGA & PAD - Redefining Sound and Customization, GB Live!"
+      )
+    ).toBe(true);
+  });
 });
 
 describe("buildGeekhackTitleFingerprint", () => {
   it("captures profile/material/round in fingerprint", () => {
     const fp = buildGeekhackTitleFingerprint("[IC] GMK Blossom ABS R2 - Final IC");
     expect(fp.brandOrProfile).toEqual(["abs", "gmk"]);
+    expect(fp.productFamilyKey).toBe("gmk blossom abs r2");
     expect(fp.rounds).toEqual(["r2"]);
     expect(fp.tokens).toContain("blossom");
   });
