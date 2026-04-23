@@ -16,7 +16,11 @@ import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 import { indexProject } from "@/lib/meilisearch";
 import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
-import { fetchGeekhackThread, buildGeekhackPrefillPayload } from "@/lib/import/geekhack";
+import {
+  fetchGeekhackThread,
+  buildGeekhackPrefillPayload,
+  type ExtractedThread,
+} from "@/lib/import/geekhack";
 import {
   mirrorImgurImageSrcsInHtml,
   mirrorPrefillImages,
@@ -43,6 +47,8 @@ const GB_BOARD_ID = 132;
 
 // ── Rate-limiting ─────────────────────────────────────────────────────────────
 const DELAY_BETWEEN_FETCHES_MS = 3_000;
+const RETRY_THIN_THREAD_FETCH_DELAY_MS = 1_500;
+const MIN_IMPORT_CONTENT_CHARS = 100;
 
 // ── HTML entity decoding ──────────────────────────────────────────────────────
 
@@ -147,6 +153,55 @@ function inferCategory(title: string, contentText?: string): ProjectCategory {
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function getThreadBodyTextLength(thread: ExtractedThread | null | undefined): number {
+  return thread?.op?.contentText
+    ?.replace(/\s+/g, " ")
+    .trim()
+    .length ?? 0;
+}
+
+export async function fetchGeekhackThreadWithRetry(
+  topicUrl: string,
+  opts?: {
+    attempts?: number;
+    minContentChars?: number;
+    delayMs?: number;
+    fetcher?: (topicUrl: string) => Promise<ExtractedThread>;
+    sleeper?: (ms: number) => Promise<void>;
+    onRetry?: (info: { attempt: number; attempts: number; contentChars: number; topicUrl: string }) => void;
+  }
+): Promise<ExtractedThread> {
+  const attempts = Math.max(1, opts?.attempts ?? 2);
+  const minContentChars = opts?.minContentChars ?? MIN_IMPORT_CONTENT_CHARS;
+  const fetcher = opts?.fetcher ?? fetchGeekhackThread;
+  const sleeper = opts?.sleeper ?? sleep;
+  const delayMs = opts?.delayMs ?? RETRY_THIN_THREAD_FETCH_DELAY_MS;
+
+  let lastThread: ExtractedThread | null = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const thread = await fetcher(topicUrl);
+    lastThread = thread;
+
+    const contentChars = getThreadBodyTextLength(thread);
+    if (contentChars >= minContentChars || attempt === attempts) {
+      return thread;
+    }
+
+    opts?.onRetry?.({ attempt, attempts, contentChars, topicUrl });
+
+    if (delayMs > 0) {
+      await sleeper(delayMs);
+    }
+  }
+
+  if (!lastThread) {
+    throw new Error(`Failed to fetch Geekhack thread: ${topicUrl}`);
+  }
+
+  return lastThread;
 }
 
 function escapeRegExp(value: string) {
@@ -758,7 +813,13 @@ async function importTopic(
   // onto the existing KeyAtlas project for enrichment/display lineage.
   let thread;
   try {
-    thread = await fetchGeekhackThread(entry.url);
+    thread = await fetchGeekhackThreadWithRetry(entry.url, {
+      onRetry: ({ attempt, attempts, contentChars }) => {
+        console.warn(
+          `${logPrefix} fetched suspiciously thin OP body (${contentChars} chars) on attempt ${attempt}/${attempts}, retrying`
+        );
+      },
+    });
   } catch (err) {
     const msg = `Failed to fetch thread ${entry.url}: ${err instanceof Error ? err.message : String(err)}`;
     console.error(`${logPrefix} ${msg}`);
@@ -832,7 +893,7 @@ async function importTopic(
     .trim()
     .length;
 
-  if (plainTextLength < 100) {
+  if (plainTextLength < MIN_IMPORT_CONTENT_CHARS) {
     console.log(`${logPrefix} skipped (insufficient content: ${plainTextLength} chars)`);
     return { imported: false };
   }

@@ -1,11 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   buildLifecycleStableTitleKey,
   buildGeekhackTitleFingerprint,
   isConservativeLifecycleDuplicate,
   findHardDuplicateMatch,
+  fetchGeekhackThreadWithRetry,
   stripBrokenImageBlocksFromHtml,
 } from "./geekhack-auto-import";
+import type { ExtractedThread } from "./geekhack";
 
 describe("buildLifecycleStableTitleKey", () => {
   it("matches IC/GB lifecycle title churn for same set", () => {
@@ -190,6 +192,79 @@ describe("findHardDuplicateMatch", () => {
     );
 
     expect(match).toBeNull();
+  });
+});
+
+describe("fetchGeekhackThreadWithRetry", () => {
+  function makeThread(contentText: string): ExtractedThread {
+    return {
+      sourceUrl: "https://geekhack.org/index.php?topic=126623.0",
+      fetchedAt: new Date().toISOString(),
+      topicId: "126623",
+      title: "KKB-Cross Impact",
+      canonicalUrl: "https://geekhack.org/index.php?topic=126623.0",
+      op: {
+        messageId: "1",
+        postNumber: 1,
+        author: "tester",
+        timestamp: null,
+        contentHtml: `<p>${contentText}</p>`,
+        contentText,
+        links: [],
+        imageUrls: [],
+      },
+      posts: [],
+      metadata: {
+        postCount: 1,
+        uniqueAuthors: 1,
+        allLinks: [],
+        allImageUrls: [],
+      },
+    };
+  }
+
+  it("retries once when the fetched OP body is suspiciously thin", async () => {
+    const fetcher = vi
+      .fn<(_: string) => Promise<ExtractedThread>>()
+      .mockResolvedValueOnce(makeThread("too short to trust"))
+      .mockResolvedValueOnce(makeThread("x".repeat(180)));
+    const sleeper = vi.fn<(_: number) => Promise<void>>().mockResolvedValue();
+    const onRetry = vi.fn();
+
+    const thread = await fetchGeekhackThreadWithRetry("https://geekhack.org/index.php?topic=126623.0", {
+      attempts: 2,
+      minContentChars: 100,
+      delayMs: 25,
+      fetcher,
+      sleeper,
+      onRetry,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(sleeper).toHaveBeenCalledWith(25);
+    expect(onRetry).toHaveBeenCalledWith(
+      expect.objectContaining({ attempt: 1, attempts: 2, contentChars: 18 })
+    );
+    expect(thread.op?.contentText.length).toBe(180);
+  });
+
+  it("returns immediately when the first fetch has enough content", async () => {
+    const fetcher = vi.fn<(_: string) => Promise<ExtractedThread>>().mockResolvedValue(makeThread("x".repeat(180)));
+    const sleeper = vi.fn<(_: number) => Promise<void>>().mockResolvedValue();
+    const onRetry = vi.fn();
+
+    const thread = await fetchGeekhackThreadWithRetry("https://geekhack.org/index.php?topic=126623.0", {
+      attempts: 2,
+      minContentChars: 100,
+      fetcher,
+      sleeper,
+      onRetry,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(sleeper).not.toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
+    expect(thread.op?.contentText.length).toBe(180);
   });
 });
 
