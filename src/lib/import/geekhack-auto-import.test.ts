@@ -67,6 +67,15 @@ describe("isConservativeLifecycleDuplicate", () => {
     ).toBe(false);
   });
 
+  it("does not merge SA and MTNU variants of the same name", () => {
+    expect(
+      isConservativeLifecycleDuplicate(
+        "[IC] SA A History of Violets",
+        "[GB] MTNU A History of Violets"
+      )
+    ).toBe(false);
+  });
+
   it("does not merge different materials", () => {
     expect(
       isConservativeLifecycleDuplicate("[IC] KKB Aurora PBT", "[IC] KKB Aurora ABS")
@@ -102,6 +111,15 @@ describe("isConservativeLifecycleDuplicate", () => {
       isConservativeLifecycleDuplicate(
         "Zoom75 Update - GB ends on April 20",
         "ZOOM75 TIGA & PAD - Redefining Sound and Customization, GB Live!"
+      )
+    ).toBe(true);
+  });
+
+  it("keeps true MTNU sibling IC/GB threads linked", () => {
+    expect(
+      isConservativeLifecycleDuplicate(
+        "[IC] MTNU A History of Violets",
+        "[GB] MTNU A History of Violets - GB Live"
       )
     ).toBe(true);
   });
@@ -187,6 +205,25 @@ describe("findHardDuplicateMatch", () => {
           id: "p3",
           title: "[IC] GMK Cosmos",
           links: [{ url: "https://geekhack.org/index.php?topic=22222.0" }],
+        },
+      ]
+    );
+
+    expect(match).toBeNull();
+  });
+
+  it("does not hard-dedupe MTNU A History of Violets onto SA project", () => {
+    const match = findHardDuplicateMatch(
+      {
+        topicId: "126622",
+        title: "[GB] MTNU A History of Violets",
+        sourceUrls: ["https://geekhack.org/index.php?topic=126622.0"],
+      },
+      [
+        {
+          id: "sa-ahov",
+          title: "[IC] SA A History of Violets",
+          links: [{ url: "https://geekhack.org/index.php?topic=126466.0" }],
         },
       ]
     );

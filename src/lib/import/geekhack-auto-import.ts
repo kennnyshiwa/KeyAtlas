@@ -343,7 +343,7 @@ async function getLatestImportedGeekhackTopicId(): Promise<number> {
   return maxTopicId;
 }
 
-async function findProjectIdByGeekhackTopicId(topicId: string): Promise<string | null> {
+async function findProjectByGeekhackTopicId(topicId: string): Promise<{ id: string; title: string } | null> {
   const existing = await prisma.projectLink.findFirst({
     where: {
       type: "GEEKHACK",
@@ -353,10 +353,17 @@ async function findProjectIdByGeekhackTopicId(topicId: string): Promise<string |
         { url: { contains: `topic=${topicId}` } },
       ],
     },
-    select: { projectId: true },
+    select: {
+      project: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
   });
 
-  return existing?.projectId ?? null;
+  return existing?.project ?? null;
 }
 
 async function attachGeekhackLinkToProject(
@@ -504,6 +511,7 @@ const PRODUCT_FAMILY_STOPWORDS = new Set([
 const PROFILE_OR_FAMILY_TOKENS = new Set([
   "gmk",
   "sa",
+  "mtnu",
   "dsa",
   "dcs",
   "dss",
@@ -829,30 +837,32 @@ async function importTopic(
   const canonicalTopicId = thread.topicId || entry.topicId;
   const ghUrl = normalizeGeekhackUrl(canonicalTopicId);
 
-  // 3a. Cross-thread link check: if the OP references another Geekhack topic
-  //     that we already imported, this is almost certainly the same project
-  //     (e.g. an IC thread linking to its GB thread or vice versa).
+  // 3a. Collect cross-thread references as hints only.
+  // Some posts reference similarly named but distinct sets, so we require
+  // a conservative title-fingerprint match before linking to an existing project.
   const opHtml = thread.op?.contentHtml ?? thread.op?.contentText ?? "";
   const referencedTopicIds = extractReferencedTopicIds(opHtml)
     .filter((id) => id !== entry.topicId && id !== canonicalTopicId);
-  if (referencedTopicIds.length > 0) {
-    for (const refId of referencedTopicIds) {
-      const existingProjectId = await findProjectIdByGeekhackTopicId(refId);
-      if (existingProjectId) {
-        const linkAction = await attachGeekhackLinkToProject(existingProjectId, ghUrl, inferredStatus);
-        console.log(
-          `${logPrefix} skipped (OP cross-references already-imported topic=${refId}, existing project=${existingProjectId}, link=${linkAction})`
-        );
-        return { imported: false };
-      }
-    }
-  }
 
   // 4. Build prefill
   const prefill = buildGeekhackPrefillPayload(thread);
 
   // 4a. Decode HTML entities in the title (e.g. &#12304; → 【)
   prefill.title = decodeHtmlEntities(prefill.title);
+
+  if (referencedTopicIds.length > 0) {
+    for (const refId of referencedTopicIds) {
+      const existingProject = await findProjectByGeekhackTopicId(refId);
+      if (!existingProject) continue;
+      if (!isConservativeLifecycleDuplicate(prefill.title, existingProject.title)) continue;
+
+      const linkAction = await attachGeekhackLinkToProject(existingProject.id, ghUrl, inferredStatus);
+      console.log(
+        `${logPrefix} skipped (OP cross-reference matched by title fingerprint: topic=${refId}, existing project=${existingProject.id}, link=${linkAction})`
+      );
+      return { imported: false };
+    }
+  }
 
   // 4b. Re-check junk/meta after full-thread title extraction — the listing
   //     title (entry.title) and the parsed thread title can differ. Old topics
@@ -953,14 +963,11 @@ async function importTopic(
       },
     });
 
-    // Include cross-referenced topic URLs so the hard gate also catches
-    // IC↔GB thread lineage links found in the OP body.
-    const crossRefUrls = referencedTopicIds.map((id) => normalizeGeekhackUrl(id));
     const duplicateMatch = findHardDuplicateMatch(
       {
         topicId: canonicalTopicId,
         title: prefill.title,
-        sourceUrls: [ghUrl, entry.url, ...crossRefUrls],
+        sourceUrls: [ghUrl, entry.url],
       },
       duplicateCandidates
     );
