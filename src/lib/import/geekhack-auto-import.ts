@@ -599,7 +599,18 @@ function tokenizeProductFamilyKey(value: string): string[] {
 }
 
 function buildProductFamilyKey(title: string): string {
-  return tokenizeProductFamilyKey(extractCoreName(title)).slice(0, 4).join(" ");
+  const coreTokens = tokenizeProductFamilyKey(extractCoreName(title));
+  const leadSegment = normalizeTitleForDedup(title).split(/\s+(?:\||[-–—:])\s+/)[0] ?? "";
+  const leadTokens = tokenizeProductFamilyKey(leadSegment);
+
+  const chosenTokens =
+    leadTokens.length >= 2 &&
+    leadTokens.length < coreTokens.length &&
+    hasStrongProductFamilyIdentity(leadTokens.join(" "))
+      ? leadTokens
+      : coreTokens;
+
+  return chosenTokens.slice(0, 4).join(" ");
 }
 
 function hasStrongProductFamilyIdentity(key: string): boolean {
@@ -621,6 +632,23 @@ function isTokenPrefixMatch(a: string, b: string): boolean {
   return shorter.every((token, idx) => longer[idx] === token);
 }
 
+function extractLeadingModelAnchor(title: string): string {
+  const leadSegment = normalizeTitleForDedup(title).split(/\s+(?:\||[-–—:])\s+/)[0] ?? "";
+  const tokens = leadSegment
+    .replace(/\+/g, "plus")
+    .split(/[^a-z0-9]+/gi)
+    .map((t) => t.toLowerCase())
+    .filter(Boolean);
+
+  if (tokens.length === 0) return "";
+  const first = tokens[0];
+  const second = tokens[1] ?? "";
+
+  if (/[a-z]/.test(first) && /\d/.test(first)) return first;
+  if (/^[a-z]+$/.test(first) && /^\d+[a-z]*$/.test(second)) return `${first}${second}`;
+  return first;
+}
+
 /**
  * True only when we have a high-confidence lifecycle match.
  * Conservative by design: false negatives are preferred over false positives.
@@ -632,6 +660,22 @@ export function isConservativeLifecycleDuplicate(aTitle: string, bTitle: string)
 
   // Strong exact stable-key match first.
   if (a.key === b.key && a.key.length >= 8) return true;
+
+  // Leading model anchors often stay stable across IC/GB title churn even when
+  // trailing headline copy changes heavily (e.g. Solar80 vs Solar-80 TKL).
+  const anchorA = extractLeadingModelAnchor(aTitle);
+  const anchorB = extractLeadingModelAnchor(bTitle);
+  if (
+    anchorA &&
+    anchorA === anchorB &&
+    anchorA.length >= 5 &&
+    /[a-z]/.test(anchorA) &&
+    /\d/.test(anchorA) &&
+    sortedJoin(a.brandOrProfile) === sortedJoin(b.brandOrProfile) &&
+    sortedJoin(a.rounds) === sortedJoin(b.rounds)
+  ) {
+    return true;
+  }
 
   // Core-name match: aggressively strip lifecycle/date/status noise and compare.
   // This catches cases like "Typemaster 180 75% Premium Board" vs
@@ -702,6 +746,7 @@ const LIFECYCLE_NOISE_PATTERNS: RegExp[] = [
   /\b(?:final\s+ic|final\s+update|update|updates?)\b/gi,
   /\b(?:live|open|opened|opening|starts?|starting|running|ended|ending|closed|closing|phase\s*\d+)\b/gi,
   /\b(?:shipping|shipped|delivering|delivered|production|manufacturing|extras|in[-\s]?stock|pre[-\s]?order)\b/gi,
+  /\b(?:complete|completed)\b/gi,
   /\b(?:now|soon|today|tomorrow)\b/gi,
   /\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g,
   /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/gi,

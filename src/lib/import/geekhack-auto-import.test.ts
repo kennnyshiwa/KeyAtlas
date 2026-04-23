@@ -123,6 +123,24 @@ describe("isConservativeLifecycleDuplicate", () => {
       )
     ).toBe(true);
   });
+
+  it("merges HyperBeige lifecycle/title variants", () => {
+    expect(
+      isConservativeLifecycleDuplicate(
+        "GMK CYL HyperBeige | Completed",
+        "GMK CYL HyperBeige – From Meme to Reality (GB thread is live!)"
+      )
+    ).toBe(true);
+  });
+
+  it("merges Solar80 and Solar-80 lifecycle/title variants", () => {
+    expect(
+      isConservativeLifecycleDuplicate(
+        "Solar80 - A Keyboard Born from the Cycle of Time!",
+        "Solar-80 TKL | GB Now Live!"
+      )
+    ).toBe(true);
+  });
 });
 
 describe("buildGeekhackTitleFingerprint", () => {
@@ -229,6 +247,44 @@ describe("findHardDuplicateMatch", () => {
     );
 
     expect(match).toBeNull();
+  });
+
+  it("falls back to title fingerprint for HyperBeige variants", () => {
+    const match = findHardDuplicateMatch(
+      {
+        topicId: "130001",
+        title: "GMK CYL HyperBeige – From Meme to Reality (GB thread is live!)",
+        sourceUrls: ["https://geekhack.org/index.php?topic=130001.0"],
+      },
+      [
+        {
+          id: "hyperbeige",
+          title: "GMK CYL HyperBeige | Completed",
+          links: [{ url: "https://geekhack.org/index.php?topic=120001.0" }],
+        },
+      ]
+    );
+
+    expect(match).toEqual({ projectId: "hyperbeige", reason: "title-fingerprint" });
+  });
+
+  it("falls back to title fingerprint for Solar80 variants", () => {
+    const match = findHardDuplicateMatch(
+      {
+        topicId: "130002",
+        title: "Solar-80 TKL | GB Now Live!",
+        sourceUrls: ["https://geekhack.org/index.php?topic=130002.0"],
+      },
+      [
+        {
+          id: "solar80",
+          title: "Solar80 - A Keyboard Born from the Cycle of Time!",
+          links: [{ url: "https://geekhack.org/index.php?topic=120002.0" }],
+        },
+      ]
+    );
+
+    expect(match).toEqual({ projectId: "solar80", reason: "title-fingerprint" });
   });
 });
 
