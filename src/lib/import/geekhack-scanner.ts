@@ -89,12 +89,14 @@ const JUNK_TITLE_PATTERNS = [
   /^nib\s+ibm\s+122\s+key\s+terminal\s+emulators$/i,
   /^team\s+liquid\s+key$/i,
   /^\[?intrest\s+check\]?\s+finger\s+print\s+function\s+key$/i,
+  /^daedalus\s+60$/i,
 ];
 
 const IGNORED_TOPIC_IDS = new Set([
   "19878", // NIB IBM 122 key terminal emulators
   "16830", // team liquid key
   "21961", // [Intrest Check] Finger Print function key
+  "119717", // Daedalus 60
 ]);
 
 /** Check if a title matches known meta/admin post patterns. */

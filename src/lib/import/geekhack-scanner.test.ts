@@ -179,6 +179,10 @@ describe("isJunkTitle", () => {
   it("flags the explicitly ignored finger print thread", () => {
     expect(isJunkTitle("[Intrest Check] Finger Print function key")).toBe(true);
   });
+
+  it("flags the explicitly ignored Daedalus 60 thread", () => {
+    expect(isJunkTitle("Daedalus 60")).toBe(true);
+  });
 });
 
 describe("normalizeTitleForDedup", () => {
