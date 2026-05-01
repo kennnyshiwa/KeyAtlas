@@ -394,19 +394,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         {session?.user && (
           <FollowButton targetType="PROJECT" targetId={project.id} initialFollowing={isFollowing} size="sm" />
         )}
-        <ShareButton
-          title={project.title}
-          slug={project.slug}
-          isCreator={isCreator}
-          isAdmin={session?.user?.role === "ADMIN" || session?.user?.role === "MODERATOR"}
-          geekhack={{
-            status: project.status,
-            designer: project.designer,
-            descriptionHtml: project.description,
-            images: project.images,
-            links: project.links,
-          }}
-        />
+        <ShareButton title={project.title} />
         {session?.user && <ReportButton projectId={project.id} />}
         <ProjectAdminActions projectId={project.id} isCreator={isCreator} />
         {(project.designerProfile || project.designer) && (
