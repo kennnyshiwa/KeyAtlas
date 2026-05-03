@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Merge, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,43 +21,170 @@ interface Designer {
   _count: { projects: number };
 }
 
-interface DesignerMergeDialogProps {
-  designers: Designer[];
-}
+const PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 250;
 
-export function DesignerMergeDialog({ designers }: DesignerMergeDialogProps) {
+export function DesignerMergeDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [designers, setDesigners] = useState<Designer[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingInitial, setIsLoadingInitial] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [targetId, setTargetId] = useState("");
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const designerCacheRef = useRef<Map<string, Designer>>(new Map());
 
-  const filteredDesigners = designers.filter((d) =>
-    d.name.toLowerCase().includes(search.toLowerCase()) ||
-    d.slug.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [search]);
+
+  const cacheDesigners = useCallback((items: Designer[]) => {
+    for (const item of items) {
+      designerCacheRef.current.set(item.id, item);
+    }
+  }, []);
+
+  const fetchPage = useCallback(
+    async (pageToLoad: number, query: string) => {
+      const params = new URLSearchParams({
+        page: String(pageToLoad),
+        limit: String(PAGE_SIZE),
+      });
+      if (query) params.set("q", query);
+
+      const res = await fetch(`/api/admin/designers?${params.toString()}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      return res.json() as Promise<{
+        data?: Designer[];
+        hasMore?: boolean;
+      }>;
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+
+    const loadFirstPage = async () => {
+      setIsLoadingInitial(true);
+      setIsLoadingMore(false);
+      try {
+        const json = await fetchPage(1, debouncedSearch);
+        if (cancelled) return;
+
+        const nextDesigners = (json.data ?? []) as Designer[];
+        cacheDesigners(nextDesigners);
+        setDesigners(nextDesigners);
+        setPage(1);
+        setHasMore(Boolean(json.hasMore));
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(error instanceof Error ? error.message : "Failed to load designers");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingInitial(false);
+        }
+      }
+    };
+
+    void loadFirstPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheDesigners, debouncedSearch, fetchPage, open]);
+
+  const loadNextPage = useCallback(async () => {
+    if (!open || isLoadingInitial || isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+
+    try {
+      const json = await fetchPage(nextPage, debouncedSearch);
+      const nextDesigners = (json.data ?? []) as Designer[];
+      cacheDesigners(nextDesigners);
+      setDesigners((prev) => {
+        const existingIds = new Set(prev.map((designer) => designer.id));
+        const uniqueDesigners = nextDesigners.filter((designer) => !existingIds.has(designer.id));
+        return [...prev, ...uniqueDesigners];
+      });
+      setPage(nextPage);
+      setHasMore(Boolean(json.hasMore));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load more designers");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [cacheDesigners, debouncedSearch, fetchPage, hasMore, isLoadingInitial, isLoadingMore, open, page]);
+
+  useEffect(() => {
+    if (!open || isLoadingInitial || isLoadingMore || !hasMore) return;
+
+    const checkIfNeedMoreContent = () => {
+      const el = scrollAreaRef.current;
+      if (!el || isLoadingInitial || isLoadingMore || !hasMore) return;
+      if (el.scrollHeight <= el.clientHeight + 40) {
+        void loadNextPage();
+      }
+    };
+
+    const timeoutId = window.setTimeout(checkIfNeedMoreContent, 100);
+    return () => window.clearTimeout(timeoutId);
+  }, [designers.length, hasMore, isLoadingInitial, isLoadingMore, loadNextPage, open]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollAreaRef.current;
+    if (!el || isLoadingInitial || isLoadingMore || !hasMore) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom < 160) {
+      void loadNextPage();
+    }
+  }, [hasMore, isLoadingInitial, isLoadingMore, loadNextPage]);
+
+  const getDesignerById = useCallback(
+    (id: string) => designers.find((designer) => designer.id === id) ?? designerCacheRef.current.get(id),
+    [designers]
+  );
+
+  const selectedTarget = useMemo(() => getDesignerById(targetId), [getDesignerById, targetId]);
+  const selectedSources = useMemo(
+    () => sourceIds.map((id) => getDesignerById(id)).filter((designer): designer is Designer => Boolean(designer)),
+    [getDesignerById, sourceIds]
   );
 
   const toggleSource = (id: string) => {
     if (id === targetId) return;
-    setSourceIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
+    setSourceIds((prev) => (prev.includes(id) ? prev.filter((sourceId) => sourceId !== id) : [...prev, id]));
   };
 
   const handleMerge = async () => {
     if (!targetId || sourceIds.length === 0) return;
 
-    const target = designers.find((d) => d.id === targetId);
-    const sources = designers.filter((d) => sourceIds.includes(d.id));
-    const sourceNames = sources.map((s) => s.name).join(", ");
+    const sourceNames = selectedSources.map((source) => source.name).join(", ");
 
     if (
       !confirm(
-        `Merge ${sources.length} designer(s) (${sourceNames}) into "${target?.name}"?\n\nAll their projects will be reassigned and the merged designers will be deleted. This cannot be undone.`
+        `Merge ${sourceIds.length} designer(s) (${sourceNames}) into "${selectedTarget?.name}"?\n\nAll their projects will be reassigned and the merged designers will be deleted. This cannot be undone.`
       )
-    )
+    ) {
       return;
+    }
 
     setSubmitting(true);
     try {
@@ -81,6 +207,10 @@ export function DesignerMergeDialog({ designers }: DesignerMergeDialogProps) {
       setTargetId("");
       setSourceIds([]);
       setSearch("");
+      setDebouncedSearch("");
+      setDesigners([]);
+      setPage(1);
+      setHasMore(false);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Merge failed");
@@ -101,8 +231,7 @@ export function DesignerMergeDialog({ designers }: DesignerMergeDialogProps) {
         <DialogHeader>
           <DialogTitle>Merge Designers</DialogTitle>
           <DialogDescription>
-            Select a target designer, then check the duplicates to merge into it.
-            All projects will be reassigned and duplicates will be deleted.
+            Search the full designer directory, then pick a target and the duplicates to merge into it.
           </DialogDescription>
         </DialogHeader>
 
@@ -110,76 +239,103 @@ export function DesignerMergeDialog({ designers }: DesignerMergeDialogProps) {
           <div>
             <input
               type="text"
-              placeholder="Search designers..."
+              placeholder="Search designers by name, slug, or project"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-md border px-3 py-2 text-sm bg-background"
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto border rounded-md">
-            <table className="w-full text-sm">
-              <thead className="bg-muted sticky top-0">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">Target</th>
-                  <th className="px-3 py-2 text-left font-medium">Merge</th>
-                  <th className="px-3 py-2 text-left font-medium">Name</th>
-                  <th className="px-3 py-2 text-left font-medium">Slug</th>
-                  <th className="px-3 py-2 text-right font-medium">Projects</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDesigners.map((d) => (
-                  <tr
-                    key={d.id}
-                    className={`border-t ${
-                      d.id === targetId
-                        ? "bg-emerald-50 dark:bg-emerald-950/30"
-                        : sourceIds.includes(d.id)
-                          ? "bg-red-50 dark:bg-red-950/30"
-                          : ""
-                    }`}
-                  >
-                    <td className="px-3 py-1.5">
-                      <input
-                        type="radio"
-                        name="target"
-                        checked={targetId === d.id}
-                        onChange={() => {
-                          setTargetId(d.id);
-                          setSourceIds((prev) => prev.filter((s) => s !== d.id));
-                        }}
-                        className="rounded"
-                      />
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <input
-                        type="checkbox"
-                        checked={sourceIds.includes(d.id)}
-                        disabled={d.id === targetId}
-                        onChange={() => toggleSource(d.id)}
-                        className="rounded"
-                      />
-                    </td>
-                    <td className="px-3 py-1.5">{d.name}</td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{d.slug}</td>
-                    <td className="px-3 py-1.5 text-right">{d._count.projects}</td>
+          <div
+            ref={scrollAreaRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto border rounded-md"
+          >
+            {isLoadingInitial ? (
+              <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading designers…
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-muted sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Target</th>
+                    <th className="px-3 py-2 text-left font-medium">Merge</th>
+                    <th className="px-3 py-2 text-left font-medium">Name</th>
+                    <th className="px-3 py-2 text-left font-medium">Slug</th>
+                    <th className="px-3 py-2 text-right font-medium">Projects</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {designers.map((designer) => (
+                    <tr
+                      key={designer.id}
+                      className={`border-t ${
+                        designer.id === targetId
+                          ? "bg-emerald-50 dark:bg-emerald-950/30"
+                          : sourceIds.includes(designer.id)
+                            ? "bg-red-50 dark:bg-red-950/30"
+                            : ""
+                      }`}
+                    >
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="radio"
+                          name="target"
+                          checked={targetId === designer.id}
+                          onChange={() => {
+                            setTargetId(designer.id);
+                            setSourceIds((prev) => prev.filter((sourceId) => sourceId !== designer.id));
+                          }}
+                          className="rounded"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={sourceIds.includes(designer.id)}
+                          disabled={designer.id === targetId}
+                          onChange={() => toggleSource(designer.id)}
+                          className="rounded"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5">{designer.name}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{designer.slug}</td>
+                      <td className="px-3 py-1.5 text-right">{designer._count.projects}</td>
+                    </tr>
+                  ))}
+                  {!isLoadingInitial && designers.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                        No designers match that search.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+
+            {isLoadingMore && (
+              <div className="flex items-center justify-center border-t px-3 py-3 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading more designers…
+              </div>
+            )}
+
+            {hasMore && !isLoadingInitial && !isLoadingMore && designers.length > 0 && (
+              <div className="flex justify-center border-t px-3 py-3">
+                <Button variant="outline" size="sm" onClick={() => void loadNextPage()}>
+                  Load more designers
+                </Button>
+              </div>
+            )}
           </div>
 
           {targetId && sourceIds.length > 0 && (
             <div className="text-sm text-muted-foreground">
-              Will merge{" "}
-              <span className="font-medium text-foreground">
-                {sourceIds.length} designer(s)
-              </span>{" "}
-              into{" "}
-              <span className="font-medium text-emerald-600">
-                {designers.find((d) => d.id === targetId)?.name}
-              </span>
+              Will merge <span className="font-medium text-foreground">{sourceIds.length} designer(s)</span>{" "}
+              into <span className="font-medium text-emerald-600">{selectedTarget?.name ?? "selected target"}</span>
             </div>
           )}
 
@@ -189,7 +345,7 @@ export function DesignerMergeDialog({ designers }: DesignerMergeDialogProps) {
             </Button>
             <Button
               onClick={handleMerge}
-              disabled={!targetId || sourceIds.length === 0 || submitting}
+              disabled={isLoadingInitial || !targetId || sourceIds.length === 0 || submitting}
               variant="destructive"
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
