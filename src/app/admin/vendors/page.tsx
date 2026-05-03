@@ -4,93 +4,122 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Pencil, CheckCircle, Trash2 } from "lucide-react";
-import { VendorDeleteButton } from "@/components/admin/vendor-delete-button";
+import { Input } from "@/components/ui/input";
+import { Plus } from "lucide-react";
 import { VendorMergeDialog } from "@/components/admin/vendor-merge-dialog";
+import { AdminVendorsInfiniteTable } from "@/components/admin/admin-vendors-infinite-table";
 
 export const metadata = {
   title: "Manage Vendors",
 };
 
-export default async function AdminVendorsPage() {
+const PAGE_SIZE = 25;
+
+export default async function AdminVendorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await auth();
   if (!session?.user || !["ADMIN", "MODERATOR"].includes(session.user.role)) {
     redirect("/");
   }
+  const isAdmin = session.user.role === "ADMIN";
 
-  const vendors = await prisma.vendor.findMany({
-    include: { _count: { select: { projects: true, projectVendors: true } } },
-    orderBy: { name: "asc" },
-  });
+  const params = await searchParams;
+  const q = params.q?.trim() || "";
+  const where = q
+    ? {
+        OR: [
+          { name: { contains: q, mode: "insensitive" as const } },
+          { slug: { contains: q, mode: "insensitive" as const } },
+          { storefrontUrl: { contains: q, mode: "insensitive" as const } },
+          {
+            projects: {
+              some: {
+                OR: [
+                  { title: { contains: q, mode: "insensitive" as const } },
+                  { slug: { contains: q, mode: "insensitive" as const } },
+                ],
+              },
+            },
+          },
+          {
+            projectVendors: {
+              some: {
+                project: {
+                  OR: [
+                    { title: { contains: q, mode: "insensitive" as const } },
+                    { slug: { contains: q, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      }
+    : {};
+
+  const [total, vendors] = await prisma.$transaction([
+    prisma.vendor.count({ where }),
+    prisma.vendor.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        regionsServed: true,
+        verified: true,
+        _count: { select: { projects: true, projectVendors: true } },
+      },
+      orderBy: { name: "asc" },
+      take: PAGE_SIZE,
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Manage Vendors">
+      <PageHeader
+        title="Manage Vendors"
+        description="Search and manage vendors without loading the full vendor directory at once."
+      >
         <div className="flex gap-2">
-          <VendorMergeDialog vendors={vendors} />
-          <Button asChild>
-            <Link href="/admin/vendors/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Vendor
-            </Link>
-          </Button>
+          {isAdmin && <VendorMergeDialog />}
+          {isAdmin && (
+            <Button asChild>
+              <Link href="/admin/vendors/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Vendor
+              </Link>
+            </Button>
+          )}
         </div>
       </PageHeader>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Slug</TableHead>
-            <TableHead>Regions</TableHead>
-            <TableHead>Projects</TableHead>
-            <TableHead>Verified</TableHead>
-            <TableHead className="w-24">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {vendors.map((vendor) => (
-            <TableRow key={vendor.id}>
-              <TableCell className="font-medium">{vendor.name}</TableCell>
-              <TableCell>{vendor.slug}</TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {vendor.regionsServed.map((r) => (
-                    <Badge key={r} variant="outline" className="text-xs">
-                      {r}
-                    </Badge>
-                  ))}
-                </div>
-              </TableCell>
-              <TableCell>{vendor._count.projectVendors}</TableCell>
-              <TableCell>
-                {vendor.verified && (
-                  <CheckCircle className="h-4 w-4 text-emerald-500" />
-                )}
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link href={`/admin/vendors/${vendor.id}/edit`}>
-                      <Pencil className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <VendorDeleteButton vendorId={vendor.id} vendorName={vendor.name} />
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <form className="grid gap-3 rounded-md border p-4 md:grid-cols-4" method="GET">
+        <Input
+          name="q"
+          placeholder="Search name, slug, website, or project"
+          defaultValue={q}
+          className="md:col-span-3"
+        />
+        <div className="flex gap-2">
+          <Button type="submit">Search</Button>
+          {q && (
+            <Button asChild type="button" variant="outline">
+              <Link href="/admin/vendors">Clear</Link>
+            </Button>
+          )}
+        </div>
+      </form>
+
+      <AdminVendorsInfiniteTable
+        initialVendors={vendors}
+        total={total}
+        pageSize={PAGE_SIZE}
+        searchParams={{ q: q || undefined }}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

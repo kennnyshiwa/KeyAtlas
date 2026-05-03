@@ -9,7 +9,7 @@ export const metadata = {
 
 export default async function NewVendorPage() {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "MODERATOR"].includes(session.user.role)) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/");
   }
 

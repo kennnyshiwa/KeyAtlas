@@ -9,7 +9,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const user = await authenticateApiKey(req);
-  if (!user || user.role !== "ADMIN") {
+  if (!user || !["ADMIN", "MODERATOR"].includes(user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

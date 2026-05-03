@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { vendorFormSchema } from "@/lib/validations/vendor";
-import { z } from "zod";
 import { indexVendor, removeVendorFromIndex } from "@/lib/meilisearch";
 
 export async function GET(
@@ -40,13 +39,14 @@ export async function PUT(
   }
 
   const isAdmin = session.user.role === "ADMIN";
+  const isStaff = isAdmin || session.user.role === "MODERATOR";
   const vendor = await prisma.vendor.findUnique({ where: { id }, select: { ownerId: true } });
   if (!vendor) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const isOwner = vendor.ownerId === session.user.id;
-  if (!isAdmin && !isOwner) {
+  if (!isStaff && !isOwner) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -60,7 +60,7 @@ export async function PUT(
     );
   }
 
-  // Owners can't change slug or owner (admin only)
+  // Owners can update core profile fields. Staff can also change slug.
   const updateData: Record<string, unknown> = {
     name: result.data.name,
     logo: result.data.logo || null,
@@ -70,13 +70,8 @@ export async function PUT(
     regionsServed: result.data.regionsServed,
   };
 
-  if (isAdmin) {
+  if (isStaff) {
     updateData.slug = result.data.slug;
-
-    // Allow admin to set/clear owner
-    if ("ownerId" in body) {
-      updateData.ownerId = body.ownerId || null;
-    }
 
     const slugConflict = await prisma.vendor.findFirst({
       where: { slug: result.data.slug, NOT: { id } },
@@ -87,6 +82,10 @@ export async function PUT(
         { status: 409 }
       );
     }
+  }
+
+  if (isAdmin && "ownerId" in body) {
+    updateData.ownerId = body.ownerId || null;
   }
 
   const updated = await prisma.vendor.update({
