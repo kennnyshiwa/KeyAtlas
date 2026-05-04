@@ -1,20 +1,11 @@
+import { stripHtml } from "./strip-html";
+
 /**
  * Strip HTML tags from a string and return a plain-text preview.
  * Used for generating description previews on project list items.
  */
 export function stripHtmlToPlainText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<\/p>/gi, " ")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
+  return stripHtml(html);
 }
 
 /**

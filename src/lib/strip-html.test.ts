@@ -14,6 +14,14 @@ describe("stripHtml", () => {
     expect(stripHtml("A &amp; B &lt;3&gt; C")).toBe('A & B <3> C');
   });
 
+  it("decodes apostrophe entities", () => {
+    expect(stripHtml("the &#039;80s and &#39;90s &apos;rule&apos;")).toBe("the '80s and '90s 'rule'");
+  });
+
+  it("decodes numeric entities", () => {
+    expect(stripHtml("Use &#44; and &#x2C; correctly")).toBe("Use , and , correctly");
+  });
+
   it("handles &nbsp;", () => {
     expect(stripHtml("Hello&nbsp;World")).toBe("Hello World");
   });

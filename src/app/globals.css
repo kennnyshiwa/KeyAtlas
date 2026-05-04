@@ -140,3 +140,21 @@
     }
   }
 }
+
+@layer components {
+  .rt-inline-image {
+    background: var(--accent);
+    transition: opacity 180ms ease, filter 220ms ease, background-color 220ms ease;
+  }
+
+  .rt-inline-image--loading {
+    animation: pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    filter: saturate(0.85);
+  }
+
+  .rt-inline-image--loaded {
+    animation: none;
+    background: transparent;
+    filter: none;
+  }
+}
