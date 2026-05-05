@@ -189,6 +189,8 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
   const lastSavedSnapshotRef = useRef<string>(JSON.stringify(formData));
   const suppressAutosaveRef = useRef(false);
 
+  const usesDraftAutosave = !isEditing;
+
   const draftStorageKey = useMemo(() => {
     const owner = mode === "admin" ? "admin" : "submit";
     return `keyvault:project-draft:${owner}:${project?.id ?? "new"}`;
@@ -214,6 +216,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
   };
 
   const saveToLocalDraft = (value: ProjectFormData) => {
+    if (!usesDraftAutosave) return;
     try {
       localStorage.setItem(
         draftStorageKey,
@@ -267,6 +270,10 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!usesDraftAutosave) {
+      clearLocalDraft();
+      return;
+    }
     try {
       const raw = localStorage.getItem(draftStorageKey);
       if (!raw) return;
@@ -297,7 +304,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     } catch {
       // ignore malformed local draft data
     }
-  }, [draftStorageKey]);
+  }, [draftStorageKey, usesDraftAutosave]);
 
   const updateField = <K extends keyof ProjectFormData>(
     key: K,
@@ -307,6 +314,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
   };
 
   useEffect(() => {
+    if (!usesDraftAutosave) return;
     if (suppressAutosaveRef.current) {
       suppressAutosaveRef.current = false;
       return;
@@ -326,8 +334,8 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
 
       setSaveState("saving");
       try {
-        const method = isEditing ? "PUT" : "POST";
-        const baseUrl = isEditing ? `/api/projects/${project.id}` : "/api/projects";
+        const method = "POST";
+        const baseUrl = "/api/projects";
         const submitData = {
           ...formData,
           published: false,
@@ -374,7 +382,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     }, 1200);
 
     return () => window.clearTimeout(timeout);
-  }, [formData, isEditing, mode, pathname, project?.id, router]);
+  }, [formData, isEditing, mode, pathname, project?.id, router, usesDraftAutosave]);
 
   const hasUnsavedChanges = serializeForm(formData) !== lastSavedSnapshotRef.current;
 
