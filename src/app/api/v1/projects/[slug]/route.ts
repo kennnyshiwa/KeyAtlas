@@ -3,6 +3,7 @@ import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_DETAIL, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+import { isProjectStatus } from "@/lib/constants";
 
 export async function GET(
   req: NextRequest,
@@ -248,13 +249,16 @@ export async function PATCH(
   }
 
   const body = await req.json();
+  if (body.status !== undefined && !isProjectStatus(body.status)) {
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
 
   const updated = await prisma.project.update({
     where: { id: existing.id },
     data: {
       title: body.title,
       description: body.description ?? null,
-      status: (body.status as ProjectStatus) ?? undefined,
+      status: body.status as ProjectStatus | undefined,
       category: (body.category_id as ProjectCategory) ?? undefined,
       heroImage: body.hero_image_url ?? undefined,
       estimatedDelivery: body.estimated_delivery ?? null,

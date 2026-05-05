@@ -28,7 +28,7 @@ export default async function StatisticsPage() {
     totalProjects,
     totalVendors,
     activeGBs,
-    shippedCount,
+    completedCount,
     categoryData,
     statusData,
     designerData,
@@ -48,9 +48,7 @@ export default async function StatisticsPage() {
     prisma.project.count({
       where: { published: true, status: "GROUP_BUY" },
     }),
-    prisma.project.count({
-      where: { published: true, shipped: true },
-    }),
+    prisma.project.count({ where: { published: true, status: "COMPLETED" } }),
     prisma.project.groupBy({
       by: ["category"],
       where: { published: true },
@@ -122,7 +120,7 @@ export default async function StatisticsPage() {
         COUNT(*) FILTER (WHERE category = 'KEYCAPS')::int as keycaps,
         COUNT(*) FILTER (WHERE category = 'KEYBOARDS')::int as keyboards,
         COUNT(*) FILTER (WHERE status = 'INTEREST_CHECK')::int as ics,
-        COUNT(*) FILTER (WHERE status IN ('GROUP_BUY','PRODUCTION','COMPLETED','IN_STOCK','EXTRAS','SHIPPING'))::int as gbs,
+        COUNT(*) FILTER (WHERE status IN ('GROUP_BUY','PRODUCTION','COMPLETED','IN_STOCK'))::int as gbs,
         ROUND(AVG("priceMin") FILTER (WHERE "priceMin" IS NOT NULL)/100, 2)::float as avg_price,
         MIN(EXTRACT(YEAR FROM "createdAt"))::int as first_year,
         MAX(EXTRACT(YEAR FROM "createdAt"))::int as last_year
@@ -207,7 +205,7 @@ export default async function StatisticsPage() {
           { label: "Total Projects", value: totalProjects },
           { label: "Vendors", value: totalVendors },
           { label: "Active GBs", value: activeGBs },
-          { label: "Shipped", value: shippedCount },
+          { label: "Completed", value: completedCount },
         ]}
       />
 

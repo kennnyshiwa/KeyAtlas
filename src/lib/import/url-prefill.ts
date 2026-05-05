@@ -91,10 +91,9 @@ function pickImages(html: string, baseUrl: string, title: string) {
 export function inferStatus(text: string): ProjectStatus {
   const value = text.toLowerCase();
   if (/\b(group buy|gb live|pre-order|preorder)\b/.test(value)) return "GROUP_BUY";
-  if (/\b(in stock|available now|buy now)\b/.test(value)) return "IN_STOCK";
-  if (/\b(shipping|shipping now|fulfilled)\b/.test(value)) return "SHIPPING";
+  if (/\b(in stock|available now|buy now|extras)\b/.test(value)) return "IN_STOCK";
+  if (/\b(shipping|shipping now|fulfilled)\b/.test(value)) return "COMPLETED";
   if (/\b(production|manufacturing)\b/.test(value)) return "PRODUCTION";
-  if (/\b(extras)\b/.test(value)) return "EXTRAS";
   if (/\b(completed|ended)\b/.test(value)) return "COMPLETED";
   return "INTEREST_CHECK";
 }

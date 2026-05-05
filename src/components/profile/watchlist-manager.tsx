@@ -15,7 +15,7 @@ import type { ProjectCategory } from "@/generated/prisma/client";
 interface SavedFilter {
   id: string;
   name: string;
-  criteria: Record<string, string | boolean>;
+  criteria: Record<string, string>;
   notify: boolean;
   createdAt: string;
 }
@@ -69,10 +69,10 @@ export function WatchlistManager() {
     }
   };
 
-  const buildFilterUrl = (criteria: Record<string, string | boolean>) => {
+  const buildFilterUrl = (criteria: Record<string, string>) => {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(criteria)) {
-      if (v !== undefined && v !== false && v !== "") {
+      if (v !== undefined && v !== "") {
         params.set(k, String(v));
       }
     }

@@ -140,7 +140,6 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     gbEndDate: project?.gbEndDate ?? null,
     estimatedDelivery: project?.estimatedDelivery ?? "",
     profile: project?.profile ?? null,
-    shipped: project?.shipped ?? false,
     designer: project?.designer ?? "",
     vendorId: project?.vendorId ?? null,
     featured: project?.featured ?? false,
@@ -942,7 +941,6 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
             )}
           </CardContent>
         </Card>
-
       <Card id="basic-info" className="scroll-mt-24" data-field="basic-info">
         <CardHeader>
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
@@ -1042,21 +1040,6 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
               />
             </div>
           </div>
-
-          {mode === "admin" && (
-            <div className="flex items-end">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.shipped}
-                  onChange={(e) => updateField("shipped", e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-sm">Shipped</span>
-              </label>
-            </div>
-          )}
-
           <div className="space-y-2" data-field="description">
             <Label>Description</Label>
             <Suspense fallback={<div className="border-input h-[168px] animate-pulse rounded-md border" />}>

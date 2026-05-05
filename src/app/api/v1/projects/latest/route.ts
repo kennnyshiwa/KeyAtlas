@@ -29,7 +29,6 @@ export async function GET(req: NextRequest) {
       heroImage: true,
       designer: true,
       profile: true,
-      shipped: true,
       tags: true,
       gbStartDate: true,
       gbEndDate: true,

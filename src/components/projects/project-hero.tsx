@@ -35,9 +35,6 @@ export function ProjectHero({ project }: ProjectHeroProps) {
           {project.profile && (
             <Badge variant="outline">{project.profile}</Badge>
           )}
-          {project.shipped && (
-            <Badge className="bg-emerald-500 text-white">Shipped</Badge>
-          )}
           {project.featured && (
             <Badge className="bg-yellow-500 text-white">Featured</Badge>
           )}
@@ -66,7 +63,7 @@ export function ProjectHero({ project }: ProjectHeroProps) {
               ` - ${formatPrice(project.priceMax, project.currency)}`}
           </p>
         )}
-        {project.status === "COMPLETED" || project.status === "SHIPPING" || project.status === "PRODUCTION" ? (
+        {project.status === "COMPLETED" || project.status === "PRODUCTION" ? (
           project.estimatedDelivery && (
             <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
               <Truck className="h-4 w-4" />

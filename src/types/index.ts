@@ -31,7 +31,6 @@ export type ProjectListItem = Pick<
   | "published"
   | "profile"
   | "designer"
-  | "shipped"
   | "createdAt"
   | "updatedAt"
   | "gbStartDate"

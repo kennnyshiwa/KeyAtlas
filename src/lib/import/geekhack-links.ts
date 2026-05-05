@@ -1,11 +1,8 @@
 const GB_PREFERRED_STATUSES = new Set([
   "GROUP_BUY",
   "PRODUCTION",
-  "SHIPPING",
-  "EXTRAS",
   "IN_STOCK",
   "COMPLETED",
-  "ARCHIVED",
 ]);
 
 export interface GeekhackLinkCandidate {

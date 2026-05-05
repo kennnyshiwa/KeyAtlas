@@ -64,11 +64,6 @@ export function ProjectCard({ project, fullHeight = true }: ProjectCardProps) {
                 {project.profile}
               </Badge>
             )}
-            {project.shipped && (
-              <Badge className="bg-emerald-500 text-xs text-white">
-                Shipped
-              </Badge>
-            )}
             {isRecentlyUpdated(new Date(project.updatedAt)) && (
               <Badge variant="outline" className="text-xs">
                 Recently updated

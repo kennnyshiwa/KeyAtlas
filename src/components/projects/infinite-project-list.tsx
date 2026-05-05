@@ -41,7 +41,6 @@ function mapApiProject(raw: Record<string, unknown>): ProjectListItem {
     published: true,
     profile: (raw.profile as string) ?? null,
     designer: (raw.designer as string) ?? null,
-    shipped: (raw.shipped as boolean) ?? false,
     createdAt: new Date(raw.created_at as string),
     updatedAt: new Date(raw.updated_at as string),
     gbStartDate: raw.gb_start_date ? new Date(raw.gb_start_date as string) : null,
@@ -108,7 +107,6 @@ export function InfiniteProjectList({
     if (searchParams.featured) params.set("featured", searchParams.featured);
     if (searchParams.profile) params.set("profile", searchParams.profile);
     if (searchParams.designer) params.set("designer", searchParams.designer);
-    if (searchParams.shipped) params.set("shipped", searchParams.shipped);
     if (searchParams.sort) params.set("sort", searchParams.sort);
     // Vendor filter: the API uses a general query, pass it if present
     if (searchParams.vendor) params.set("vendor", searchParams.vendor);

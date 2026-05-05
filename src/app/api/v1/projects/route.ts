@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
-import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+import type { ProjectCategory } from "@/generated/prisma/client";
+import { resolveProjectStatusInput } from "@/lib/constants";
 
 export async function GET(req: NextRequest) {
   // Public read — optionally authenticated for personalized results later
@@ -18,10 +19,9 @@ export async function GET(req: NextRequest) {
   const requestedLimit = searchParams.get("limit") ?? searchParams.get("page_size") ?? "20";
   const limit = Math.min(Math.max(1, Number(requestedLimit)), 50);
   const category = searchParams.get("category") as ProjectCategory | null;
-  const status = searchParams.get("status") as ProjectStatus | null;
+  const status = resolveProjectStatusInput(searchParams.get("status"));
   const q = searchParams.get("q");
   const profile = searchParams.get("profile");
-  const shipped = searchParams.get("shipped");
   const featured = searchParams.get("featured");
   const designer = searchParams.get("designer");
   const offset = (page - 1) * limit;
@@ -33,8 +33,6 @@ export async function GET(req: NextRequest) {
     ...(status && { status }),
     ...(q && { title: { contains: q, mode: "insensitive" as const } }),
     ...(profile && { profile }),
-    ...(shipped === "true" && { shipped: true }),
-    ...(shipped === "false" && { shipped: false }),
     ...(featured === "true" && { featured: true }),
     ...(designer && { designer: { contains: designer, mode: "insensitive" as const } }),
   };
@@ -93,7 +91,6 @@ export async function GET(req: NextRequest) {
         heroImage: true,
         designer: true,
         profile: true,
-        shipped: true,
         tags: true,
         gbStartDate: true,
         gbEndDate: true,

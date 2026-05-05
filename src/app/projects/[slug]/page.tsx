@@ -233,10 +233,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     INTEREST_CHECK: "https://schema.org/PreOrder",
     GROUP_BUY: "https://schema.org/PreOrder",
     PRODUCTION: "https://schema.org/PreOrder",
-    EXTRAS: "https://schema.org/InStock",
     IN_STOCK: "https://schema.org/InStock",
     COMPLETED: "https://schema.org/SoldOut",
-    ARCHIVED: "https://schema.org/SoldOut",
   };
   const availability = statusAvailabilityMap[project.status];
 

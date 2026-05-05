@@ -87,10 +87,10 @@ export default async function HomePage() {
       where: {
         published: true,
         status: "GROUP_BUY",
-        createdAt: { gte: fourteenDaysAgo },
+        gbStartDate: { not: null },
       },
       include: { vendor: { select: { name: true, slug: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ gbStartDate: "desc" }, { createdAt: "desc" }],
       take: 8,
     }),
     prisma.project.findMany({

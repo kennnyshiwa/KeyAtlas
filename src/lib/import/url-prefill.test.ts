@@ -7,6 +7,11 @@ describe("url prefill parsing", () => {
     expect(inferStatus("Pre-order starts soon")).toBe("GROUP_BUY");
   });
 
+  it("maps shipping and extras keywords into the remaining statuses", () => {
+    expect(inferStatus("Shipping now to all vendors")).toBe("COMPLETED");
+    expect(inferStatus("Extras available now")).toBe("IN_STOCK");
+  });
+
   it("falls back to INTEREST_CHECK when no clear signal", () => {
     expect(inferStatus("Interest check thread for a new keyset")).toBe("INTEREST_CHECK");
   });

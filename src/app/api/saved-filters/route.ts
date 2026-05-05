@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sanitizeSavedFilterCriteria } from "@/lib/saved-filters";
 import { z } from "zod";
 
 const savedFilterSchema = z.object({
@@ -11,7 +12,6 @@ const savedFilterSchema = z.object({
     profile: z.string().optional(),    // comma-separated
     designer: z.string().optional(),
     vendor: z.string().optional(),     // comma-separated vendor IDs
-    shipped: z.boolean().optional(),
     q: z.string().optional(),
   }),
   notify: z.boolean().default(true),
@@ -28,7 +28,12 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ filters });
+  return NextResponse.json({
+    filters: filters.map((filter) => ({
+      ...filter,
+      criteria: sanitizeSavedFilterCriteria(filter.criteria),
+    })),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -58,7 +63,7 @@ export async function POST(req: NextRequest) {
   const filter = await prisma.savedFilter.create({
     data: {
       name: result.data.name,
-      criteria: result.data.criteria,
+      criteria: sanitizeSavedFilterCriteria(result.data.criteria),
       notify: result.data.notify,
       userId: session.user.id,
     },

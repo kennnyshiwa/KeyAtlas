@@ -27,11 +27,8 @@ enum ProjectStatus {
   INTEREST_CHECK
   GROUP_BUY
   PRODUCTION
-  SHIPPING
-  EXTRAS
   IN_STOCK
   COMPLETED
-  ARCHIVED
 }
 
 enum LinkType {
@@ -314,7 +311,6 @@ model Project {
   metaTitle         String?
   metaDescription   String?
   profile           String?
-  shipped           Boolean         @default(false)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -348,7 +344,6 @@ model Project {
   @@index([createdAt])
   @@index([profile])
   @@index([designerId])
-  @@index([shipped])
   @@map("projects")
 }
 
@@ -717,7 +712,7 @@ model ProjectChangeLog {
 model SavedFilter {
   id        String   @id @default(cuid())
   name      String
-  criteria  Json     // { status?, category?, profile?, designer?, vendor?, shipped?, tags?, q? }
+  criteria  Json     // { status?, category?, profile?, designer?, vendor?, tags?, q? }
   notify    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

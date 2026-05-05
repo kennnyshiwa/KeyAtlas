@@ -855,11 +855,11 @@ function inferStatus(
   } else if (/\b(?:In[\s-]?Stock|Instock)\b/i.test(t)) {
     inferred = "IN_STOCK";
   } else if (/\bExtras?\b/i.test(t)) {
-    inferred = "EXTRAS";
+    inferred = "IN_STOCK";
   } else if (/\b(?:Pre[\s-]?order|Preorder)\b/i.test(t)) {
     inferred = "GROUP_BUY";
   } else if (/\bShipping\b/i.test(t) || /\b(?:currently|now)\s+shipping\b/i.test(combined)) {
-    inferred = "SHIPPING";
+    inferred = "COMPLETED";
   } else if (/^\s*\[IC\]/i.test(t) || /^\s*\[Interest\s+Check\]/i.test(t)) {
     inferred = "INTEREST_CHECK";
   }

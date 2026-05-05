@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     totalProjects,
     totalVendors,
     activeGBs,
-    shippedCount,
+    completedCount,
     categoryData,
     statusData,
     designerData,
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     prisma.project.count({ where: { published: true } }),
     prisma.vendor.count(),
     prisma.project.count({ where: { published: true, status: "GROUP_BUY" } }),
-    prisma.project.count({ where: { published: true, shipped: true } }),
+    prisma.project.count({ where: { published: true, status: "COMPLETED" } }),
     prisma.project.groupBy({
       by: ["category"],
       where: { published: true },
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       totalProjects,
       totalVendors,
       activeGBs,
-      shippedCount,
+      completedCount,
       projectsByCategory: categoryData.map((c) => ({
         category: c.category,
         count: c._count._all,

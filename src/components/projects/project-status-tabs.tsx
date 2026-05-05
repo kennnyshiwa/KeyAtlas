@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { resolveProjectStatusInput } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -10,13 +11,12 @@ const tabs = [
   { label: "Group Buys", value: "GROUP_BUY" },
   { label: "Production", value: "PRODUCTION" },
   { label: "In Stock", value: "IN_STOCK" },
-  { label: "Extras", value: "EXTRAS" },
   { label: "Completed", value: "COMPLETED" },
 ] as const;
 
 export function ProjectStatusTabs() {
   const searchParams = useSearchParams();
-  const currentStatus = searchParams.get("status");
+  const currentStatus = resolveProjectStatusInput(searchParams.get("status"));
 
   const buildHref = (status: string | null) => {
     const params = new URLSearchParams(searchParams.toString());

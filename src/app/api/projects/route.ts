@@ -5,9 +5,10 @@ import { projectFormSchema } from "@/lib/validations/project";
 import { indexProject } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
 import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
-import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+import type { ProjectCategory } from "@/generated/prisma/client";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 import { rateLimit, RATE_LIMIT_PROJECT_CREATE } from "@/lib/rate-limit";
+import { resolveProjectStatusInput } from "@/lib/constants";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
   const page = Number(searchParams.get("page") ?? "1");
   const limit = Math.min(Number(searchParams.get("limit") ?? "12"), 50);
   const category = searchParams.get("category") as ProjectCategory | null;
-  const status = searchParams.get("status") as ProjectStatus | null;
+  const status = resolveProjectStatusInput(searchParams.get("status"));
   const featured = searchParams.get("featured");
   const sort = searchParams.get("sort");
   const offset = (page - 1) * limit;
@@ -270,7 +271,6 @@ export async function POST(req: NextRequest) {
       profile: data.profile ?? null,
       designer: data.designer ?? null,
       vendorId: primaryVendorId,
-      shipped: data.shipped ?? false,
       tags: data.tags ?? [],
       creatorId: session.user.id,
     }).catch((err) => console.error("Watchlist notification error:", err));

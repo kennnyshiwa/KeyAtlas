@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Bookmark } from "lucide-react";
 import { toast } from "sonner";
+import { resolveProjectStatusInput } from "@/lib/constants";
 
 export function SaveFilterButton() {
   const searchParams = useSearchParams();
@@ -23,12 +24,13 @@ export function SaveFilterButton() {
   const [saving, setSaving] = useState(false);
 
   // Build criteria from current URL params
-  const criteria: Record<string, string | boolean> = {};
-  for (const key of ["status", "category", "profile", "designer", "vendor", "q"]) {
+  const criteria: Record<string, string> = {};
+  const status = resolveProjectStatusInput(searchParams.get("status"));
+  if (status) criteria.status = status;
+  for (const key of ["category", "profile", "designer", "vendor", "q"]) {
     const val = searchParams.get(key);
     if (val) criteria[key] = val;
   }
-  if (searchParams.get("shipped") === "true") criteria.shipped = true;
 
   const hasFilters = Object.keys(criteria).length > 0;
 

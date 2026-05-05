@@ -1,5 +1,33 @@
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
+export const PROJECT_STATUSES = [
+  "INTEREST_CHECK",
+  "GROUP_BUY",
+  "PRODUCTION",
+  "IN_STOCK",
+  "COMPLETED",
+] as const satisfies readonly ProjectStatus[];
+
+const LEGACY_PROJECT_STATUS_MAP = {
+  SHIPPING: "COMPLETED",
+  EXTRAS: "IN_STOCK",
+  ARCHIVED: "COMPLETED",
+} as const satisfies Record<string, ProjectStatus>;
+
+export function isProjectStatus(value: string | null | undefined): value is ProjectStatus {
+  return typeof value === "string" && (PROJECT_STATUSES as readonly string[]).includes(value);
+}
+
+export function normalizeProjectStatus(value: string | null | undefined): ProjectStatus | null {
+  if (!value) return null;
+  if (isProjectStatus(value)) return value;
+  return LEGACY_PROJECT_STATUS_MAP[value as keyof typeof LEGACY_PROJECT_STATUS_MAP] ?? null;
+}
+
+export function resolveProjectStatusInput(statusValue: string | null | undefined): ProjectStatus | null {
+  return normalizeProjectStatus(statusValue);
+}
+
 export const CATEGORY_LABELS: Record<ProjectCategory, string> = {
   KEYBOARDS: "Keyboards",
   KEYCAPS: "Keycaps",
@@ -13,22 +41,16 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
   INTEREST_CHECK: "Interest Check",
   GROUP_BUY: "Group Buy",
   PRODUCTION: "Production",
-  SHIPPING: "Shipping",
-  EXTRAS: "Extras",
   IN_STOCK: "In Stock",
   COMPLETED: "Completed",
-  ARCHIVED: "Archived",
 };
 
 export const STATUS_COLORS: Record<ProjectStatus, string> = {
   INTEREST_CHECK: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
   GROUP_BUY: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
   PRODUCTION: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-  SHIPPING: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-  EXTRAS: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
   IN_STOCK: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
   COMPLETED: "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-300",
-  ARCHIVED: "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-500",
 };
 
 export const PROFILE_OPTIONS = [

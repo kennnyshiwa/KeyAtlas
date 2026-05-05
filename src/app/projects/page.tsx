@@ -11,11 +11,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SearchResultsBar } from "@/components/search/search-results-bar";
 import Link from "next/link";
-import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+import type { ProjectCategory } from "@/generated/prisma/client";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { addDays } from "date-fns";
 import { scoreFollowedProjectRecommendation } from "@/lib/project-discovery";
+import { resolveProjectStatusInput } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,6 @@ interface ProjectsPageProps {
     profile?: string;
     designer?: string;
     vendor?: string;
-    shipped?: string;
     sort?: string;
   }>;
 }
@@ -51,17 +51,17 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   const categoryFilter = params.category?.split(",").filter(Boolean);
   const profileFilter = params.profile?.split(",").filter(Boolean);
   const vendorFilter = params.vendor?.split(",").filter(Boolean);
+  const statusFilter = resolveProjectStatusInput(params.status) ?? undefined;
 
   const where = {
     published: true,
     ...(categoryFilter?.length && {
       category: { in: categoryFilter as ProjectCategory[] },
     }),
-    ...(params.status && {
-      status: params.status as ProjectStatus,
+    ...(statusFilter && {
+      status: statusFilter,
     }),
     ...(params.featured === "true" && { featured: true }),
-    ...(params.shipped === "true" && { shipped: true }),
     ...(profileFilter?.length && {
       profile: { in: profileFilter },
     }),
@@ -87,13 +87,14 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     "gb-oldest": [{ gbStartDate: "asc" }, { createdAt: "asc" }],
     "gb-ending": [{ gbEndDate: "asc" }, { createdAt: "desc" }],
   };
-  const orderBy = sortOptions[params.sort ?? ""] ?? sortOptions.newest;
+  const activeSort = sortOptions[params.sort ?? ""] ? params.sort! : "gb-newest";
+  const orderBy = sortOptions[activeSort];
 
   // For GB sorts, only show projects that have a GB date set
-  if (params.sort === "gb-newest" || params.sort === "gb-oldest") {
+  if (activeSort === "gb-newest" || activeSort === "gb-oldest") {
     Object.assign(where, { gbStartDate: { not: null } });
   }
-  if (params.sort === "gb-ending") {
+  if (activeSort === "gb-ending") {
     Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
   }
 
@@ -250,11 +251,11 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
       {projects.length > 0 ? (
         <InfiniteProjectList
-          key={JSON.stringify(params)}
+          key={JSON.stringify({ ...params, status: statusFilter ?? undefined })}
           initialProjects={projects}
           total={total}
           pageSize={limit}
-          searchParams={params}
+          searchParams={{ ...params, status: statusFilter ?? undefined }}
         />
       ) : (
         <EmptyState

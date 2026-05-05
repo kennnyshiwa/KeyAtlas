@@ -63,7 +63,6 @@ export async function PATCH(
         profile: project.profile,
         designer: project.designer,
         vendorId: project.vendorId,
-        shipped: project.shipped,
         tags: project.tags,
         creatorId: project.creatorId,
       });

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { dispatchNotification } from "@/lib/notifications/service";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+import { sanitizeSavedFilterCriteria, type SavedFilterCriteria } from "@/lib/saved-filters";
 
 interface ProjectForMatching {
   id: string;
@@ -11,19 +12,8 @@ interface ProjectForMatching {
   profile: string | null;
   designer: string | null;
   vendorId: string | null;
-  shipped: boolean;
   tags: string[];
   creatorId: string;
-}
-
-interface SavedFilterCriteria {
-  status?: string;
-  category?: string;
-  profile?: string;
-  designer?: string;
-  vendor?: string;
-  shipped?: boolean;
-  q?: string;
 }
 
 function projectMatchesCriteria(
@@ -57,8 +47,6 @@ function projectMatchesCriteria(
       return false;
   }
 
-  if (criteria.shipped === true && !project.shipped) return false;
-
   if (criteria.q) {
     const q = criteria.q.toLowerCase();
     if (!project.title.toLowerCase().includes(q)) return false;
@@ -90,7 +78,7 @@ export async function notifyWatchlistMatches(project: ProjectForMatching) {
   const userMatches = new Map<string, { filterId: string; filterName: string }>();
 
   for (const sf of savedFilters) {
-    const criteria = sf.criteria as SavedFilterCriteria;
+    const criteria = sanitizeSavedFilterCriteria(sf.criteria);
     if (!projectMatchesCriteria(project, criteria)) continue;
 
     // Only keep first matching filter per user (avoid spam)

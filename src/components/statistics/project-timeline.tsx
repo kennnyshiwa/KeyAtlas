@@ -41,22 +41,16 @@ const STATUS_LABELS: Record<string, string> = {
   INTEREST_CHECK: "Interest Check",
   GROUP_BUY: "Group Buy",
   PRODUCTION: "Production",
-  SHIPPING: "Shipping",
-  EXTRAS: "Extras",
   IN_STOCK: "In Stock",
   COMPLETED: "Completed",
-  ARCHIVED: "Archived",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   INTEREST_CHECK: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
   GROUP_BUY: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
   PRODUCTION: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-  SHIPPING: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-  EXTRAS: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
   IN_STOCK: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
   COMPLETED: "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-300",
-  ARCHIVED: "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-500",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {

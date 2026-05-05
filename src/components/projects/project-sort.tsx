@@ -24,17 +24,18 @@ const SORT_OPTIONS = [
 export function ProjectSort() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const current = searchParams.get("sort") ?? "newest";
+  const current = searchParams.get("sort") ?? "gb-newest";
 
   const handleChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "newest") {
+    if (value === "gb-newest") {
       params.delete("sort");
     } else {
       params.set("sort", value);
     }
     params.delete("page");
-    router.push(`/projects?${params.toString()}`);
+    const qs = params.toString();
+    router.push(qs ? `/projects?${qs}` : "/projects");
   };
 
   return (

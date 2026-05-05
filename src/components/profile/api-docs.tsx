@@ -13,7 +13,7 @@ const ENDPOINTS = [
     method: "GET",
     path: "/api/v1/projects",
     description: "List and search projects with filtering and pagination.",
-    params: "page, limit (max 50), category, status, q (search title), profile, shipped, featured, designer",
+    params: "page, limit (max 50), category, status, q (search title), profile, featured, designer",
     rateLimit: "20 req/min",
   },
   {

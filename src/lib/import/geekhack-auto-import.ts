@@ -81,7 +81,10 @@ function inferStatusFromTitle(title: string, boardDefault: ProjectStatus): Proje
     return "GROUP_BUY";
   }
   if (/\b(in[- ]stock|extras)\b/i.test(t)) {
-    return "EXTRAS";
+    return "IN_STOCK";
+  }
+  if (/\b(shipping|fulfilled)\b/i.test(t)) {
+    return "COMPLETED";
   }
   return boardDefault;
 }
@@ -1092,7 +1095,6 @@ async function importTopic(
       profile: project.profile,
       designer: project.designer,
       vendorId: project.vendorId,
-      shipped: project.shipped,
       tags: project.tags,
       creatorId: project.creatorId,
     });

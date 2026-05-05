@@ -37,16 +37,12 @@ export function AdvancedFilters({ vendors }: AdvancedFiltersProps) {
   const [vendorIds, setVendorIds] = useState<string[]>(
     searchParams.get("vendor")?.split(",").filter(Boolean) ?? []
   );
-  const [shipped, setShipped] = useState(
-    searchParams.get("shipped") === "true"
-  );
 
   const hasFilters =
     categories.length > 0 ||
     profiles.length > 0 ||
     designerQuery.length > 0 ||
-    vendorIds.length > 0 ||
-    shipped;
+    vendorIds.length > 0;
 
   const isFirstRender = useRef(true);
 
@@ -98,21 +94,17 @@ export function AdvancedFilters({ vendors }: AdvancedFiltersProps) {
       if (vendorIds.length > 0) params.set("vendor", vendorIds.join(","));
       else params.delete("vendor");
 
-      if (shipped) params.set("shipped", "true");
-      else params.delete("shipped");
-
       router.push(`/projects?${params.toString()}`);
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [categories, profiles, designerQuery, vendorIds, shipped, router]);
+  }, [categories, profiles, designerQuery, vendorIds, router]);
 
   const clearAll = () => {
     setCategories([]);
     setProfiles([]);
     setDesignerQuery("");
     setVendorIds([]);
-    setShipped(false);
   };
 
   const toggleValue = (
@@ -144,8 +136,7 @@ export function AdvancedFilters({ vendors }: AdvancedFiltersProps) {
                 {categories.length +
                   profiles.length +
                   (designerQuery ? 1 : 0) +
-                  vendorIds.length +
-                  (shipped ? 1 : 0)}
+                  vendorIds.length}
               </span>
             )}
           </Button>
@@ -215,14 +206,6 @@ export function AdvancedFilters({ vendors }: AdvancedFiltersProps) {
               </div>
             </div>
           )}
-
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={shipped}
-              onCheckedChange={(v) => setShipped(!!v)}
-            />
-            Shipped only
-          </label>
         </PopoverContent>
       </Popover>
 

@@ -143,7 +143,7 @@ async function main() {
       description:
         "Hand-crafted artisan keycap in the shape of a boba tea cup. Resin cast with intricate detail work.",
       category: "ARTISANS" as const,
-      status: "EXTRAS" as const,
+      status: "IN_STOCK" as const,
       priceMin: 7500,
       priceMax: 8500,
       currency: "USD",
@@ -194,7 +194,7 @@ async function main() {
       description:
         "Community edition of the legendary TGR Jane V2 75% keyboard. Top mount design with brass weight.",
       category: "KEYBOARDS" as const,
-      status: "SHIPPING" as const,
+      status: "COMPLETED" as const,
       priceMin: 55000,
       priceMax: 55000,
       currency: "USD",
