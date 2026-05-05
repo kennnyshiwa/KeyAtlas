@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { indexProject, removeProjectFromIndex } from "@/lib/meilisearch";
+import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_DETAIL, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import { isProjectStatus } from "@/lib/constants";
+
+type EditableProjectLinkType = "GEEKHACK" | "WEBSITE" | "DISCORD" | "INSTAGRAM" | "REDDIT" | "STORE" | "OTHER";
 
 export async function GET(
   req: NextRequest,
@@ -253,23 +257,146 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
-  const updated = await prisma.project.update({
+  const normalizeLinkType = (value: unknown): EditableProjectLinkType => {
+    switch (value) {
+      case "GEEKHACK":
+      case "WEBSITE":
+      case "DISCORD":
+      case "INSTAGRAM":
+      case "REDDIT":
+      case "STORE":
+      case "OTHER":
+        return value;
+      default:
+        return "OTHER";
+    }
+  };
+
+  const normalizedLinks = Array.isArray(body.links)
+    ? body.links
+        .map((link: unknown) => {
+          const item = typeof link === "object" && link !== null ? (link as Record<string, unknown>) : {};
+          const url = typeof item.url === "string" ? item.url.trim() : "";
+          const labelSource = typeof item.label === "string"
+            ? item.label
+            : typeof item.title === "string"
+              ? item.title
+              : "";
+          const label = labelSource.trim();
+          if (!url) return null;
+          return {
+            label: label || "Link",
+            url,
+            type: normalizeLinkType(item.type),
+          };
+        })
+        .filter((link: { label: string; url: string; type: EditableProjectLinkType } | null): link is { label: string; url: string; type: EditableProjectLinkType } => !!link)
+    : null;
+
+  const normalizedProjectVendors = Array.isArray(body.project_vendors)
+    ? body.project_vendors
+        .map((vendor: unknown) => {
+          const item = typeof vendor === "object" && vendor !== null ? (vendor as Record<string, unknown>) : {};
+          const vendorId = typeof item.vendorId === "string" ? item.vendorId.trim() : "";
+          if (!vendorId) return null;
+          const region = typeof item.region === "string" ? item.region.trim() : "";
+          const storeLink = typeof item.storeLink === "string" ? item.storeLink.trim() : "";
+          return {
+            vendorId,
+            region,
+            storeLink,
+          };
+        })
+        .filter((vendor: { vendorId: string; region: string; storeLink: string } | null): vendor is { vendorId: string; region: string; storeLink: string } => !!vendor)
+    : null;
+
+  const previous = await prisma.project.findUnique({
     where: { id: existing.id },
-    data: {
-      title: body.title,
-      description: body.description ?? null,
-      status: body.status as ProjectStatus | undefined,
-      category: (body.category_id as ProjectCategory) ?? undefined,
-      heroImage: body.hero_image_url ?? undefined,
-      estimatedDelivery: body.estimated_delivery ?? null,
-      priceMin: typeof body.min_price === "number" ? body.min_price : null,
-      priceMax: typeof body.max_price === "number" ? body.max_price : null,
-      gbStartDate: body.gb_start_date ? new Date(body.gb_start_date) : null,
-      gbEndDate: body.gb_end_date ? new Date(body.gb_end_date) : null,
-      profile: body.profile !== undefined ? (body.profile || null) : undefined,
+    select: {
+      published: true,
+      category: true,
+      status: true,
+      profile: true,
+      designer: true,
+      vendorId: true,
+      tags: true,
+      creatorId: true,
     },
-    select: { id: true, slug: true, updatedAt: true },
   });
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (normalizedLinks !== null) {
+      await tx.projectLink.deleteMany({ where: { projectId: existing.id } });
+    }
+    if (normalizedProjectVendors !== null) {
+      await tx.projectVendor.deleteMany({ where: { projectId: existing.id } });
+    }
+
+    return tx.project.update({
+      where: { id: existing.id },
+      data: {
+        title: body.title,
+        description: body.description ?? null,
+        status: body.status as ProjectStatus | undefined,
+        category: (body.category_id as ProjectCategory) ?? undefined,
+        heroImage: body.hero_image_url ?? undefined,
+        estimatedDelivery: body.estimated_delivery ?? null,
+        priceMin: typeof body.min_price === "number" ? body.min_price : null,
+        priceMax: typeof body.max_price === "number" ? body.max_price : null,
+        gbStartDate: body.gb_start_date ? new Date(body.gb_start_date) : null,
+        gbEndDate: body.gb_end_date ? new Date(body.gb_end_date) : null,
+        profile: body.profile !== undefined ? (body.profile || null) : undefined,
+        tags: Array.isArray(body.tags)
+          ? body.tags.filter((tag: unknown): tag is string => typeof tag === "string").map((tag: string) => tag.trim()).filter(Boolean)
+          : undefined,
+        ...(isAdmin && typeof body.featured === "boolean" ? { featured: body.featured } : {}),
+        ...(isAdmin && typeof body.published === "boolean" ? { published: body.published } : {}),
+        ...(normalizedProjectVendors !== null
+          ? {
+              vendorId: normalizedProjectVendors[0]?.vendorId ?? null,
+              projectVendors: {
+                create: normalizedProjectVendors.map((vendor: { vendorId: string; region: string; storeLink: string }) => ({
+                  vendorId: vendor.vendorId,
+                  region: vendor.region || null,
+                  storeLink: vendor.storeLink || null,
+                })),
+              },
+            }
+          : {}),
+        ...(normalizedLinks !== null
+          ? {
+              links: {
+                create: normalizedLinks,
+              },
+            }
+          : {}),
+      },
+      include: {
+        vendor: { select: { name: true, slug: true } },
+      },
+    });
+  });
+
+  if (updated.published) {
+    await indexProject(updated);
+
+    if (!previous?.published) {
+      await notifyWatchlistMatches({
+        id: updated.id,
+        title: updated.title,
+        slug: updated.slug,
+        category: updated.category,
+        status: updated.status,
+        profile: updated.profile,
+        designer: updated.designer,
+        vendorId: updated.vendorId,
+        tags: updated.tags,
+        creatorId: updated.creatorId,
+      });
+    }
+  } else if (previous?.published) {
+    await removeProjectFromIndex(updated.id);
+  }
 
   return NextResponse.json({ data: updated });
 }
