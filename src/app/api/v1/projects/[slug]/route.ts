@@ -198,7 +198,8 @@ export async function GET(
     favorite_count: project._count.favorites,
     is_following: isFollowing,
     is_favorited: isFavorited,
-    is_featured: false,
+    is_featured: project.featured,
+    published: project.published,
     created_at: project.createdAt,
     updated_at: project.updatedAt,
   };
