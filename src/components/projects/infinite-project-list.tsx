@@ -107,7 +107,7 @@ export function InfiniteProjectList({
     if (searchParams.featured) params.set("featured", searchParams.featured);
     if (searchParams.profile) params.set("profile", searchParams.profile);
     if (searchParams.designer) params.set("designer", searchParams.designer);
-    if (searchParams.sort) params.set("sort", searchParams.sort);
+    params.set("sort", searchParams.sort ?? "gb-newest");
     // Vendor filter: the API uses a general query, pass it if present
     if (searchParams.vendor) params.set("vendor", searchParams.vendor);
 
