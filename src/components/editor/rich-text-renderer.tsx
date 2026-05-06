@@ -138,9 +138,13 @@ function createSanitizeOptions(): sanitizeHtml.IOptions {
   };
 }
 
+export function preserveEmptyParagraphSpacing(html: string) {
+  return html.replace(/<p([^>]*)>(?:\s|&nbsp;|<span[^>]*>\s*<\/span>)*<\/p>/gi, '<p$1><br /></p>');
+}
+
 export function RichTextRenderer({ content, className, style, unstyled }: RichTextRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const clean = useMemo(() => sanitizeHtml(content, createSanitizeOptions()), [content]);
+  const clean = useMemo(() => preserveEmptyParagraphSpacing(sanitizeHtml(content, createSanitizeOptions())), [content]);
 
   useEffect(() => {
     const container = containerRef.current;
