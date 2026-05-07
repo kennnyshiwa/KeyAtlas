@@ -18,7 +18,8 @@
     "qa:smoke:local": "BASE_URL=http://localhost:3000 scripts/qa-smoke.sh",
     "qa:create-user": "tsx scripts/create-qa-user.ts",
     "qa:rich-text": "node scripts/qa-rich-text-editor.mjs",
-    "designers:backfill": "tsx scripts/backfill-designer-profiles.ts"
+    "designers:backfill": "tsx scripts/backfill-designer-profiles.ts",
+    "geekhack:mirror-images": "tsx scripts/mirror-geekhack-images.ts"
   },
   "prisma": {
     "seed": "npx tsx --tsconfig tsconfig.seed.json prisma/seed.ts"
