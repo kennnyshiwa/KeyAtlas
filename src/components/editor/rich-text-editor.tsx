@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode, type CSSProperties } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -46,6 +46,9 @@ interface RichTextEditorProps {
   toolbarExtra?: ReactNode | ((ctx: { editor: Editor }) => ReactNode);
   contentClassName?: string;
   contentStyle?: CSSProperties;
+  stickyToolbar?: boolean;
+  showEnterModeToggle?: boolean;
+  initialEnterMode?: "paragraph" | "lineBreak";
 }
 
 const DEFAULT_FONT_SIZE = "16";
@@ -198,10 +201,14 @@ export function RichTextEditor({
   toolbarExtra,
   contentClassName,
   contentStyle,
+  stickyToolbar = false,
+  showEnterModeToggle = false,
+  initialEnterMode = "paragraph",
 }: RichTextEditorProps) {
   const [fontSizeInput, setFontSizeInput] = useState(DEFAULT_FONT_SIZE);
   const [colorInput, setColorInput] = useState(DEFAULT_COLOR);
   const [detectedBg, setDetectedBg] = useState("#ffffff");
+  const [enterMode, setEnterMode] = useState<"paragraph" | "lineBreak">(initialEnterMode);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const lastColorApplyAtRef = useRef(0);
@@ -406,9 +413,28 @@ export function RichTextEditor({
     applyToSelectionOrCursor((chain) => chain.setColor(value));
   };
 
+  const handleEditorKeyDownCapture = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (
+      enterMode !== "lineBreak" ||
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    editor.chain().focus().setHardBreak().run();
+  };
+
   return (
     <div className="border-input rounded-md border">
-      <div className="bg-muted/50 flex flex-wrap gap-1 border-b p-1">
+      <div
+        className={`bg-muted/95 flex flex-wrap gap-1 border-b p-1 ${stickyToolbar ? "sticky top-20 z-20 rounded-t-md backdrop-blur supports-[backdrop-filter]:bg-background/80" : ""}`.trim()}
+      >
         <Button
           type="button"
           variant="ghost"
@@ -639,13 +665,30 @@ export function RichTextEditor({
           <Redo className="h-4 w-4" />
         </Button>
 
+        {showEnterModeToggle && (
+          <Button
+            type="button"
+            variant={enterMode === "lineBreak" ? "secondary" : "outline"}
+            className="h-8 px-2 text-xs"
+            onClick={() => setEnterMode((current) => (current === "lineBreak" ? "paragraph" : "lineBreak"))}
+            title={enterMode === "lineBreak" ? "Enter inserts a tight line break. Shift+Enter also works." : "Enter starts a new paragraph with normal spacing."}
+          >
+            {enterMode === "lineBreak" ? "Tight enter" : "Normal enter"}
+          </Button>
+        )}
+
         {toolbarExtra && (
           <div className="ml-auto flex flex-wrap items-center gap-2 border-l pl-2">
             {typeof toolbarExtra === "function" ? toolbarExtra({ editor }) : toolbarExtra}
           </div>
         )}
       </div>
-      <div ref={editorContainerRef} className={`prose dark:prose-invert max-w-none w-full px-3 py-2 [&_.ProseMirror]:max-w-none ${contentClassName ?? ""}`.trim()} style={contentStyle}>
+      <div
+        ref={editorContainerRef}
+        onKeyDownCapture={handleEditorKeyDownCapture}
+        className={`prose dark:prose-invert max-w-none w-full px-3 py-2 [&_.ProseMirror]:max-w-none ${contentClassName ?? ""}`.trim()}
+        style={contentStyle}
+      >
         <EditorContent editor={editor} data-testid="rich-text-editor-content" />
       </div>
     </div>

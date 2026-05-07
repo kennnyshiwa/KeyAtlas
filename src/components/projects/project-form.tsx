@@ -1055,6 +1055,9 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
                 content={formData.description ?? ""}
                 onChange={(html) => updateField("description", html)}
                 placeholder="Describe your project..."
+                stickyToolbar
+                showEnterModeToggle
+                initialEnterMode="lineBreak"
                 toolbarExtra={({ editor }) => (
                   <Select
                     value={inlineImageChoice}
