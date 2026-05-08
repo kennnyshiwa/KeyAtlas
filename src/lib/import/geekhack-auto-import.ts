@@ -165,6 +165,17 @@ function getThreadBodyTextLength(thread: ExtractedThread | null | undefined): nu
     .length ?? 0;
 }
 
+export function isMovedRedirectThread(thread: Pick<ExtractedThread, "title" | "op"> | null | undefined): boolean {
+  const title = thread?.title?.replace(/\s+/g, " ").trim() ?? "";
+  if (/^moved\s*:/i.test(title)) return true;
+
+  const body = `${thread?.op?.contentText ?? ""}\n${thread?.op?.contentHtml ?? ""}`
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return /this\s+topic\s+has\s+been\s+moved\s+to\b/i.test(body);
+}
+
 export async function fetchGeekhackThreadWithRetry(
   topicUrl: string,
   opts?: {
@@ -891,6 +902,11 @@ async function importTopic(
   const opHtml = thread.op?.contentHtml ?? thread.op?.contentText ?? "";
   const referencedTopicIds = extractReferencedTopicIds(opHtml)
     .filter((id) => id !== entry.topicId && id !== canonicalTopicId);
+
+  if (isMovedRedirectThread(thread)) {
+    console.log(`${logPrefix} skipped moved redirect thread: "${thread.title}"`);
+    return { imported: false };
+  }
 
   // 4. Build prefill
   const prefill = buildGeekhackPrefillPayload(thread);

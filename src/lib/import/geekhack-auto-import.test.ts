@@ -5,6 +5,7 @@ import {
   isConservativeLifecycleDuplicate,
   findHardDuplicateMatch,
   fetchGeekhackThreadWithRetry,
+  isMovedRedirectThread,
   stripBrokenImageBlocksFromHtml,
 } from "./geekhack-auto-import";
 import type { ExtractedThread } from "./geekhack";
@@ -285,6 +286,44 @@ describe("findHardDuplicateMatch", () => {
     );
 
     expect(match).toEqual({ projectId: "solar80", reason: "title-fingerprint" });
+  });
+});
+
+describe("isMovedRedirectThread", () => {
+  it("flags moved redirect stubs by title", () => {
+    expect(
+      isMovedRedirectThread({
+        title: "MOVED: WTB: Quickfire",
+        op: {
+          contentText: "regular body",
+          contentHtml: "<p>regular body</p>",
+        },
+      } as ExtractedThread)
+    ).toBe(true);
+  });
+
+  it("flags moved redirect stubs by body text", () => {
+    expect(
+      isMovedRedirectThread({
+        title: "Quickfire",
+        op: {
+          contentText: "This topic has been moved to classifieds.",
+          contentHtml: "<p>This topic has been moved to classifieds.</p>",
+        },
+      } as ExtractedThread)
+    ).toBe(true);
+  });
+
+  it("does not flag normal threads", () => {
+    expect(
+      isMovedRedirectThread({
+        title: "[IC] Totally Real Keyboard",
+        op: {
+          contentText: "Real keyboard content",
+          contentHtml: "<p>Real keyboard content</p>",
+        },
+      } as ExtractedThread)
+    ).toBe(false);
   });
 });
 

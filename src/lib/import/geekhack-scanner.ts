@@ -81,6 +81,7 @@ const JUNK_TITLE_PATTERNS = [
   /\?\s*$/,                            // titles ending in a question mark
   // Accidental reposts / meta about posting
   /^awkward/i,
+  /^moved\s*:/i,
   /\bno\s+clue\s+how\s+this\s+(?:re)?posted\b/i,
   /\bignore\s+this\b/i,
   /\bplease\s+delete\b/i,
@@ -97,6 +98,7 @@ const IGNORED_TOPIC_IDS = new Set([
   "16830", // team liquid key
   "21961", // [Intrest Check] Finger Print function key
   "119717", // Daedalus 60
+  "52532", // MOVED: WTB: Quickfire
 ]);
 
 /** Check if a title matches known meta/admin post patterns. */
