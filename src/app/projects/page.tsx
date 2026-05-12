@@ -86,16 +86,20 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     "gb-newest": [{ gbStartDate: "desc" }, { createdAt: "desc" }],
     "gb-oldest": [{ gbStartDate: "asc" }, { createdAt: "asc" }],
     "gb-ending": [{ gbEndDate: "asc" }, { createdAt: "desc" }],
+    "ic-newest": [{ icDate: "desc" }, { createdAt: "desc" }],
+    "ic-oldest": [{ icDate: "asc" }, { createdAt: "asc" }],
   };
   const activeSort = sortOptions[params.sort ?? ""] ? params.sort! : "gb-newest";
   const orderBy = sortOptions[activeSort];
 
-  // For GB sorts, only show projects that have a GB date set
   if (activeSort === "gb-newest" || activeSort === "gb-oldest") {
     Object.assign(where, { gbStartDate: { not: null } });
   }
   if (activeSort === "gb-ending") {
     Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
+  }
+  if (activeSort === "ic-newest" || activeSort === "ic-oldest") {
+    Object.assign(where, { icDate: { not: null } });
   }
 
   const session = await auth();

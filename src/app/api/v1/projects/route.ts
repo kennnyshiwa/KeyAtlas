@@ -68,6 +68,16 @@ export async function GET(req: NextRequest) {
       Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
       orderBy = [{ gbEndDate: "asc" }, { createdAt: "desc" }];
       break;
+    case "ic-newest":
+    case "ic_newest":
+      Object.assign(where, { icDate: { not: null } });
+      orderBy = [{ icDate: "desc" }, { createdAt: "desc" }];
+      break;
+    case "ic-oldest":
+    case "ic_oldest":
+      Object.assign(where, { icDate: { not: null } });
+      orderBy = [{ icDate: "asc" }, { createdAt: "asc" }];
+      break;
     case "most-followed":
     case "most_followed":
       orderBy = { createdAt: "desc" }; // TODO: add follow relation count to sort when available

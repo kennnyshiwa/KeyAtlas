@@ -15,6 +15,8 @@ const SORT_OPTIONS = [
   { value: "gb-newest", label: "GB date (newest)" },
   { value: "gb-oldest", label: "GB date (oldest)" },
   { value: "gb-ending", label: "GB ending soon" },
+  { value: "ic-newest", label: "IC date (newest)" },
+  { value: "ic-oldest", label: "IC date (oldest)" },
   { value: "a-z", label: "A → Z" },
   { value: "z-a", label: "Z → A" },
   { value: "most-followed", label: "Most followed" },

@@ -90,16 +90,24 @@ export async function GET(req: NextRequest) {
     case "gb-ending":
       orderBy = [{ gbEndDate: "asc" }, { createdAt: "desc" }];
       break;
+    case "ic-newest":
+      orderBy = [{ icDate: "desc" }, { createdAt: "desc" }];
+      break;
+    case "ic-oldest":
+      orderBy = [{ icDate: "asc" }, { createdAt: "asc" }];
+      break;
     default:
       orderBy = { createdAt: "desc" };
   }
 
-  // For GB sorts, only show projects with GB dates
   if (sort === "gb-newest" || sort === "gb-oldest") {
     Object.assign(where, { gbStartDate: { not: null } });
   }
   if (sort === "gb-ending") {
     Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
+  }
+  if (sort === "ic-newest" || sort === "ic-oldest") {
+    Object.assign(where, { icDate: { not: null } });
   }
 
   const [projects, total] = await Promise.all([
