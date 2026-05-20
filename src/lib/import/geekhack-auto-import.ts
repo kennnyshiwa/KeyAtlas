@@ -237,11 +237,13 @@ function isDecorativeImportedImageUrl(url: string): boolean {
   }
 }
 
-function isLocalProjectImageUrl(url: string): boolean {
+function isTrustedImportedImageHost(url: string): boolean {
   try {
     const parsed = new URL(url);
 
     if (parsed.hostname === "localhost" || parsed.pathname.startsWith("/uploads/")) return true;
+    if (parsed.hostname.includes("imagedelivery.net")) return true;
+    if (parsed.hostname === "i.postimg.cc") return true;
 
     return false;
   } catch {
@@ -255,7 +257,7 @@ function isLocalProjectImageUrl(url: string): boolean {
  */
 async function isImageUrlReachable(url: string): Promise<boolean> {
   try {
-    if (isLocalProjectImageUrl(url)) return true;
+    if (isTrustedImportedImageHost(url)) return true;
 
     const res = await fetch(url, {
       method: "HEAD",
@@ -286,6 +288,7 @@ export async function stripBrokenImageBlocksFromHtml(
   let cleaned = html;
 
   for (const url of imageUrls) {
+    if (isTrustedImportedImageHost(url)) continue;
     if (await isReachable(url)) continue;
 
     const escapedUrl = escapeRegExp(url);
