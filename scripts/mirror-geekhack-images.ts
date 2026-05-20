@@ -3,6 +3,7 @@ import {
   mirrorImportImageSrcsInHtml,
   mirrorImportImageUrlOrOriginal,
 } from "../src/lib/import/imgur-mirror";
+import { stripBrokenImageBlocksFromHtml } from "../src/lib/import/geekhack-auto-import";
 
 type Options = {
   apply: boolean;
@@ -91,7 +92,9 @@ async function main() {
       remaining--;
 
       const nextDescription = project.description
-        ? await mirrorImportImageSrcsInHtml(project.description, project.creatorId)
+        ? await stripBrokenImageBlocksFromHtml(
+            await mirrorImportImageSrcsInHtml(project.description, project.creatorId)
+          )
         : project.description;
       const nextHeroImage = project.heroImage
         ? await mirrorImportImageUrlOrOriginal(project.heroImage, project.creatorId)

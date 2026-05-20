@@ -414,12 +414,13 @@ describe("stripBrokenImageBlocksFromHtml", () => {
     expect(cleaned).not.toContain("https://example.com/render.png");
   });
 
-  it("keeps trusted postimg embeds even if server-side reachability checks fail", async () => {
+  it("removes stale mirrored or remote image embeds when reachability checks fail", async () => {
     const html =
-      '<strong>Kits</strong><br /><a href="https://i.postimg.cc/example/kit.png"><img src="https://i.postimg.cc/example/kit.png" class="bbc_img" /></a>';
+      '<strong>Kits</strong><br /><a href="https://imagedelivery.net/account/dead/public"><img src="https://imagedelivery.net/account/dead/public" class="bbc_img" /></a><br /><a href="https://i.postimg.cc/example/kit.png"><img src="https://i.postimg.cc/example/kit.png" class="bbc_img" /></a>';
 
     const cleaned = await stripBrokenImageBlocksFromHtml(html, async () => false);
 
-    expect(cleaned).toContain("https://i.postimg.cc/example/kit.png");
+    expect(cleaned).not.toContain("https://imagedelivery.net/account/dead/public");
+    expect(cleaned).not.toContain("https://i.postimg.cc/example/kit.png");
   });
 });
