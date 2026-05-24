@@ -14,6 +14,56 @@ function jsonNoStore(body: unknown) {
   });
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreTitleMatch(title: string, query: string) {
+  const normalizedTitle = normalizeSearchText(title);
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedTitle || !normalizedQuery) return 0;
+
+  let score = 0;
+  if (normalizedTitle === normalizedQuery) score += 1000;
+  if (normalizedTitle.startsWith(normalizedQuery)) score += 400;
+  if (normalizedTitle.includes(normalizedQuery)) score += 250;
+
+  const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+  const titleTokens = new Set(normalizedTitle.split(" ").filter(Boolean));
+  const matchedTokens = queryTokens.filter((token) => titleTokens.has(token)).length;
+
+  score += matchedTokens * 40;
+  if (matchedTokens === queryTokens.length) score += 200;
+
+  return score;
+}
+
+function getProjectTitle(hit: unknown) {
+  const title = (hit as { title?: unknown } | null)?.title;
+  return typeof title === "string" ? title : "";
+}
+
+function rerankProjectHits<T>(hits: T[], query: string) {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return hits;
+
+  return hits
+    .map((hit, index) => ({
+      hit,
+      index,
+      score: scoreTitleMatch(getProjectTitle(hit), normalizedQuery),
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.index - b.index;
+    })
+    .map(({ hit }) => hit);
+}
+
 let searchProjects: typeof import("@/lib/meilisearch").searchProjects | null = null;
 try {
   const mod = require("@/lib/meilisearch");
@@ -126,7 +176,7 @@ export async function GET(req: NextRequest) {
         designerPromise,
       ]);
 
-      const projectHits = await filterToLiveProjectHits(results.hits);
+      const projectHits = rerankProjectHits(await filterToLiveProjectHits(results.hits), q);
 
       return jsonNoStore({
         data: projectHits,
@@ -193,7 +243,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   return jsonNoStore({
-    data: projects,
+    data: rerankProjectHits(projects, q),
     vendors: vendors.map((v) => ({
       id: v.id,
       name: v.name,
