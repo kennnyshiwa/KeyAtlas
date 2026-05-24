@@ -90,7 +90,7 @@ export function VendorMultiSelect({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="sticky top-24 z-20 -mx-6 flex items-center justify-between border-b bg-background/95 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <Label>Vendors</Label>
         <Button type="button" variant="outline" size="sm" onClick={addEntry}>
           <Plus className="mr-1 h-4 w-4" />
