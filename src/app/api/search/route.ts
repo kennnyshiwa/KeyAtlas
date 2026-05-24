@@ -31,6 +31,7 @@ async function filterToLiveProjectHits<T>(hits: T[]): Promise<T[]> {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q") ?? "";
+  const trimmedQuery = q.trim();
   const type = searchParams.get("type") ?? "all";
   const category = searchParams.get("category");
   const status = searchParams.get("status");
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     const results = await searchProjects(q, {
       filter: filters.join(" AND "),
-      sort: ["createdAt:desc"],
+      sort: trimmedQuery ? undefined : ["createdAt:desc"],
       limit,
       offset,
     });
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
   const [projectResults, designerResults, vendorResults] = await Promise.all([
     searchProjects(q, {
       filter: filters.join(" AND "),
-      sort: ["createdAt:desc"],
+      sort: trimmedQuery ? undefined : ["createdAt:desc"],
       limit,
       offset,
     }),

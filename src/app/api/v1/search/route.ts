@@ -108,7 +108,6 @@ export async function GET(req: NextRequest) {
       const [results, vendors, designers] = await Promise.all([
         searchProjects(q, {
           filter: "published = true",
-          sort: ["createdAt:desc"],
           limit,
           offset,
         }),
