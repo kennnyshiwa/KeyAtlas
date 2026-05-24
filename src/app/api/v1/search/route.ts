@@ -3,6 +3,17 @@ import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function jsonNoStore(body: unknown) {
+  return NextResponse.json(body, {
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+    },
+  });
+}
+
 let searchProjects: typeof import("@/lib/meilisearch").searchProjects | null = null;
 try {
   const mod = require("@/lib/meilisearch");
@@ -49,7 +60,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Math.max(1, Number(searchParams.get("limit") ?? "20")), 50);
 
   if (!q.trim()) {
-    return NextResponse.json({
+    return jsonNoStore({
       data: [],
       vendors: [],
       designers: [],
@@ -117,7 +128,7 @@ export async function GET(req: NextRequest) {
 
       const projectHits = await filterToLiveProjectHits(results.hits);
 
-      return NextResponse.json({
+      return jsonNoStore({
         data: projectHits,
         vendors: vendors.map((v) => ({
           id: v.id,
@@ -181,7 +192,7 @@ export async function GET(req: NextRequest) {
     designerPromise,
   ]);
 
-  return NextResponse.json({
+  return jsonNoStore({
     data: projects,
     vendors: vendors.map((v) => ({
       id: v.id,

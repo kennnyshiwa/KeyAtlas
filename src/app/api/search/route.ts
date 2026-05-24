@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchProjects, searchDesigners, searchVendors } from "@/lib/meilisearch";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function jsonNoStore(body: unknown) {
+  return NextResponse.json(body, {
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+    },
+  });
+}
+
 async function filterToLiveProjectHits<T>(hits: T[]): Promise<T[]> {
   if (hits.length === 0) return hits;
 
@@ -51,17 +62,17 @@ export async function GET(req: NextRequest) {
       offset,
     });
     const hits = await filterToLiveProjectHits(results.hits);
-    return NextResponse.json({ ...results, hits, estimatedTotalHits: hits.length });
+    return jsonNoStore({ ...results, hits, estimatedTotalHits: hits.length });
   }
 
   if (type === "designers") {
     const results = await searchDesigners(q, { limit, offset });
-    return NextResponse.json(results);
+    return jsonNoStore(results);
   }
 
   if (type === "vendors") {
     const results = await searchVendors(q, { limit, offset });
-    return NextResponse.json(results);
+    return jsonNoStore(results);
   }
 
   // type=all (default): query all three indexes in parallel
@@ -82,7 +93,7 @@ export async function GET(req: NextRequest) {
 
   const projectHits = await filterToLiveProjectHits(projectResults.hits);
 
-  return NextResponse.json({
+  return jsonNoStore({
     projects: projectHits,
     designers: designerResults.hits,
     vendors: vendorResults.hits,
