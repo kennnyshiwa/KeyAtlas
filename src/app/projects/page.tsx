@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { ProjectGrid } from "@/components/projects/project-grid";
 import { ProjectSearch } from "@/components/projects/project-search";
 import { ProjectStatusTabs } from "@/components/projects/project-status-tabs";
@@ -76,30 +77,24 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     }),
   };
 
-  const sortOptions: Record<string, object | object[]> = {
+  const sortOptions: Record<string, Prisma.ProjectOrderByWithRelationInput | Prisma.ProjectOrderByWithRelationInput[]> = {
     newest: { createdAt: "desc" },
     oldest: { createdAt: "asc" },
     "a-z": { title: "asc" },
     "z-a": { title: "desc" },
     "most-followed": { favorites: { _count: "desc" } },
     updated: { updatedAt: "desc" },
-    "gb-newest": [{ gbStartDate: "desc" }, { createdAt: "desc" }],
-    "gb-oldest": [{ gbStartDate: "asc" }, { createdAt: "asc" }],
+    "gb-newest": [{ gbStartDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    "gb-oldest": [{ gbStartDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     "gb-ending": [{ gbEndDate: "asc" }, { createdAt: "desc" }],
-    "ic-newest": [{ icDate: "desc" }, { createdAt: "desc" }],
-    "ic-oldest": [{ icDate: "asc" }, { createdAt: "asc" }],
+    "ic-newest": [{ icDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    "ic-oldest": [{ icDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
   };
   const activeSort = sortOptions[params.sort ?? ""] ? params.sort! : "gb-newest";
   const orderBy = sortOptions[activeSort];
 
-  if (activeSort === "gb-newest" || activeSort === "gb-oldest") {
-    Object.assign(where, { gbStartDate: { not: null } });
-  }
   if (activeSort === "gb-ending") {
     Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
-  }
-  if (activeSort === "ic-newest" || activeSort === "ic-oldest") {
-    Object.assign(where, { icDate: { not: null } });
   }
 
   const session = await auth();

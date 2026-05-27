@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
-import type { ProjectCategory } from "@/generated/prisma/client";
+import type { Prisma, ProjectCategory } from "@/generated/prisma/client";
 import { resolveProjectStatusInput } from "@/lib/constants";
 
 export async function GET(req: NextRequest) {
@@ -37,8 +37,7 @@ export async function GET(req: NextRequest) {
     ...(designer && { designer: { contains: designer, mode: "insensitive" as const } }),
   };
 
-  type OrderBy = Record<string, "asc" | "desc">;
-  let orderBy: OrderBy | OrderBy[];
+  let orderBy: Prisma.ProjectOrderByWithRelationInput | Prisma.ProjectOrderByWithRelationInput[];
   switch (sort) {
     case "oldest":
       orderBy = { createdAt: "asc" };
@@ -55,13 +54,11 @@ export async function GET(req: NextRequest) {
       break;
     case "gb-newest":
     case "gb_newest":
-      Object.assign(where, { gbStartDate: { not: null } });
-      orderBy = [{ gbStartDate: "desc" }, { createdAt: "desc" }];
+      orderBy = [{ gbStartDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }];
       break;
     case "gb-oldest":
     case "gb_oldest":
-      Object.assign(where, { gbStartDate: { not: null } });
-      orderBy = [{ gbStartDate: "asc" }, { createdAt: "asc" }];
+      orderBy = [{ gbStartDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }];
       break;
     case "gb-ending":
     case "gb_ending":
@@ -70,13 +67,11 @@ export async function GET(req: NextRequest) {
       break;
     case "ic-newest":
     case "ic_newest":
-      Object.assign(where, { icDate: { not: null } });
-      orderBy = [{ icDate: "desc" }, { createdAt: "desc" }];
+      orderBy = [{ icDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }];
       break;
     case "ic-oldest":
     case "ic_oldest":
-      Object.assign(where, { icDate: { not: null } });
-      orderBy = [{ icDate: "asc" }, { createdAt: "asc" }];
+      orderBy = [{ icDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }];
       break;
     case "most-followed":
     case "most_followed":
