@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   validateGeekhackTopicUrl,
   buildGeekhackPrefillPayload,
+  convertGeekhackMoreBlocks,
   type ExtractedThread,
 } from "./geekhack";
 import { extractCoreName } from "./geekhack-scanner";
@@ -103,5 +104,59 @@ describe("buildGeekhackPrefillPayload", () => {
     const result = buildGeekhackPrefillPayload(thread);
     expect(result.tags).toContain("geekhack");
     expect(result.tags).toContain("ic");
+  });
+
+  it("converts Geekhack 'More' blocks in the OP into collapsible sections", () => {
+    const result = buildGeekhackPrefillPayload({
+      ...thread,
+      op: {
+        ...thread.op!,
+        contentHtml:
+          '<span class="bbc_size">Ice Blue</span><br />' +
+          '<a href="https://i.imgur.com/c5rKmJ1.jpeg"><img src="https://i.imgur.com/c5rKmJ1.jpeg" /></a><br /><br />' +
+          '<div class="more_head">More</div>' +
+          '<div class="more_body">' +
+          '<a href="https://i.imgur.com/x15j5Ms.jpeg"><img src="https://i.imgur.com/x15j5Ms.jpeg" /></a><br />' +
+          '<a href="https://i.imgur.com/tERjb4w.jpeg"><img src="https://i.imgur.com/tERjb4w.jpeg" /></a>' +
+          "</div>",
+      },
+    });
+
+    expect(result.description).toContain('<details data-collapsible="true">');
+    expect(result.description).toContain("<summary>More</summary>");
+    expect(result.description).toContain('<div data-collapsible-content="true">');
+    // Lead image and heading survive outside the collapsible block.
+    expect(result.description).toContain("Ice Blue");
+    expect(result.description).toContain("c5rKmJ1.jpeg");
+    // Hidden images moved inside the collapsible content.
+    expect(result.description).toContain("x15j5Ms.jpeg");
+    expect(result.description).toContain("tERjb4w.jpeg");
+    // Original Geekhack markup is gone.
+    expect(result.description).not.toContain("more_head");
+    expect(result.description).not.toContain("more_body");
+  });
+});
+
+describe("convertGeekhackMoreBlocks", () => {
+  it("preserves nested divs inside the more_body", () => {
+    const html =
+      '<div class="more_head">More</div>' +
+      '<div class="more_body"><div class="inner">deep</div>tail</div>after';
+    const result = convertGeekhackMoreBlocks(html);
+
+    expect(result).toBe(
+      '<details data-collapsible="true"><summary>More</summary>' +
+        '<div data-collapsible-content="true"><div class="inner">deep</div>tail</div></details>after'
+    );
+  });
+
+  it("leaves a more_head with no following more_body untouched", () => {
+    const html = '<div class="more_head">More</div><p>not a body</p>';
+    expect(convertGeekhackMoreBlocks(html)).toBe(html);
+  });
+
+  it("returns input unchanged when there are no more blocks", () => {
+    const html = "<p>Plain description</p>";
+    expect(convertGeekhackMoreBlocks(html)).toBe(html);
   });
 });

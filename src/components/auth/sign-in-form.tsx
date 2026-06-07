@@ -26,10 +26,14 @@ export function SignInForm() {
       });
 
       if (result?.error) {
-        if (result.error.toLowerCase().includes("verify")) {
+        if (result.code?.toLowerCase().includes("verify")) {
           toast.error("Please verify your email before signing in.");
+        } else if (result.code?.toLowerCase().includes("password_reset")) {
+          toast.error("Password reset required before signing in.");
+        } else if (result.code?.toLowerCase().includes("banned")) {
+          toast.error("This account is banned.");
         } else {
-          toast.error(result.error || "Invalid email or password");
+          toast.error("Invalid email or password");
         }
         return;
       }

@@ -29,6 +29,55 @@
   background: hsl(var(--primary) / 0.2);
 }
 
+/* Collapsible "More" sections — styled to match the standalone preview. The
+   editor uses a <button> pill (not a native <details>), so showing/hiding the
+   content is driven by the [open] attribute the node view toggles. */
+.ka-collapsible-section {
+  margin: 0.9rem 0;
+}
+
+.ka-collapsible-summary {
+  cursor: pointer;
+  appearance: none;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.7rem;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--foreground);
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.ka-collapsible-summary:hover {
+  background: var(--accent);
+}
+
+.ka-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ka-collapsible-content {
+  margin-top: 0.75rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--border);
+}
+
+.ProseMirror .ka-collapsible-section:not([open]) > .ka-collapsible-content {
+  display: none;
+}
+
+.ProseMirror .ka-collapsible-section[open] > .ka-collapsible-content {
+  display: block;
+}
+
 /* Mention suggestion dropdown */
 .mention-suggestion-list {
   background: hsl(var(--popover));

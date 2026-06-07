@@ -157,4 +157,42 @@
     background: transparent;
     filter: none;
   }
+
+  /* Collapsible "More" sections on the public display page render as native
+     <details> elements, styled to match the standalone preview pill. */
+  .ka-collapsible-section {
+    margin: 0.9rem 0;
+  }
+
+  .ka-collapsible-summary {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    list-style: none;
+    padding: 0.35rem 0.7rem;
+    font-weight: 600;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    transition: background 0.15s ease;
+  }
+
+  .ka-collapsible-summary:hover {
+    background: var(--accent);
+  }
+
+  .ka-collapsible-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .ka-collapsible-summary::marker {
+    content: "";
+  }
+
+  .ka-collapsible-content {
+    margin-top: 0.75rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--border);
+  }
 }

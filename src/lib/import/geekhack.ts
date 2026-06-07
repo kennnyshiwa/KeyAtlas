@@ -410,9 +410,91 @@ function parseThread(
   };
 }
 
+function escapeHtmlText(input: string) {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+const MORE_HEAD_RE = /<div\b[^>]*\bclass=["'][^"']*\bmore_head\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i;
+
+/**
+ * Reads the inner HTML of a `<div>` whose content starts at `start`, accounting
+ * for nested `<div>` elements, and returns the inner HTML plus the index just
+ * past its matching `</div>`.
+ */
+function readBalancedDivContent(html: string, start: number) {
+  const tagRe = /<(\/?)div\b[^>]*>/gi;
+  tagRe.lastIndex = start;
+  let depth = 1;
+  let match: RegExpExecArray | null;
+  while ((match = tagRe.exec(html)) !== null) {
+    if (match[1] === "/") {
+      depth -= 1;
+      if (depth === 0) {
+        return { inner: html.slice(start, match.index), endIndex: tagRe.lastIndex };
+      }
+    } else {
+      depth += 1;
+    }
+  }
+  return { inner: html.slice(start), endIndex: html.length };
+}
+
+/**
+ * Converts Geekhack "More" spoiler blocks
+ *   <div class="more_head">More</div><div class="more_body">…</div>
+ * into KeyAtlas collapsible sections compatible with the rich-text
+ * editor/renderer, preserving all inner content and surrounding layout.
+ */
+export function convertGeekhackMoreBlocks(html: string): string {
+  if (!html || !/more_head/i.test(html)) return html;
+
+  let result = "";
+  let rest = html;
+
+  for (;;) {
+    const headMatch = rest.match(MORE_HEAD_RE);
+    if (!headMatch || headMatch.index == null) {
+      result += rest;
+      break;
+    }
+
+    const headEnd = headMatch.index + headMatch[0].length;
+    result += rest.slice(0, headMatch.index);
+
+    const summaryRaw = headMatch[1]
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const summary = escapeHtmlText(summaryRaw || "More");
+
+    const afterHead = rest.slice(headEnd);
+    const bodyOpen = afterHead.match(
+      /^(?:\s|<br\s*\/?>)*<div\b[^>]*\bclass=["'][^"']*\bmore_body\b[^"']*["'][^>]*>/i
+    );
+
+    if (!bodyOpen) {
+      // No matching body — leave the head untouched and continue scanning.
+      result += headMatch[0];
+      rest = afterHead;
+      continue;
+    }
+
+    const bodyContentStart = headEnd + bodyOpen[0].length;
+    const { inner, endIndex } = readBalancedDivContent(rest, bodyContentStart);
+
+    result += `<details data-collapsible="true"><summary>${summary}</summary><div data-collapsible-content="true">${inner.trim()}</div></details>`;
+    rest = rest.slice(endIndex);
+  }
+
+  return result;
+}
+
 export function buildGeekhackPrefillPayload(thread: ExtractedThread): GeekhackPrefillPayload {
   const description = thread.op?.contentHtml?.trim()
-    ? thread.op.contentHtml.trim()
+    ? convertGeekhackMoreBlocks(thread.op.contentHtml.trim())
     : `<p>${thread.op?.contentText?.trim() || ""}</p>`;
 
   return {

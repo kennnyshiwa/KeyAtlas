@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -10,8 +10,11 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import TextAlign from "@tiptap/extension-text-align";
 import { Extension } from "@tiptap/core";
+import { DOMSerializer } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import Mention from "@tiptap/extension-mention";
+import { normalizeCollapsibleSections } from "@/components/editor/collapsible-html";
+import { CollapsibleSection } from "@/components/editor/extensions/collapsible-section";
 import { FontSize } from "@/components/editor/extensions/font-size";
 import { mentionSuggestion } from "@/components/editor/extensions/mention-suggestion";
 import { Button } from "@/components/ui/button";
@@ -22,6 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Bold,
   Italic,
@@ -35,7 +44,7 @@ import {
   Undo,
   Redo,
 } from "lucide-react";
-import { contrastRatio, WCAG_AA_THRESHOLD, passesWcagAA } from "@/lib/color-contrast";
+import { contrastRatio, WCAG_AA_THRESHOLD } from "@/lib/color-contrast";
 import { toast } from "sonner";
 import "./rich-text-editor.css";
 
@@ -54,11 +63,55 @@ interface RichTextEditorProps {
 const DEFAULT_FONT_SIZE = "16";
 const DEFAULT_COLOR = "#374151";
 
+/** Wraps a toolbar control in a styled hover/focus tooltip describing what it does. */
+function Tip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function createCollapsibleSectionHtml(innerHtml: string, { summary = "More", open = false } = {}) {
+  const content = innerHtml.trim() || "<p></p>";
+  return `<details data-collapsible="true"${open ? " open" : ""}><summary>${summary}</summary><div data-collapsible-content="true">${content}</div></details>`;
+}
+
+function getSelectionHtml(editor: Editor, range?: { from: number; to: number }) {
+  const serializer = DOMSerializer.fromSchema(editor.schema);
+  const wrapper = document.createElement("div");
+  const slice = range
+    ? editor.state.doc.slice(range.from, range.to)
+    : editor.state.selection.content();
+  wrapper.appendChild(serializer.serializeFragment(slice.content));
+  return wrapper.innerHTML;
+}
+
 function normalizeGeekhackHtml(html: string) {
-  return html
-    // Convert <div align="..."> to <p> (Tiptap doesn't support div)
-    .replace(/<div\s+align=["']([^"']+)["'][^>]*>/gi, '<p style="text-align:$1">')
-    .replace(/<\/div>/gi, "</p>")
+  let normalized = html;
+
+  if (typeof DOMParser !== "undefined" && html.includes("<div")) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    for (const div of Array.from(doc.body.querySelectorAll<HTMLDivElement>("div[align]"))) {
+      const paragraph = doc.createElement("p");
+      paragraph.style.textAlign = div.getAttribute("align") || "left";
+
+      while (div.firstChild) {
+        paragraph.appendChild(div.firstChild);
+      }
+
+      div.replaceWith(paragraph);
+    }
+
+    normalized = doc.body.innerHTML;
+  } else {
+    normalized = normalized.replace(/<div\s+align=["']([^"']+)["'][^>]*>/gi, '<p style="text-align:$1">');
+  }
+
+  return normalized
     // Convert bbc_size spans to inline font-size
     .replace(/<span[^>]*class=["'][^"']*bbc_size[^"']*["'][^>]*style=["'][^"']*font-size:\s*([^;"']+)[^"']*["'][^>]*>/gi,
       '<span style="font-size:$1">')
@@ -212,7 +265,8 @@ export function RichTextEditor({
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const lastColorApplyAtRef = useRef(0);
-  const normalizedContent = normalizeLegacyFontTags(content || "");
+  const normalizedContent = normalizeCollapsibleSections(normalizeLegacyFontTags(content || ""));
+  const lastEmittedHtmlRef = useRef(normalizedContent);
   const prevContentRef = useRef(normalizedContent);
 
   const handleImageUpload = useCallback(async (file: File, ed: Editor) => {
@@ -253,10 +307,11 @@ export function RichTextEditor({
   const editor = useEditor({
     extensions: [
       StarterKit,
+      CollapsibleSection,
       TextStyle,
       Color,
       FontSize,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      TextAlign.configure({ types: ["heading", "paragraph", "collapsibleSection"] }),
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
@@ -295,7 +350,9 @@ export function RichTextEditor({
     content: normalizedContent,
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      lastEmittedHtmlRef.current = html;
+      onChange(html);
     },
     onSelectionUpdate: ({ editor }) => {
       const { from, to } = editor.state.selection;
@@ -310,10 +367,14 @@ export function RichTextEditor({
     if (!editor) return;
     if (normalizedContent !== prevContentRef.current) {
       prevContentRef.current = normalizedContent;
+      if (normalizedContent === lastEmittedHtmlRef.current) {
+        return;
+      }
       // Only update if meaningfully different from current editor content
       const currentHtml = editor.getHTML();
       if (normalizedContent !== currentHtml) {
         editor.commands.setContent(normalizedContent, { emitUpdate: false });
+        lastEmittedHtmlRef.current = normalizedContent;
       }
     }
   }, [editor, normalizedContent]);
@@ -382,7 +443,7 @@ export function RichTextEditor({
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
 
-  const applyToSelectionOrCursor = (apply: (chain: any) => any) => {
+  const applyToSelectionOrCursor = (apply: (chain: ReturnType<Editor["chain"]>) => ReturnType<Editor["chain"]>) => {
     const { from, to } = editor.state.selection;
     const hasActiveSelection = to > from;
 
@@ -430,111 +491,205 @@ export function RichTextEditor({
     editor.chain().focus().setHardBreak().run();
   };
 
+  // Remove the collapsible section the cursor is in, lifting its content back
+  // into the document (an easy way to "undo" a More section later). Returns
+  // false when the selection isn't inside a section.
+  const removeCollapsibleSection = () => {
+    const { state } = editor;
+    const { $from } = state.selection;
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const node = $from.node(depth);
+      if (node.type.name === "collapsibleSection") {
+        const from = $from.before(depth);
+        const to = $from.after(depth);
+        editor.view.dispatch(state.tr.replaceWith(from, to, node.content).scrollIntoView());
+        editor.commands.focus();
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const insertCollapsibleSection = () => {
+    // If the cursor is already inside a section, the button instead REMOVES it,
+    // restoring the hidden content to the normal document flow.
+    if (editor.isActive("collapsibleSection")) {
+      removeCollapsibleSection();
+      return;
+    }
+
+    // Use only the *live* selection. The toolbar button preserves it via
+    // onMouseDown preventDefault, so a genuine highlight still reads as
+    // non-empty here. We deliberately do NOT fall back to a remembered
+    // selection, which could silently wrap the entire document.
+    const { from, to, empty } = editor.state.selection;
+
+    // No selection: drop in an empty, expanded section the user can type into.
+    if (empty) {
+      editor
+        .chain()
+        .focus()
+        .insertContent(createCollapsibleSectionHtml("", { open: true }))
+        .run();
+      return;
+    }
+
+    // Selection: wrap the highlighted content in an expanded section so it's
+    // immediately visible (and the pill is clickable to collapse it).
+    const selectedHtml = getSelectionHtml(editor, { from, to });
+    editor
+      .chain()
+      .focus()
+      .insertContentAt({ from, to }, createCollapsibleSectionHtml(selectedHtml, { open: true }))
+      .run();
+  };
+
   return (
     <div className="border-input rounded-md border">
+      <TooltipProvider delayDuration={300}>
       <div
         className={`bg-muted/95 flex flex-wrap gap-1 border-b p-1 ${stickyToolbar ? "sticky top-20 z-20 rounded-t-md backdrop-blur supports-[backdrop-filter]:bg-background/80" : ""}`.trim()}
       >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          data-active={editor.isActive("bold") || undefined}
-          aria-label="Bold"
+        <Tip label="Bold (⌘/Ctrl+B)">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            data-active={editor.isActive("bold") || undefined}
+            aria-label="Bold"
+          >
+            <Bold className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip label="Italic (⌘/Ctrl+I)">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            data-active={editor.isActive("italic") || undefined}
+            aria-label="Italic"
+          >
+            <Italic className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip label="Big heading">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            data-active={editor.isActive("heading", { level: 1 }) || undefined}
+            aria-label="Heading 1"
+          >
+            <Heading1 className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip label="Medium heading">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            data-active={editor.isActive("heading", { level: 2 }) || undefined}
+            aria-label="Heading 2"
+          >
+            <Heading2 className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip label="Small heading">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+            data-active={editor.isActive("heading", { level: 3 }) || undefined}
+            aria-label="Heading 3"
+          >
+            <Heading3 className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip label="Bulleted list">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            data-active={editor.isActive("bulletList") || undefined}
+            aria-label="Bullet list"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip label="Numbered list">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            data-active={editor.isActive("orderedList") || undefined}
+            aria-label="Numbered list"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip label="Quote block">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            data-active={editor.isActive("blockquote") || undefined}
+            aria-label="Blockquote"
+          >
+            <Quote className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip label="Insert link">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={setLink}
+            data-active={editor.isActive("link") || undefined}
+            aria-label="Link"
+          >
+            <LinkIcon className="h-4 w-4" />
+          </Button>
+        </Tip>
+        <Tip
+          label={
+            editor.isActive("collapsibleSection")
+              ? "Remove this spoiler — its content stays in place"
+              : "Spoiler: hide the selected text behind a click-to-reveal “More” button"
+          }
         >
-          <Bold className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          data-active={editor.isActive("italic") || undefined}
-          aria-label="Italic"
-        >
-          <Italic className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          data-active={editor.isActive("heading", { level: 1 }) || undefined}
-          aria-label="Heading 1"
-        >
-          <Heading1 className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          data-active={editor.isActive("heading", { level: 2 }) || undefined}
-          aria-label="Heading 2"
-        >
-          <Heading2 className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          data-active={editor.isActive("heading", { level: 3 }) || undefined}
-          aria-label="Heading 3"
-        >
-          <Heading3 className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          data-active={editor.isActive("bulletList") || undefined}
-          aria-label="Bullet list"
-        >
-          <List className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          data-active={editor.isActive("orderedList") || undefined}
-          aria-label="Numbered list"
-        >
-          <ListOrdered className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          data-active={editor.isActive("blockquote") || undefined}
-          aria-label="Blockquote"
-        >
-          <Quote className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={setLink}
-          data-active={editor.isActive("link") || undefined}
-          aria-label="Link"
-        >
-          <LinkIcon className="h-4 w-4" />
-        </Button>
-
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8 px-2 text-xs"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={insertCollapsibleSection}
+            data-active={editor.isActive("collapsibleSection") || undefined}
+            aria-label={
+              editor.isActive("collapsibleSection")
+                ? "Remove this spoiler section (keep its content)"
+                : "Hide the selection in a spoiler section"
+            }
+          >
+            {editor.isActive("collapsibleSection") ? "Remove spoiler" : "Spoiler"}
+          </Button>
+        </Tip>
         <Select
           value={editor.isActive({ textAlign: "center" }) ? "center" : editor.isActive({ textAlign: "right" }) ? "right" : "left"}
           onValueChange={(v) => editor.chain().focus().setTextAlign(v).run()}
@@ -549,38 +704,41 @@ export function RichTextEditor({
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-1">
-          <input
-            data-testid="rte-font-size-input"
-            type="number"
-            min={10}
-            max={48}
-            value={fontSizeInput}
-            onChange={(e) => {
-              setFontSizeInput(e.target.value);
-            }}
-            onBlur={() => applyFontSize(fontSizeInput)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                applyFontSize(fontSizeInput);
-              }
-            }}
-            className="border-input bg-background h-8 w-20 rounded-md border px-2 text-xs"
-            aria-label="Font size in pixels"
-          />
-          <Button
-            data-testid="rte-font-size-apply"
-            type="button"
-            variant="outline"
-            className="h-8 px-2 text-xs"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFontSize(fontSizeInput)}
-          >
-            Size
-          </Button>
-        </div>
+        <Tip label="Font size in pixels (10–48) — type a number, then Enter or Size">
+          <div className="flex items-center gap-1">
+            <input
+              data-testid="rte-font-size-input"
+              type="number"
+              min={10}
+              max={48}
+              value={fontSizeInput}
+              onChange={(e) => {
+                setFontSizeInput(e.target.value);
+              }}
+              onBlur={() => applyFontSize(fontSizeInput)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyFontSize(fontSizeInput);
+                }
+              }}
+              className="border-input bg-background h-8 w-20 rounded-md border px-2 text-xs"
+              aria-label="Font size in pixels"
+            />
+            <Button
+              data-testid="rte-font-size-apply"
+              type="button"
+              variant="outline"
+              className="h-8 px-2 text-xs"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => applyFontSize(fontSizeInput)}
+            >
+              Size
+            </Button>
+          </div>
+        </Tip>
 
+        <Tip label="Text colour — pick a swatch or enter a hex code">
         <div className="flex items-center gap-1">
           <input
             data-testid="rte-color-input"
@@ -612,6 +770,7 @@ export function RichTextEditor({
             aria-label="Hex text color"
           />
         </div>
+        </Tip>
 
         {/* Contrast guard */}
         {(() => {
@@ -642,39 +801,50 @@ export function RichTextEditor({
           return null;
         })()}
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().undo()}
-          aria-label="Undo"
-        >
-          <Undo className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().redo()}
-          aria-label="Redo"
-        >
-          <Redo className="h-4 w-4" />
-        </Button>
-
-        {showEnterModeToggle && (
+        <Tip label="Undo (⌘/Ctrl+Z)">
           <Button
             type="button"
-            variant={enterMode === "lineBreak" ? "secondary" : "outline"}
-            className="h-8 px-2 text-xs"
-            onClick={() => setEnterMode((current) => (current === "lineBreak" ? "paragraph" : "lineBreak"))}
-            title={enterMode === "lineBreak" ? "Enter inserts a tight line break. Shift+Enter also works." : "Enter starts a new paragraph with normal spacing."}
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={!editor.can().undo()}
+            aria-label="Undo"
           >
-            {enterMode === "lineBreak" ? "Tight enter" : "Normal enter"}
+            <Undo className="h-4 w-4" />
           </Button>
+        </Tip>
+        <Tip label="Redo (⌘/Ctrl+Shift+Z)">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={!editor.can().redo()}
+            aria-label="Redo"
+          >
+            <Redo className="h-4 w-4" />
+          </Button>
+        </Tip>
+
+        {showEnterModeToggle && (
+          <Tip
+            label={
+              enterMode === "lineBreak"
+                ? "Enter inserts a tight line break (Shift+Enter also works). Click for normal paragraph spacing."
+                : "Enter starts a new paragraph with normal spacing. Click for tight line breaks."
+            }
+          >
+            <Button
+              type="button"
+              variant={enterMode === "lineBreak" ? "secondary" : "outline"}
+              className="h-8 px-2 text-xs"
+              onClick={() => setEnterMode((current) => (current === "lineBreak" ? "paragraph" : "lineBreak"))}
+            >
+              {enterMode === "lineBreak" ? "Tight enter" : "Normal enter"}
+            </Button>
+          </Tip>
         )}
 
         {toolbarExtra && (
@@ -683,6 +853,7 @@ export function RichTextEditor({
           </div>
         )}
       </div>
+      </TooltipProvider>
       <div
         ref={editorContainerRef}
         onKeyDownCapture={handleEditorKeyDownCapture}

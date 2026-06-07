@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjectEditorTour } from "@/components/projects/project-editor-tour";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { GalleryStudio } from "@/components/projects/gallery-studio";
@@ -366,7 +367,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           } catch { /* no-op */ }
           const nextPath =
             mode === "admin"
-              ? `/admin/projects/${savedProject.id}/edit`
+              ? `/projects/admin-edit/${savedProject.id}`
               : `/projects/submit/${savedProject.id}/edit`;
           if (pathname !== nextPath) {
             router.replace(nextPath);
@@ -740,7 +741,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
         const returnTo =
           mode === "admin"
             ? isEditing
-              ? `/admin/projects/${savedProject.id}/edit`
+              ? `/projects/admin-edit/${savedProject.id}`
               : "/admin/projects/new"
             : isEditing
               ? `/projects/submit/${savedProject.id}/edit`
@@ -879,6 +880,12 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
         </nav>
       )}
       <form onSubmit={handleSubmit} className="min-w-0 flex-1 space-y-6 pb-24 md:pb-0">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-muted-foreground text-sm">
+          {isEditing ? "Editing your project" : "Create a new project"}
+        </p>
+        <ProjectEditorTour autoStart={mode === "submit"} />
+      </div>
       <Card className="border-primary/40 bg-primary/5" id="import-url" data-field="import-url">
           <CardHeader>
             <CardTitle>Start with a URL import (fastest for long Geekhack posts)</CardTitle>

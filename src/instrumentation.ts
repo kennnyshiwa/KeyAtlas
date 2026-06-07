@@ -1,22 +1,12 @@
 let wired = false;
 
 export async function register() {
-  // register() can run in edge runtime too; Node process hooks are unsupported there.
-  if (typeof (globalThis as any).EdgeRuntime !== "undefined") return;
+  // instrumentation can run in edge contexts too; keep this file edge-safe
+  // and lazy-load the Node-only hooks when we're actually on the Node runtime.
+  if (typeof (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime !== "undefined") return;
   if (wired) return;
   wired = true;
 
-  process.on("uncaughtException", (err) => {
-    const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack || "" : "";
-    console.error(`[runtime-uncaught] ${message}\n${stack}`);
-  });
-
-  process.on("unhandledRejection", (reason) => {
-    if (reason instanceof Error) {
-      console.error(`[runtime-unhandled-rejection] ${reason.message}\n${reason.stack || ""}`);
-      return;
-    }
-    console.error(`[runtime-unhandled-rejection] ${String(reason)}`);
-  });
+  const { wireNodeRuntimeHandlers } = await import("./instrumentation-node");
+  wireNodeRuntimeHandlers();
 }

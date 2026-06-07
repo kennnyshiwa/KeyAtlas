@@ -63,7 +63,7 @@ export function ProjectAdminActions({ projectId, isCreator }: ProjectAdminAction
   return (
     <>
       <Button variant="outline" size="sm" asChild>
-        <Link href={isAdmin ? `/admin/projects/${projectId}/edit` : `/projects/submit/${projectId}/edit`}>
+        <Link href={isAdmin ? `/projects/admin-edit/${projectId}` : `/projects/submit/${projectId}/edit`}>
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
           Edit
         </Link>

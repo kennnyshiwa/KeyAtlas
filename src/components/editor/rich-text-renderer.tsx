@@ -54,6 +54,8 @@ function createSanitizeOptions(): sanitizeHtml.IOptions {
       "figcaption",
       "img",
       "font",
+      "details",
+      "summary",
     ],
     allowedAttributes: {
       a: ["href", "target", "rel", "style", "class", "data-mention"],
@@ -61,7 +63,7 @@ function createSanitizeOptions(): sanitizeHtml.IOptions {
       h1: ["style"],
       h2: ["style"],
       h3: ["style"],
-      div: ["style", "align", "class"],
+      div: ["style", "align", "class", "data-collapsible-content"],
       span: ["style"],
       li: ["style"],
       blockquote: ["style"],
@@ -70,6 +72,8 @@ function createSanitizeOptions(): sanitizeHtml.IOptions {
       figure: ["style", "class"],
       figcaption: ["style", "class"],
       img: ["src", "alt", "loading", "decoding", "fetchpriority", "width", "height", "style", "class", "data-rt-image"],
+      details: ["open", "class", "data-collapsible"],
+      summary: ["class"],
     },
     allowedStyles: {
       "*": {
@@ -133,6 +137,21 @@ function createSanitizeOptions(): sanitizeHtml.IOptions {
           },
         };
       },
+      details: (_tagName, attribs) => ({
+        tagName: "details",
+        attribs: {
+          ...attribs,
+          class: mergeClasses(attribs.class, "ka-collapsible-section"),
+          "data-collapsible": attribs["data-collapsible"] || "true",
+        },
+      }),
+      summary: (_tagName, attribs) => ({
+        tagName: "summary",
+        attribs: {
+          ...attribs,
+          class: mergeClasses(attribs.class, "ka-collapsible-summary"),
+        },
+      }),
     },
     allowedSchemes: ["http", "https"],
   };
@@ -142,13 +161,20 @@ export function preserveEmptyParagraphSpacing(html: string) {
   return html.replace(/<p([^>]*)>(?:\s|&nbsp;|<span[^>]*>\s*<\/span>)*<\/p>/gi, '<p$1><br /></p>');
 }
 
+export function sanitizeRichText(content: string) {
+  return preserveEmptyParagraphSpacing(sanitizeHtml(content, createSanitizeOptions()));
+}
+
 export function RichTextRenderer({ content, className, style, unstyled }: RichTextRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const clean = useMemo(() => preserveEmptyParagraphSpacing(sanitizeHtml(content, createSanitizeOptions())), [content]);
+  const clean = useMemo(() => sanitizeRichText(content), [content]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Collapsible "More" sections render as native <details> elements and
+    // toggle themselves — no JavaScript needed, matching the standalone preview.
 
     const images = Array.from(container.querySelectorAll<HTMLImageElement>('img[data-rt-image="true"]'));
     const cleanups: Array<() => void> = [];

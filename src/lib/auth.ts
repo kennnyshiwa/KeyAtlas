@@ -3,6 +3,7 @@ import Discord from "next-auth/providers/discord";
 import Google from "next-auth/providers/google";
 import Apple from "next-auth/providers/apple";
 import Credentials from "next-auth/providers/credentials";
+import { CredentialsSignin } from "@auth/core/errors";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/generated/prisma/client";
@@ -78,6 +79,22 @@ declare module "next-auth" {
   }
 }
 
+class InvalidCredentialsError extends CredentialsSignin {
+  code = "credentials";
+}
+
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = "verify";
+}
+
+class PasswordResetRequiredError extends CredentialsSignin {
+  code = "password_reset";
+}
+
+class AccountBannedError extends CredentialsSignin {
+  code = "banned";
+}
+
 const providers: any[] = [
   Credentials({
     id: "credentials",
@@ -91,31 +108,31 @@ const providers: any[] = [
       const password = credentials?.password;
 
       if (typeof email !== "string" || typeof password !== "string") {
-        throw new Error("Missing credentials");
+        throw new InvalidCredentialsError();
       }
 
       const normalizedEmail = normalizeEmail(email);
       const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
       if (!user || !user.passwordHash) {
-        throw new Error("Invalid email or password");
+        throw new InvalidCredentialsError();
       }
 
       if (user.bannedAt) {
-        throw new Error("This account is banned");
+        throw new AccountBannedError();
       }
 
       if (user.forcePasswordReset) {
-        throw new Error("Password reset required");
+        throw new PasswordResetRequiredError();
       }
 
       const valid = await verifyPassword(password, user.passwordHash);
       if (!valid) {
-        throw new Error("Invalid email or password");
+        throw new InvalidCredentialsError();
       }
 
       if (!user.emailVerified) {
-        throw new Error("Email not verified");
+        throw new EmailNotVerifiedError();
       }
 
       return user;
