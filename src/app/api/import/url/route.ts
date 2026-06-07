@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { authenticateApiKey } from "@/lib/api-auth";
 import { importUrlPrefill } from "@/lib/import/url-prefill";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  const apiUser = await authenticateApiKey(req).catch(() => null);
+  if (!session?.user && !apiUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -17,7 +19,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const prefill = await importUrlPrefill(url);
-    return NextResponse.json({ prefill });
+    // Keep the legacy wrapped shape for the web editor while also exposing the
+    // prefill fields at the top level for the iOS client, which decodes the
+    // payload directly.
+    return NextResponse.json({ ...prefill, prefill });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to import URL";
     return NextResponse.json({ error: message }, { status: 502 });
