@@ -69,7 +69,7 @@ export async function GET(
         },
         orderBy: { createdAt: "desc" },
       },
-      creator: { select: { id: true, username: true, name: true, image: true } },
+      creator: { select: { id: true, username: true, name: true, displayName: true, image: true } },
       designerProfile: { select: { name: true, slug: true } },
       projectVendors: {
         include: { vendor: { select: { name: true } } },
@@ -82,7 +82,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const [followCount, isFollowing, isFavorited] = await Promise.all([
+  const [followCount, isFollowing, isFavorited, isInCollection] = await Promise.all([
     prisma.follow.count({ where: { targetType: "PROJECT", targetId: project.id } }),
     user
       ? prisma.follow
@@ -102,6 +102,11 @@ export async function GET(
           .findUnique({ where: { userId_projectId: { userId: user.id, projectId: project.id } } })
           .then((f) => !!f)
       : Promise.resolve(false),
+    user
+      ? prisma.userCollection
+          .findUnique({ where: { userId_projectId: { userId: user.id, projectId: project.id } } })
+          .then((c) => !!c)
+      : Promise.resolve(false),
   ]);
 
   const data = {
@@ -118,6 +123,8 @@ export async function GET(
       id: project.creator.id,
       username: project.creator.username,
       name: project.creator.name,
+      displayName: project.creator.displayName,
+      avatar_url: project.creator.image,
       image: project.creator.image,
       role: "USER",
     },
@@ -198,6 +205,7 @@ export async function GET(
     favorite_count: project._count.favorites,
     is_following: isFollowing,
     is_favorited: isFavorited,
+    is_in_collection: isInCollection,
     is_featured: project.featured,
     published: project.published,
     created_at: project.createdAt,
