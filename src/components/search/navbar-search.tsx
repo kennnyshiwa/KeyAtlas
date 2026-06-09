@@ -180,7 +180,7 @@ export function NavbarSearch() {
   let flatIndex = 0;
 
   return (
-    <div className="relative hidden md:block">
+    <div className="relative hidden md:block" data-tour="search">
       <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 z-10" />
       <Input
         ref={inputRef}

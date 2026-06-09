@@ -69,7 +69,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="calendar-page">
       <PageHeader
         title="Calendar"
         description="View upcoming interest checks, group buys, and deadlines."

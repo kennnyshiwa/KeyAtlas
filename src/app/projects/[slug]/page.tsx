@@ -376,7 +376,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(gbEventJsonLd) }}
         />
       )}
-      <ProjectHero project={project} />
+      <div data-tour="project-hero">
+        <ProjectHero project={project} />
+      </div>
 
       <ProjectSocialProof
         projectId={project.id}
@@ -386,7 +388,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         initialFollowing={isFollowing}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2" data-tour="project-actions">
         <FavoriteButton projectId={project.id} />
         <CollectionButton projectId={project.id} />
         {session?.user && (
@@ -411,10 +413,12 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         )}
       </div>
 
-      <ProjectSpecs project={project} />
+      <div data-tour="project-specs">
+        <ProjectSpecs project={project} />
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        <div className="space-y-8 lg:col-span-2">
+        <div className="space-y-8 lg:col-span-2" data-tour="project-vendors">
           <ProjectVendorsDisplay projectVendors={project.projectVendors} />
         </div>
         <div className="space-y-8">

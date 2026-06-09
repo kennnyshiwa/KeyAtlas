@@ -10,6 +10,7 @@ import { Footer } from "@/components/layout/footer";
 import { AppStoreBanner } from "@/components/layout/app-store-banner";
 import { Toaster } from "@/components/ui/sonner";
 import { SearchCommand } from "@/components/search/search-command";
+import { AppTours } from "@/components/tour/app-tours";
 import { AttributionCapture } from "@/components/analytics/attribution-capture";
 import { PushPrompt } from "@/components/notifications/push-prompt";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
@@ -124,6 +125,9 @@ export default function RootLayout({
             </Suspense>
             <Suspense fallback={null}>
               <SearchCommand />
+            </Suspense>
+            <Suspense fallback={null}>
+              <AppTours />
             </Suspense>
             <PushPrompt />
             <Toaster />

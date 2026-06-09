@@ -11,14 +11,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, LogOut, Shield, User, Settings } from "lucide-react";
+import { Compass, FolderOpen, LogOut, Shield, User, Settings } from "lucide-react";
 
 export function UserMenu() {
   const { data: session } = useSession();
 
   if (!session?.user) {
     return (
-      <Button asChild variant="outline" size="sm">
+      <Button asChild variant="outline" size="sm" data-tour="user-menu">
         <Link href="/sign-in">Sign In</Link>
       </Button>
     );
@@ -36,7 +36,7 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-tour="user-menu">
           <Avatar className="h-8 w-8">
             <AvatarImage
               src={session.user.image ?? undefined}
@@ -83,6 +83,15 @@ export function UserMenu() {
             <DropdownMenuSeparator />
           </>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent("keyatlas:start-tour", { detail: { id: "newuser" } }))
+          }
+        >
+          <Compass className="mr-2 h-4 w-4" />
+          Replay tour
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => signOut({ callbackUrl: "/" })}
         >

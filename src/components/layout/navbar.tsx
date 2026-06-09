@@ -91,7 +91,7 @@ export function Navbar() {
         <div className="flex flex-1 items-center justify-end space-x-2">
           <NavbarSearch />
           {session?.user && (
-            <Button size="sm" className="hidden md:flex" asChild>
+            <Button size="sm" className="hidden md:flex" data-tour="submit-project" asChild>
               <Link href="/projects/submit">
                 <Plus className="mr-2 h-4 w-4" />
                 Submit Project

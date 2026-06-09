@@ -218,7 +218,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
         <ProjectStatusTabs />
       </Suspense>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" data-tour="project-filters">
         <Suspense>
           <div className="flex items-center gap-2">
             <AdvancedFilters vendors={allVendors} />
@@ -249,13 +249,15 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
       )}
 
       {projects.length > 0 ? (
-        <InfiniteProjectList
-          key={JSON.stringify({ ...params, status: statusFilter ?? undefined })}
-          initialProjects={projects}
-          total={total}
-          pageSize={limit}
-          searchParams={{ ...params, status: statusFilter ?? undefined }}
-        />
+        <div data-tour="project-grid">
+          <InfiniteProjectList
+            key={JSON.stringify({ ...params, status: statusFilter ?? undefined })}
+            initialProjects={projects}
+            total={total}
+            pageSize={limit}
+            searchParams={{ ...params, status: statusFilter ?? undefined }}
+          />
+        </div>
       ) : (
         <EmptyState
           title="No projects found"
