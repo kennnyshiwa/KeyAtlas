@@ -7,6 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -25,7 +30,7 @@ import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/projec
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
 import type { ProjectWithRelations } from "@/types";
-import { Plus, Trash2, Loader2, Eye, Download, Save, Volume2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Eye, Download, Save, Volume2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import type { UrlImportPrefillPayload } from "@/lib/import/url-prefill";
 
@@ -1030,23 +1035,48 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Keycap Profiles</Label>
-              <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-3">
-                {profileOptions.map((p) => (
-                  <label key={p} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={formData.profiles.includes(p)}
-                      onCheckedChange={() => {
-                        const nextProfiles = formData.profiles.includes(p)
-                          ? formData.profiles.filter((profile) => profile !== p)
-                          : [...formData.profiles, p];
-                        updateField("profiles", nextProfiles);
-                        updateField("profile", nextProfiles[0] ?? null);
-                      }}
-                    />
-                    {p}
-                  </label>
-                ))}
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className="truncate text-left">
+                      {formData.profiles.length === 0
+                        ? "No profiles selected"
+                        : formData.profiles.length <= 2
+                          ? formData.profiles.join(", ")
+                          : `${formData.profiles.length} profiles selected`}
+                    </span>
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 space-y-2" align="start">
+                  <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto">
+                    {profileOptions.map((p) => (
+                      <label key={p} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={formData.profiles.includes(p)}
+                          onCheckedChange={() => {
+                            const nextProfiles = formData.profiles.includes(p)
+                              ? formData.profiles.filter((profile) => profile !== p)
+                              : [...formData.profiles, p];
+                            updateField("profiles", nextProfiles);
+                            updateField("profile", nextProfiles[0] ?? null);
+                          }}
+                        />
+                        {p}
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {formData.profiles.length > 0 && (
+                <p className="text-muted-foreground text-xs">
+                  {formData.profiles.join(", ")}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="designer">Designer</Label>
