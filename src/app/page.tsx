@@ -118,7 +118,7 @@ export default async function HomePage() {
           where: { userId: session.user.id, targetType: "PROJECT", targetProject: { published: true } },
           select: {
             targetProject: {
-              select: { id: true, title: true, category: true, status: true, profile: true },
+              select: { id: true, title: true, category: true, status: true, profile: true, profiles: true },
             },
           },
           orderBy: { createdAt: "desc" },
@@ -186,6 +186,7 @@ export default async function HomePage() {
                 category: project.category,
                 status: project.status,
                 profile: project.profile,
+                profiles: project.profiles,
                 favoritesCount: project._count.favorites,
                 followersCount: project._count.followers,
                 commentsCount: project._count.comments,

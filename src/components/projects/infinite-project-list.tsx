@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { ProjectGrid } from "./project-grid";
 import { ViewModeToggle, type ViewMode } from "./view-mode-toggle";
 import { Loader2 } from "lucide-react";
+import { normalizeProjectProfiles } from "@/lib/project-profiles";
 import type { ProjectListItem } from "@/types";
 
 interface InfiniteProjectListProps {
@@ -39,6 +40,7 @@ function mapApiProject(raw: Record<string, unknown>): ProjectListItem {
     tags: (raw.tags as string[]) ?? [],
     featured: (raw.is_featured as boolean) ?? false,
     published: true,
+    profiles: normalizeProjectProfiles(raw.profiles as string[] | undefined, (raw.profile as string) ?? null),
     profile: (raw.profile as string) ?? null,
     designer: (raw.designer as string) ?? null,
     createdAt: new Date(raw.created_at as string),

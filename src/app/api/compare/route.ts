@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
       priceMax: true,
       currency: true,
       profile: true,
+      profiles: true,
       designer: true,
       gbStartDate: true,
       gbEndDate: true,

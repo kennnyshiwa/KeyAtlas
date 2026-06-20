@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { dispatchNotification } from "@/lib/notifications/service";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import { sanitizeSavedFilterCriteria, type SavedFilterCriteria } from "@/lib/saved-filters";
+import { getProjectProfiles } from "@/lib/project-profiles";
 
 interface ProjectForMatching {
   id: string;
@@ -10,6 +11,7 @@ interface ProjectForMatching {
   category: ProjectCategory;
   status: ProjectStatus;
   profile: string | null;
+  profiles?: string[];
   designer: string | null;
   vendorId: string | null;
   tags: string[];
@@ -28,8 +30,9 @@ function projectMatchesCriteria(
   }
 
   if (criteria.profile) {
-    const profiles = criteria.profile.split(",").filter(Boolean);
-    if (profiles.length > 0 && (!project.profile || !profiles.includes(project.profile)))
+    const wantedProfiles = criteria.profile.split(",").filter(Boolean);
+    const projectProfiles = getProjectProfiles(project);
+    if (wantedProfiles.length > 0 && !wantedProfiles.some((profile) => projectProfiles.includes(profile)))
       return false;
   }
 

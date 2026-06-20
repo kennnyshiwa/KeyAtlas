@@ -38,6 +38,7 @@ export const projectFormSchema = z.object({
   gbStartDate: z.coerce.date().optional().nullable(),
   gbEndDate: z.coerce.date().optional().nullable(),
   estimatedDelivery: z.string().optional().nullable(),
+  profiles: z.array(z.string().trim().min(1).max(50)).default([]),
   profile: z.string().max(50).optional().nullable(),
   designer: z.string().max(100).optional().nullable(),
   vendorId: z.string().optional().nullable(),

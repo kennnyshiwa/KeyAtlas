@@ -32,6 +32,7 @@ export default async function SubmitProjectPage() {
         tags: true,
         designer: true,
         profile: true,
+        profiles: true,
         currency: true,
         priceMin: true,
         priceMax: true,

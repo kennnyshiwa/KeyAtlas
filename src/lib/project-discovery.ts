@@ -1,4 +1,5 @@
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
+import { getProjectProfiles } from "@/lib/project-profiles";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -15,12 +16,14 @@ interface FollowRecommendationAnchor {
   category: ProjectCategory;
   status: ProjectStatus;
   profile?: string | null;
+  profiles?: string[];
 }
 
 interface FollowRecommendationCandidate extends TrendSignals {
   category: ProjectCategory;
   status: ProjectStatus;
   profile?: string | null;
+  profiles?: string[];
 }
 
 export function scoreTrendingProject(project: TrendSignals, now = new Date()): number {
@@ -55,12 +58,14 @@ export function scoreFollowedProjectRecommendation(
 
   let score = 40;
 
-  const anchorProfile = anchor.profile?.trim().toLowerCase();
-  const candidateProfile = candidate.profile?.trim().toLowerCase();
+  const anchorProfiles = new Set(getProjectProfiles(anchor).map((profile) => profile.toLowerCase()));
+  const candidateProfiles = new Set(getProjectProfiles(candidate).map((profile) => profile.toLowerCase()));
 
-  if (anchorProfile && candidateProfile) {
-    if (anchorProfile === candidateProfile) {
+  if (anchorProfiles.size > 0 && candidateProfiles.size > 0) {
+    const overlap = Array.from(anchorProfiles).filter((profile) => candidateProfiles.has(profile)).length;
+    if (overlap > 0) {
       score += 24;
+      if (overlap > 1) score += Math.min(6, (overlap - 1) * 3);
     } else {
       score -= 8;
     }

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 const MAX_REMOTE_IMAGE_BYTES = 20 * 1024 * 1024; // Match upload API limit
 const REMOTE_IMAGE_TIMEOUT_MS = 12_000;
 
-type MirrorableImageSource = "imgur" | "geekhack";
+type MirrorableImageSource = "imgur" | "geekhack" | "drop" | "postimg";
 
 const ALLOWED_IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
 
@@ -28,6 +28,33 @@ function isImgurHostname(hostname: string): boolean {
 function isGeekhackHostname(hostname: string): boolean {
   const host = hostname.toLowerCase();
   return host === "geekhack.org" || host === "www.geekhack.org" || host === "cdn.geekhack.org";
+}
+
+function isDropHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === "drop.com" ||
+    host === "www.drop.com" ||
+    host === "massdrop.com" ||
+    host === "www.massdrop.com" ||
+    host === "www1.massdrop.com" ||
+    host === "massdrop-s3.imgix.net"
+  );
+}
+
+function isPostimgImageHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === "i.postimg.cc";
+}
+
+function isPostimgViewerHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === "postimg.cc" ||
+    host === "www.postimg.cc" ||
+    host === "postimage.cc" ||
+    host === "www.postimage.cc"
+  );
 }
 
 function decodeHtmlAttributeUrl(input: string): string {
@@ -62,6 +89,31 @@ function isGeekhackImageUrlObject(parsed: URL): boolean {
   return /\.(?:jpe?g|png|gif|webp|avif)$/i.test(lowerPath);
 }
 
+function isDropImageUrlObject(parsed: URL): boolean {
+  if (!isDropHostname(parsed.hostname)) return false;
+
+  const lowerPath = parsed.pathname.toLowerCase();
+  if (/\.(?:jpe?g|png|gif|webp|avif)$/i.test(lowerPath)) return true;
+
+  // Drop commonly serves legacy assets through imgix with image-y path prefixes
+  // and format/query transforms instead of clean file extensions.
+  if (
+    parsed.hostname.toLowerCase() === "massdrop-s3.imgix.net" &&
+    (/\/(?:img_comment|img_thread|product-images)\//i.test(parsed.pathname) ||
+      parsed.searchParams.has("fm") ||
+      parsed.searchParams.has("auto"))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function isPostimgImageUrlObject(parsed: URL): boolean {
+  if (!isPostimgImageHostname(parsed.hostname)) return false;
+  return /\.(?:jpe?g|png|gif|webp|avif)$/i.test(parsed.pathname.toLowerCase());
+}
+
 function classifyMirrorableImageUrl(input: string): MirrorableImageSource | null {
   const decoded = decodeHtmlAttributeUrl(input);
 
@@ -69,6 +121,8 @@ function classifyMirrorableImageUrl(input: string): MirrorableImageSource | null
     const parsed = new URL(decoded);
     if (isImgurHostname(parsed.hostname)) return "imgur";
     if (isGeekhackImageUrlObject(parsed)) return "geekhack";
+    if (isDropImageUrlObject(parsed)) return "drop";
+    if (isPostimgImageUrlObject(parsed)) return "postimg";
     return null;
   } catch {
     return null;
@@ -81,6 +135,14 @@ export function isImgurUrl(input: string): boolean {
 
 export function isGeekhackImageUrl(input: string): boolean {
   return classifyMirrorableImageUrl(input) === "geekhack";
+}
+
+export function isDropImageUrl(input: string): boolean {
+  return classifyMirrorableImageUrl(input) === "drop";
+}
+
+export function isPostimgImageUrl(input: string): boolean {
+  return classifyMirrorableImageUrl(input) === "postimg";
 }
 
 export function isMirrorableImportImageUrl(input: string): boolean {
@@ -245,6 +307,28 @@ export async function mirrorPrefillImages<T extends { url: string }>(images: T[]
 
 const IMG_SRC_RE = /(<img\b[^>]*\bsrc\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
 const A_HREF_RE = /(<a\b[^>]*\bhref\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
+const ANCHOR_RE = /<a\b([^>]*\bhref\s*=\s*["'])([^"']+)(["'][^>]*)>([\s\S]*?)<\/a>/gi;
+
+function isPostimgViewerUrl(input: string): boolean {
+  try {
+    const parsed = new URL(decodeHtmlAttributeUrl(input));
+    return isPostimgViewerHostname(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function rewritePostimgViewerAnchorsToImageUrl(html: string): string {
+  return html.replace(ANCHOR_RE, (full, prefix: string, href: string, suffix: string, inner: string) => {
+    if (!isPostimgViewerUrl(href)) return full;
+
+    const match = inner.match(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i);
+    const imageUrl = match?.[1]?.trim();
+    if (!imageUrl) return full;
+
+    return `<a${prefix}${imageUrl}${suffix}>${inner}</a>`;
+  });
+}
 
 export async function mirrorImportImageSrcsInHtml(html: string, userId?: string): Promise<string> {
   if (!html) return html;
@@ -275,7 +359,7 @@ export async function mirrorImportImageSrcsInHtml(html: string, userId?: string)
     return `${prefix}${rewritten}${suffix}`;
   });
 
-  return result;
+  return rewritePostimgViewerAnchorsToImageUrl(result);
 }
 
 export async function mirrorImgurImageSrcsInHtml(html: string, userId?: string): Promise<string> {

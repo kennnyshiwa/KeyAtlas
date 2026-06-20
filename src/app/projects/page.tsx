@@ -64,7 +64,10 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     }),
     ...(params.featured === "true" && { featured: true }),
     ...(profileFilter?.length && {
-      profile: { in: profileFilter },
+      OR: [
+        { profiles: { hasSome: profileFilter } },
+        { profile: { in: profileFilter } },
+      ],
     }),
     ...(params.designer && {
       designer: { contains: params.designer, mode: "insensitive" as const },
@@ -126,7 +129,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
           where: { userId: session.user.id, targetType: "PROJECT", targetProject: { published: true } },
           select: {
             targetProject: {
-              select: { id: true, title: true, category: true, status: true, profile: true },
+              select: { id: true, title: true, category: true, status: true, profile: true, profiles: true },
             },
           },
           orderBy: { createdAt: "desc" },
@@ -177,6 +180,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
                 category: project.category,
                 status: project.status,
                 profile: project.profile,
+                profiles: project.profiles,
                 favoritesCount: project._count.favorites,
                 followersCount: project._count.followers,
                 commentsCount: project._count.comments,

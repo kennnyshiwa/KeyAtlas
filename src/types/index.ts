@@ -29,13 +29,14 @@ export type ProjectListItem = Pick<
   | "tags"
   | "featured"
   | "published"
-  | "profile"
   | "designer"
   | "createdAt"
   | "updatedAt"
   | "gbStartDate"
   | "gbEndDate"
 > & {
+  profile: string | null;
+  profiles: string[];
   vendor: Pick<Vendor, "name" | "slug"> | null;
   _count?: { favorites: number };
   /** Plain-text preview of the project description (first ~120 chars, HTML stripped). */

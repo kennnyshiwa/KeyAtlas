@@ -15,7 +15,7 @@ export async function configureProjectsIndex() {
 
   await index.updateSettings({
     searchableAttributes: ["title", "description", "tags", "vendorName", "designer"],
-    filterableAttributes: ["category", "status", "featured", "published", "profile", "designer"],
+    filterableAttributes: ["category", "status", "featured", "published", "profile", "profiles", "designer"],
     sortableAttributes: ["createdAt", "title", "priceMin"],
     displayedAttributes: [
       "id",
@@ -35,6 +35,7 @@ export async function configureProjectsIndex() {
       "gbStartDate",
       "gbEndDate",
       "profile",
+      "profiles",
       "designer",
     ],
   });
@@ -60,6 +61,7 @@ interface ProjectSearchDocument {
   gbStartDate?: string | null;
   gbEndDate?: string | null;
   profile?: string | null;
+  profiles?: string[];
   designer?: string | null;
 }
 
@@ -88,6 +90,7 @@ export function projectToSearchDocument(
     gbStartDate: project.gbStartDate?.toISOString() ?? null,
     gbEndDate: project.gbEndDate?.toISOString() ?? null,
     profile: project.profile ?? null,
+    profiles: project.profiles ?? [],
     designer: project.designer ?? null,
   };
 }

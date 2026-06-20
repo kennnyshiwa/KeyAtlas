@@ -101,6 +101,7 @@ export async function PATCH(
       category: project.category,
       status: project.status,
       profile: project.profile,
+      profiles: project.profiles,
       designer: project.designer,
       vendorId: project.vendorId,
       tags: project.tags,

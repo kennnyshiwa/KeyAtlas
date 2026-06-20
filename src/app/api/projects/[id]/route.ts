@@ -11,6 +11,7 @@ import { STATUS_LABELS } from "@/lib/constants";
 import { rateLimit, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
 import { logProjectChanges } from "@/lib/project-change-log";
 import { logAdminAction } from "@/lib/admin-audit";
+import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -119,6 +120,9 @@ export async function PUT(
   }
 
   const { images, links, soundTests, projectVendors, ...data } = result.data;
+  const normalizedProfiles = normalizeProjectProfiles(data.profiles, data.profile);
+  data.profiles = normalizedProfiles;
+  data.profile = getPrimaryProjectProfile({ profiles: normalizedProfiles });
 
   // Vendor required for GROUP_BUY status — only enforce on publish, not drafts
   if (intent !== "draft" && data.status === "GROUP_BUY" && projectVendors.length === 0) {
@@ -161,6 +165,7 @@ export async function PUT(
       slug: true,
       category: true,
       profile: true,
+      profiles: true,
       designer: true,
       vendorId: true,
     },
@@ -262,6 +267,7 @@ export async function PUT(
         category: project.category,
         status: project.status,
         profile: project.profile,
+        profiles: project.profiles,
         designer: project.designer,
         vendorId: project.vendorId,
         tags: project.tags,

@@ -7,7 +7,7 @@ import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
  *  generating spurious "Removed vendor" entries on every save because
  *  the request body doesn't include vendorId directly.
  */
-const TRACKED_FIELDS = ["status", "category", "profile", "designer", "title"] as const;
+const TRACKED_FIELDS = ["status", "category", "profiles", "designer", "title"] as const;
 
 type TrackedField = (typeof TRACKED_FIELDS)[number];
 
@@ -17,12 +17,19 @@ interface FieldDiff {
   newValue: string | null;
 }
 
-function formatFieldValue(field: TrackedField, value: string | null | undefined): string | null {
-  if (value == null || value === "") return null;
-  if (field === "status") return STATUS_LABELS[value as ProjectStatus] ?? value;
-  if (field === "category") return CATEGORY_LABELS[value as ProjectCategory] ?? value;
+function formatFieldValue(field: TrackedField, value: unknown): string | null {
+  const normalized = Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0).join(", ")
+    : typeof value === "string"
+      ? value
+      : value == null
+        ? null
+        : String(value);
+  if (normalized == null || normalized === "") return null;
+  if (field === "status") return STATUS_LABELS[normalized as ProjectStatus] ?? normalized;
+  if (field === "category") return CATEGORY_LABELS[normalized as ProjectCategory] ?? normalized;
   // vendorId is resolved async in logProjectChanges — don't format here
-  return value;
+  return normalized;
 }
 
 function summarize(field: TrackedField, oldVal: string | null, newVal: string | null): string {
@@ -44,18 +51,14 @@ export async function logProjectChanges(
   const diffs: FieldDiff[] = [];
 
   for (const field of TRACKED_FIELDS) {
-    const oldRaw = oldData[field] as string | null | undefined;
-    const newRaw = newData[field] as string | null | undefined;
-
-    // Normalize empties
-    const o = oldRaw || null;
-    const n = newRaw || null;
+    const o = formatFieldValue(field, oldData[field]);
+    const n = formatFieldValue(field, newData[field]);
 
     if (o !== n) {
       diffs.push({
         field,
-        oldValue: formatFieldValue(field, o),
-        newValue: formatFieldValue(field, n),
+        oldValue: o,
+        newValue: n,
       });
     }
   }

@@ -8,6 +8,7 @@ import { EventStop } from "./event-stop";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import { formatPrice } from "@/lib/utils";
 import { isRecentlyUpdated } from "@/lib/project-discovery";
+import { getProjectProfiles } from "@/lib/project-profiles";
 import type { ProjectListItem } from "@/types";
 
 interface ProjectCardProps {
@@ -19,6 +20,7 @@ export function ProjectCard({ project, fullHeight = true }: ProjectCardProps) {
   const href = project.published === false
     ? `/projects/submit/${project.id}/edit`
     : `/projects/${project.slug}`;
+  const profiles = getProjectProfiles(project);
 
   return (
     <Link href={href} className={fullHeight ? "h-full" : ""}>
@@ -59,11 +61,11 @@ export function ProjectCard({ project, fullHeight = true }: ProjectCardProps) {
             <Badge className={`text-xs ${CATEGORY_COLORS[project.category]}`}>
               {CATEGORY_LABELS[project.category]}
             </Badge>
-            {project.profile && (
-              <Badge variant="outline" className="text-xs">
-                {project.profile}
+            {profiles.slice(0, 2).map((profile) => (
+              <Badge key={profile} variant="outline" className="text-xs">
+                {profile}
               </Badge>
-            )}
+            ))}
             {isRecentlyUpdated(new Date(project.updatedAt)) && (
               <Badge variant="outline" className="text-xs">
                 Recently updated

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -20,6 +21,7 @@ import { GalleryStudio } from "@/components/projects/gallery-studio";
 import { VendorMultiSelect } from "@/components/projects/vendor-multi-select";
 import { ProjectOwnershipTransfer } from "@/components/projects/project-ownership-transfer";
 import { CATEGORY_LABELS, STATUS_LABELS, PROFILE_OPTIONS } from "@/lib/constants";
+import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
 import type { ProjectWithRelations } from "@/types";
@@ -53,6 +55,7 @@ interface ProjectFormProps {
     tags: string[];
     designer: string | null;
     profile: string | null;
+    profiles?: string[];
     currency: string;
     priceMin: number | null;
     priceMax: number | null;
@@ -140,7 +143,8 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     gbStartDate: project?.gbStartDate ?? null,
     gbEndDate: project?.gbEndDate ?? null,
     estimatedDelivery: project?.estimatedDelivery ?? "",
-    profile: project?.profile ?? null,
+    profiles: normalizeProjectProfiles(project?.profiles, project?.profile),
+    profile: getPrimaryProjectProfile(project ?? {}),
     designer: project?.designer ?? "",
     vendorId: project?.vendorId ?? null,
     featured: project?.featured ?? false,
@@ -594,7 +598,8 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
       description: selected.description ?? "",
       tags: selected.tags ?? [],
       designer: selected.designer ?? null,
-      profile: selected.profile ?? null,
+      profiles: normalizeProjectProfiles(selected.profiles, selected.profile),
+      profile: getPrimaryProjectProfile(selected),
       currency: selected.currency,
       priceMin: selected.priceMin,
       priceMax: selected.priceMax,
@@ -1024,25 +1029,24 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Keycap Profile</Label>
-              <Select
-                value={formData.profile ?? "none"}
-                onValueChange={(v) =>
-                  updateField("profile", v === "none" ? null : v)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No profile" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No profile</SelectItem>
-                  {profileOptions.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Keycap Profiles</Label>
+              <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-3">
+                {profileOptions.map((p) => (
+                  <label key={p} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={formData.profiles.includes(p)}
+                      onCheckedChange={() => {
+                        const nextProfiles = formData.profiles.includes(p)
+                          ? formData.profiles.filter((profile) => profile !== p)
+                          : [...formData.profiles, p];
+                        updateField("profiles", nextProfiles);
+                        updateField("profile", nextProfiles[0] ?? null);
+                      }}
+                    />
+                    {p}
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="designer">Designer</Label>

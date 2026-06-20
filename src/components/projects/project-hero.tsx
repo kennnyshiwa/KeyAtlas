@@ -4,6 +4,7 @@ import { ProjectStatusBadge } from "./status-badge";
 import { AdaptiveHeadline } from "./adaptive-headline";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
+import { getProjectProfiles } from "@/lib/project-profiles";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { Calendar, Truck } from "lucide-react";
 import type { ProjectWithRelations } from "@/types";
@@ -13,6 +14,7 @@ interface ProjectHeroProps {
 }
 
 export function ProjectHero({ project }: ProjectHeroProps) {
+  const profiles = getProjectProfiles(project);
   return (
     <div className="space-y-4">
       {project.heroImage && (
@@ -32,9 +34,9 @@ export function ProjectHero({ project }: ProjectHeroProps) {
         <div className="flex flex-wrap items-center gap-2">
           <ProjectStatusBadge status={project.status} />
           <Badge className={CATEGORY_COLORS[project.category]}>{CATEGORY_LABELS[project.category]}</Badge>
-          {project.profile && (
-            <Badge variant="outline">{project.profile}</Badge>
-          )}
+          {profiles.map((profile) => (
+            <Badge key={profile} variant="outline">{profile}</Badge>
+          ))}
           {project.featured && (
             <Badge className="bg-yellow-500 text-white">Featured</Badge>
           )}

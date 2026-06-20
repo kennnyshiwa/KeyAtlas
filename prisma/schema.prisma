@@ -311,6 +311,7 @@ model Project {
   metaTitle         String?
   metaDescription   String?
   profile           String?
+  profiles          String[]              @default([])
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -343,6 +344,7 @@ model Project {
   @@index([published])
   @@index([createdAt])
   @@index([profile])
+  @@index([profiles], type: Gin)
   @@index([designerId])
   @@map("projects")
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
 import type { Prisma, ProjectCategory } from "@/generated/prisma/client";
 import { resolveProjectStatusInput } from "@/lib/constants";
+import { normalizeProjectProfiles } from "@/lib/project-profiles";
 
 export async function GET(req: NextRequest) {
   // Public read — optionally authenticated for personalized results later
@@ -21,7 +22,10 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category") as ProjectCategory | null;
   const status = resolveProjectStatusInput(searchParams.get("status"));
   const q = searchParams.get("q");
-  const profile = searchParams.get("profile");
+  const profileFilter = (searchParams.get("profile") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   const featured = searchParams.get("featured");
   const designer = searchParams.get("designer");
   const offset = (page - 1) * limit;
@@ -32,7 +36,12 @@ export async function GET(req: NextRequest) {
     ...(category && { category }),
     ...(status && { status }),
     ...(q && { title: { contains: q, mode: "insensitive" as const } }),
-    ...(profile && { profile }),
+    ...(profileFilter.length > 0 && {
+      OR: [
+        { profiles: { hasSome: profileFilter } },
+        { profile: { in: profileFilter } },
+      ],
+    }),
     ...(featured === "true" && { featured: true }),
     ...(designer && { designer: { contains: designer, mode: "insensitive" as const } }),
   };
@@ -96,6 +105,7 @@ export async function GET(req: NextRequest) {
         heroImage: true,
         designer: true,
         profile: true,
+        profiles: true,
         tags: true,
         gbStartDate: true,
         gbEndDate: true,
@@ -133,6 +143,7 @@ export async function GET(req: NextRequest) {
     category: p.category,
     category_id: p.category,
     profile: p.profile,
+    profiles: normalizeProjectProfiles(p.profiles, p.profile),
     designer: null,
     pricing: {
       min_price: p.priceMin,

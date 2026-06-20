@@ -5,6 +5,7 @@ import { projectFormSchema } from "@/lib/validations/project";
 import { indexProject } from "@/lib/meilisearch";
 import { slugify } from "@/lib/slug";
 import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
+import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
 import type { ProjectCategory } from "@/generated/prisma/client";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 import { rateLimit, RATE_LIMIT_PROJECT_CREATE } from "@/lib/rate-limit";
@@ -157,6 +158,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { images, links, soundTests, projectVendors, ...data } = result.data;
+  const normalizedProfiles = normalizeProjectProfiles(data.profiles, data.profile);
+  data.profiles = normalizedProfiles;
+  data.profile = getPrimaryProjectProfile({ profiles: normalizedProfiles });
 
   // Vendor required for GROUP_BUY status — only enforce on publish, not drafts
   if (intent !== "draft" && data.status === "GROUP_BUY" && projectVendors.length === 0) {
@@ -277,6 +281,7 @@ export async function POST(req: NextRequest) {
       category: data.category,
       status: data.status,
       profile: data.profile ?? null,
+      profiles: normalizedProfiles,
       designer: data.designer ?? null,
       vendorId: primaryVendorId,
       tags: data.tags ?? [],

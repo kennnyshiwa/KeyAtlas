@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_DETAIL, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 import { isProjectStatus } from "@/lib/constants";
+import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
 
 type EditableProjectLinkType = "GEEKHACK" | "WEBSITE" | "DISCORD" | "INSTAGRAM" | "REDDIT" | "STORE" | "OTHER";
 
@@ -119,6 +120,7 @@ export async function GET(
     category: project.category,
     category_id: project.category,
     profile: project.profile,
+    profiles: normalizeProjectProfiles(project.profiles, project.profile),
     designer: {
       id: project.creator.id,
       username: project.creator.username,
@@ -326,12 +328,22 @@ export async function PATCH(
       category: true,
       status: true,
       profile: true,
+      profiles: true,
       designer: true,
       vendorId: true,
       tags: true,
       creatorId: true,
     },
   });
+
+  const nextProfiles = body.profiles !== undefined || body.profile !== undefined
+    ? normalizeProjectProfiles(
+        Array.isArray(body.profiles)
+          ? body.profiles.filter((profile: unknown): profile is string => typeof profile === "string")
+          : undefined,
+        typeof body.profile === "string" ? body.profile : null,
+      )
+    : undefined;
 
   const updated = await prisma.$transaction(async (tx) => {
     if (normalizedLinks !== null) {
@@ -354,7 +366,8 @@ export async function PATCH(
         priceMax: typeof body.max_price === "number" ? body.max_price : null,
         gbStartDate: body.gb_start_date ? new Date(body.gb_start_date) : null,
         gbEndDate: body.gb_end_date ? new Date(body.gb_end_date) : null,
-        profile: body.profile !== undefined ? (body.profile || null) : undefined,
+        profile: nextProfiles !== undefined ? getPrimaryProjectProfile({ profiles: nextProfiles }) : undefined,
+        profiles: nextProfiles,
         tags: Array.isArray(body.tags)
           ? body.tags.filter((tag: unknown): tag is string => typeof tag === "string").map((tag: string) => tag.trim()).filter(Boolean)
           : undefined,
@@ -397,6 +410,7 @@ export async function PATCH(
         category: updated.category,
         status: updated.status,
         profile: updated.profile,
+        profiles: updated.profiles,
         designer: updated.designer,
         vendorId: updated.vendorId,
         tags: updated.tags,

@@ -1,6 +1,10 @@
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
-import { isImgurUrl, mirrorImgurUrlToLocal } from "../src/lib/import/imgur-mirror";
+import {
+  isMirrorableImportImageUrl,
+  mirrorImportImageSrcsInHtml,
+  mirrorImportImageUrlToLocal,
+} from "../src/lib/import/imgur-mirror";
 
 type Counters = {
   scannedProjects: number;
@@ -9,9 +13,6 @@ type Counters = {
   failedUrls: number;
   updatedProjects: number;
 };
-
-const IMG_SRC_RE = /(<img\b[^>]*\bsrc\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
-const A_HREF_RE = /(<a\b[^>]*\bhref\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
 
 function getArgValue(name: string): string | null {
   const direct = process.argv.find((arg) => arg.startsWith(`${name}=`));
@@ -26,11 +27,11 @@ const dryRun = process.argv.includes("--dry-run");
 const batchSize = Math.max(1, Number(getArgValue("--batch") ?? "50"));
 
 async function tryMirror(url: string, counters: Counters): Promise<string> {
-  if (!isImgurUrl(url)) return url;
+  if (!isMirrorableImportImageUrl(url)) return url;
 
   counters.scannedUrls += 1;
   try {
-    const mirrored = await mirrorImgurUrlToLocal(url);
+    const mirrored = await mirrorImportImageUrlToLocal(url);
     if (mirrored !== url) counters.rewrittenUrls += 1;
     return mirrored;
   } catch {
@@ -40,34 +41,11 @@ async function tryMirror(url: string, counters: Counters): Promise<string> {
 }
 
 async function rewriteDescription(description: string, counters: Counters): Promise<string> {
-  const rewrites = new Map<string, string>();
-
-  // Collect all imgur URLs from both img src and a href
-  for (const re of [IMG_SRC_RE, A_HREF_RE]) {
-    re.lastIndex = 0;
-    for (const match of description.matchAll(re)) {
-      const src = match[2]?.trim();
-      if (!src || rewrites.has(src) || !isImgurUrl(src)) continue;
-      rewrites.set(src, await tryMirror(src, counters));
-    }
-  }
-
-  if (rewrites.size === 0) return description;
-
-  // Rewrite both img src and a href attributes
-  let result = description.replace(IMG_SRC_RE, (full, prefix: string, src: string, suffix: string) => {
-    const rewritten = rewrites.get(src);
-    if (!rewritten) return full;
-    return `${prefix}${rewritten}${suffix}`;
-  });
-
-  result = result.replace(A_HREF_RE, (full, prefix: string, href: string, suffix: string) => {
-    const rewritten = rewrites.get(href);
-    if (!rewritten) return full;
-    return `${prefix}${rewritten}${suffix}`;
-  });
-
-  return result;
+  const beforeUrls = Array.from(description.matchAll(/https?:\/\/[^"'\s>]+/gi))
+    .map((match) => match[0])
+    .filter((url) => isMirrorableImportImageUrl(url));
+  counters.scannedUrls += beforeUrls.length;
+  return mirrorImportImageSrcsInHtml(description);
 }
 
 async function main() {
@@ -79,7 +57,7 @@ async function main() {
     updatedProjects: 0,
   };
 
-  console.log(`Starting Imgur backfill (dryRun=${dryRun}, batchSize=${batchSize})`);
+  console.log(`Starting remote image backfill (dryRun=${dryRun}, batchSize=${batchSize})`);
 
   let cursor: string | null = null;
 
@@ -88,13 +66,25 @@ async function main() {
       where: {
         OR: [
           { heroImage: { contains: "imgur", mode: "insensitive" } },
+          { heroImage: { contains: "postimg", mode: "insensitive" } },
+          { heroImage: { contains: "postimage", mode: "insensitive" } },
           { description: { contains: "imgur", mode: "insensitive" } },
+          { description: { contains: "postimg", mode: "insensitive" } },
+          { description: { contains: "postimage", mode: "insensitive" } },
           { images: { some: { url: { contains: "imgur", mode: "insensitive" } } } },
+          { images: { some: { url: { contains: "postimg", mode: "insensitive" } } } },
+          { images: { some: { url: { contains: "postimage", mode: "insensitive" } } } },
         ],
       },
       include: {
         images: {
-          where: { url: { contains: "imgur", mode: "insensitive" } },
+          where: {
+            OR: [
+              { url: { contains: "imgur", mode: "insensitive" } },
+              { url: { contains: "postimg", mode: "insensitive" } },
+              { url: { contains: "postimage", mode: "insensitive" } },
+            ],
+          },
           select: { id: true, url: true },
         },
       },

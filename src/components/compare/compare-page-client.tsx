@@ -23,6 +23,7 @@ interface CompareProject {
   priceMax: number | null;
   currency: string;
   profile: string | null;
+  profiles?: string[];
   designer: string | null;
   gbStartDate: string | null;
   gbEndDate: string | null;
@@ -83,7 +84,7 @@ export function ComparePageClient({ initialIds }: ComparePageClientProps) {
   const compareFields: { label: string; render: (p: CompareProject) => React.ReactNode }[] = [
     { label: "Category", render: (p) => CATEGORY_LABELS[p.category] },
     { label: "Status", render: (p) => STATUS_LABELS[p.status] },
-    { label: "Profile", render: (p) => p.profile || "—" },
+    { label: "Profile", render: (p) => (p.profiles?.length ? p.profiles.join(", ") : p.profile || "—") },
     { label: "Designer", render: (p) => p.designer || "—" },
     { label: "Vendor", render: (p) => p.vendor?.name || "—" },
     {
