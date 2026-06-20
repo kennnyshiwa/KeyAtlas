@@ -1040,7 +1040,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-between font-normal"
+                    className="w-fit min-w-40 max-w-full justify-between font-normal"
                   >
                     <span className="truncate text-left">
                       {formData.profiles.length === 0
@@ -1052,7 +1052,10 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 space-y-2" align="start">
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] space-y-2"
+                  align="start"
+                >
                   <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto">
                     {profileOptions.map((p) => (
                       <label key={p} className="flex items-center gap-2 text-sm">
