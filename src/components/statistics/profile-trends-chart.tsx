@@ -27,48 +27,43 @@ const PROFILE_COLORS = [
   "hsl(60 70% 45%)",
 ];
 
-// Format tag name for display: "cherry-profile" -> "Cherry"
-function formatProfileName(tag: string): string {
-  return tag
-    .replace(/-profile$/, "")
-    .split("-")
+function formatProfileName(profile: string): string {
+  return profile
+    .split(/[\s-]+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 
-interface TagTrendRow {
+interface ProfileTrendRow {
   year: number;
-  tag: string;
+  profile: string;
   count: number;
 }
 
 interface ProfileTrendsChartProps {
-  data: TagTrendRow[];
+  data: ProfileTrendRow[];
 }
 
 export function ProfileTrendsChart({ data }: ProfileTrendsChartProps) {
-  // Only keep profile tags
-  const profileData = data.filter((d) => d.tag.endsWith("-profile"));
-
   // Rank by total
   const totals = new Map<string, number>();
-  for (const row of profileData) {
-    totals.set(row.tag, (totals.get(row.tag) ?? 0) + row.count);
+  for (const row of data) {
+    totals.set(row.profile, (totals.get(row.profile) ?? 0) + row.count);
   }
   const topProfiles = [...totals.entries()]
     .sort(([, a], [, b]) => b - a)
-    .map(([tag]) => tag);
+    .map(([profile]) => profile);
 
   const profileSet = new Set(topProfiles);
-  const relevant = profileData.filter((d) => profileSet.has(d.tag));
+  const relevant = data.filter((d) => profileSet.has(d.profile));
 
-  // Pivot: { year, Cherry: count, SA: count, ... }
+  // Pivot: { year, Cherry: count, DCS: count, ... }
   const yearMap = new Map<number, Record<string, number>>();
   for (const row of relevant) {
     if (!yearMap.has(row.year)) {
       yearMap.set(row.year, { year: row.year });
     }
-    const label = formatProfileName(row.tag);
+    const label = formatProfileName(row.profile);
     yearMap.get(row.year)![label] = row.count;
   }
 

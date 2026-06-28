@@ -40,6 +40,7 @@ export default async function StatisticsPage() {
     seasonality,
     designerDetails,
     tagTrends,
+    profileTrends,
     timelineProjects,
     vendorMarketShareData,
   ] = await Promise.all([
@@ -133,6 +134,28 @@ export default async function StatisticsPage() {
       SELECT EXTRACT(YEAR FROM "createdAt")::int as year, unnest(tags) as tag, COUNT(*)::int as count
       FROM projects WHERE published = true AND array_length(tags, 1) > 0
       GROUP BY year, tag
+      HAVING COUNT(*) > 2
+      ORDER BY year, count DESC
+    `,
+
+    // Profile trends by year from canonical project profile fields
+    prisma.$queryRaw<{ year: number; profile: string; count: number }[]>`
+      WITH project_profiles AS (
+        SELECT
+          EXTRACT(YEAR FROM "createdAt")::int as year,
+          unnest(
+            CASE
+              WHEN array_length(profiles, 1) > 0 THEN profiles
+              WHEN profile IS NOT NULL AND profile <> '' THEN ARRAY[profile]::text[]
+              ELSE ARRAY[]::text[]
+            END
+          ) as profile
+        FROM projects
+        WHERE published = true
+      )
+      SELECT year, profile, COUNT(*)::int as count
+      FROM project_profiles
+      GROUP BY year, profile
       HAVING COUNT(*) > 2
       ORDER BY year, count DESC
     `,
@@ -251,7 +274,7 @@ export default async function StatisticsPage() {
 
       <TagTrendsChart data={tagTrends} />
 
-      <ProfileTrendsChart data={tagTrends} />
+      <ProfileTrendsChart data={profileTrends} />
     </div>
   );
 }
