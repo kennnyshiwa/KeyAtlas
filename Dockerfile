@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:22-alpine AS base
+# Node 22's web streams implementation can throw
+# "controller[kState].transformAlgorithm is not a function" during Next.js SSR
+# streaming under client aborts. Node 24 contains the upstream fix.
+FROM node:24-alpine AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -16,7 +19,7 @@ COPY . .
 # Generate Prisma client for the configured custom output path before Next build
 RUN npx prisma generate && npm run build
 
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
