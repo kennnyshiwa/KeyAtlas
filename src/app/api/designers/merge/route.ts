@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { indexProject } from "@/lib/meilisearch";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -54,13 +55,22 @@ export async function POST(req: NextRequest) {
   // Reassign all projects from source designers to target
   const updateResult = await prisma.project.updateMany({
     where: { designerId: { in: filteredSourceIds } },
-    data: { designerId: targetId },
+    data: { designerId: targetId, designer: target.name },
+  });
+
+  const affectedPublishedProjects = await prisma.project.findMany({
+    where: { designerId: targetId, published: true, designer: target.name },
+    include: {
+      vendor: { select: { name: true, slug: true } },
+    },
   });
 
   // Delete source designers
   await prisma.designer.deleteMany({
     where: { id: { in: filteredSourceIds } },
   });
+
+  await Promise.all(affectedPublishedProjects.map((project) => indexProject(project)));
 
   return NextResponse.json({
     success: true,

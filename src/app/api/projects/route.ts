@@ -7,6 +7,7 @@ import { slugify } from "@/lib/slug";
 import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
 import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
 import { getProjectPublishValidationErrors } from "@/lib/project-publish-validation";
+import { normalizeDesignerName, resolveDesignerIdByName } from "@/lib/designer-profiles";
 import type { ProjectCategory } from "@/generated/prisma/client";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 import { rateLimit, RATE_LIMIT_PROJECT_CREATE } from "@/lib/rate-limit";
@@ -162,6 +163,8 @@ export async function POST(req: NextRequest) {
   const normalizedProfiles = normalizeProjectProfiles(data.profiles, data.profile);
   data.profiles = normalizedProfiles;
   data.profile = getPrimaryProjectProfile({ profiles: normalizedProfiles });
+  data.designer = normalizeDesignerName(data.designer);
+  const designerId = await resolveDesignerIdByName(prisma, data.designer);
 
   if (intent === "publish") {
     const publishErrors = getProjectPublishValidationErrors({
@@ -247,6 +250,7 @@ export async function POST(req: NextRequest) {
   const project = await prisma.project.create({
     data: {
       ...data,
+      designerId,
       vendorId: primaryVendorId,
       creatorId: session.user.id,
       images: {

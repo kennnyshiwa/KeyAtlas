@@ -4,6 +4,7 @@ import { ProjectStatusBadge } from "./status-badge";
 import { AdaptiveHeadline } from "./adaptive-headline";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
+import { getProjectDesignerDisplay } from "@/lib/designer-profiles";
 import { getProjectProfiles } from "@/lib/project-profiles";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { Calendar, Truck } from "lucide-react";
@@ -15,6 +16,13 @@ interface ProjectHeroProps {
 
 export function ProjectHero({ project }: ProjectHeroProps) {
   const profiles = getProjectProfiles(project);
+  const designerDisplay = getProjectDesignerDisplay({
+    designer: project.designer,
+    designerProfile: (project as ProjectWithRelations & {
+      designerProfile?: { name: string; slug: string } | null;
+    }).designerProfile,
+  });
+
   return (
     <div className="space-y-4">
       {project.heroImage && (
@@ -42,18 +50,18 @@ export function ProjectHero({ project }: ProjectHeroProps) {
           )}
         </div>
         <AdaptiveHeadline title={project.title} />
-        {(project.designer || project.vendor) && (
+        {(designerDisplay || project.vendor) && (
           <p className="text-muted-foreground text-lg">
             by{" "}
-            {(project as any).designerProfile?.slug ? (
+            {designerDisplay?.slug ? (
               <Link
-                href={`/designers/${(project as any).designerProfile.slug}`}
+                href={`/designers/${designerDisplay.slug}`}
                 className="text-foreground hover:underline"
               >
-                {(project as any).designerProfile.name}
+                {designerDisplay.name}
               </Link>
             ) : (
-              project.designer || project.vendor?.name
+              designerDisplay?.name || project.vendor?.name
             )}
           </p>
         )}

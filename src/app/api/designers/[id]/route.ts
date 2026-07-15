@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { indexDesigner, indexProject, removeDesignerFromIndex } from "@/lib/meilisearch";
 import { prisma } from "@/lib/prisma";
 import { designerFormSchema } from "@/lib/validations/designer";
-import { indexDesigner, removeDesignerFromIndex } from "@/lib/meilisearch";
 
 export async function GET(
   _req: NextRequest,
@@ -37,7 +37,10 @@ export async function PUT(
   }
 
   const isAdmin = session.user.role === "ADMIN";
-  const existing = await prisma.designer.findUnique({ where: { id }, select: { ownerId: true } });
+  const existing = await prisma.designer.findUnique({
+    where: { id },
+    select: { ownerId: true, name: true },
+  });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -85,12 +88,34 @@ export async function PUT(
     }
   }
 
-  const designer = await prisma.designer.update({
-    where: { id },
-    data: updateData,
+  const designer = await prisma.$transaction(async (tx) => {
+    const updatedDesigner = await tx.designer.update({
+      where: { id },
+      data: updateData,
+    });
+
+    if (updatedDesigner.name !== existing.name) {
+      await tx.project.updateMany({
+        where: { designerId: id },
+        data: { designer: updatedDesigner.name },
+      });
+    }
+
+    return updatedDesigner;
   });
 
   await indexDesigner(designer);
+
+  if (designer.name !== existing.name) {
+    const linkedPublishedProjects = await prisma.project.findMany({
+      where: { designerId: id, published: true },
+      include: {
+        vendor: { select: { name: true, slug: true } },
+      },
+    });
+
+    await Promise.all(linkedPublishedProjects.map((project) => indexProject(project)));
+  }
 
   return NextResponse.json(designer);
 }

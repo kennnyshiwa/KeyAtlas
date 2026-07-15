@@ -13,6 +13,7 @@ import { logProjectChanges } from "@/lib/project-change-log";
 import { logAdminAction } from "@/lib/admin-audit";
 import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
 import { getProjectPublishValidationErrors } from "@/lib/project-publish-validation";
+import { normalizeDesignerName, resolveDesignerIdByName } from "@/lib/designer-profiles";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -124,6 +125,8 @@ export async function PUT(
   const normalizedProfiles = normalizeProjectProfiles(data.profiles, data.profile);
   data.profiles = normalizedProfiles;
   data.profile = getPrimaryProjectProfile({ profiles: normalizedProfiles });
+  data.designer = normalizeDesignerName(data.designer);
+  const designerId = await resolveDesignerIdByName(prisma, data.designer);
 
   if (intent === "publish") {
     const publishErrors = getProjectPublishValidationErrors({
@@ -236,6 +239,7 @@ export async function PUT(
       where: { id },
       data: {
         ...data,
+        designerId,
         vendorId: primaryVendorId,
         images: { create: uniqueImages },
         links: { create: links },

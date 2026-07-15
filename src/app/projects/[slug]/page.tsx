@@ -28,6 +28,7 @@ import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
 import { getSiteUrl, SITE_NAME } from "@/lib/site";
 import { buildEmbedDescription } from "@/lib/embed-description";
+import { getProjectDesignerDisplay } from "@/lib/designer-profiles";
 import { STATUS_LABELS, CATEGORY_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -221,6 +222,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   });
   const primaryImage =
     toAbsoluteUrl(project.heroImage || project.images[0]?.url) || `${siteUrl}/window.svg`;
+  const designerDisplay = getProjectDesignerDisplay({
+    designer: project.designer,
+    designerProfile: project.designerProfile,
+  });
   // Build images array (absolute URLs)
   const allImages = [
     toAbsoluteUrl(project.heroImage),
@@ -268,7 +273,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       : undefined;
 
   // Designer / creator (used for brand and creator fields)
-  const designerName = project.designerProfile?.name || project.designer || null;
+  const designerName = designerDisplay?.name || null;
   const creatorName = designerName || project.creator?.name;
 
   // Interaction statistics
@@ -397,17 +402,17 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         <ShareButton title={project.title} />
         {session?.user && <ReportButton projectId={project.id} />}
         <ProjectAdminActions projectId={project.id} isCreator={isCreator} />
-        {(project.designerProfile || project.designer) && (
+        {designerDisplay && (
           <>
             <span className="text-muted-foreground text-sm">by</span>
-            {project.designerProfile ? (
+            {designerDisplay.slug ? (
               <Badge variant="outline" asChild>
-                <Link href={`/designers/${project.designerProfile.slug}`}>
-                  {project.designerProfile.name}
+                <Link href={`/designers/${designerDisplay.slug}`}>
+                  {designerDisplay.name}
                 </Link>
               </Badge>
             ) : (
-              <Badge variant="outline">{project.designer}</Badge>
+              <Badge variant="outline">{designerDisplay.name}</Badge>
             )}
           </>
         )}

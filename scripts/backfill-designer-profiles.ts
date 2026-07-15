@@ -86,13 +86,21 @@ async function main() {
     if (!designerId) continue;
 
     if (dryRun) {
-      const count = await prisma.project.count({ where: { designer: name, designerId: null } });
+      const count = await prisma.project.count({
+        where: {
+          designer: name,
+          NOT: { designerId },
+        },
+      });
       console.log(`[dry-run] link projects -> ${name}: ${count}`);
       continue;
     }
 
     const updated = await prisma.project.updateMany({
-      where: { designer: name, designerId: null },
+      where: {
+        designer: name,
+        NOT: { designerId },
+      },
       data: { designerId },
     });
 
