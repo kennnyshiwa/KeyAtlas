@@ -18,6 +18,7 @@ import { auth } from "@/lib/auth";
 import { addDays } from "date-fns";
 import { scoreFollowedProjectRecommendation } from "@/lib/project-discovery";
 import { resolveProjectStatusInput } from "@/lib/constants";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +103,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
   const session = await auth();
 
-  const [projects, total, allVendors, followedProjectIds, anchorFollowedProject, followedRecommendationCandidates, matchingDesigners, matchingVendors] = await Promise.all([
+  const [projects, total, allVendorsRaw, followedProjectIds, anchorFollowedProject, followedRecommendationCandidates, matchingDesigners, matchingVendors] = await Promise.all([
     prisma.project.findMany({
       where,
       include: {
@@ -157,10 +158,11 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
       ? prisma.vendor.findMany({
           where: { name: { contains: params.q, mode: "insensitive" } },
           include: { _count: { select: { projects: true } } },
-          take: 5,
-        })
+        take: 5,
+      })
       : Promise.resolve([]),
   ]);
+  const allVendors = sortByNameCaseInsensitive(allVendorsRaw);
 
   const followedIds = new Set(followedProjectIds.map((f) => f.targetId));
   const anchorProject = anchorFollowedProject?.targetProject ?? null;

@@ -6,6 +6,7 @@ import { ProjectGrid } from "@/components/projects/project-grid";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 import { Store } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export default async function DiscoverVendorsPage() {
-  const [verifiedVendors, activeVendors, latestVendorProjects] = await Promise.all([
+  const [verifiedVendorsRaw, activeVendors, latestVendorProjects] = await Promise.all([
     prisma.vendor.findMany({
       where: { verified: true },
       select: {
@@ -49,6 +50,7 @@ export default async function DiscoverVendorsPage() {
       take: 8,
     }),
   ]);
+  const verifiedVendors = sortByNameCaseInsensitive(verifiedVendorsRaw);
 
   return (
     <div className="space-y-10">

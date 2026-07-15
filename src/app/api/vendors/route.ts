@@ -3,12 +3,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { vendorFormSchema } from "@/lib/validations/vendor";
 import { indexVendor } from "@/lib/meilisearch";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export async function GET() {
-  const vendors = await prisma.vendor.findMany({
+  const vendors = sortByNameCaseInsensitive(await prisma.vendor.findMany({
     include: { _count: { select: { projects: true, projectVendors: true } } },
     orderBy: { name: "asc" },
-  });
+  }));
 
   return NextResponse.json(vendors);
 }

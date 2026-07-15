@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProjectForm } from "@/components/projects/project-form";
 import { PageHeader } from "@/components/shared/page-header";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export const metadata = {
   title: "Admin Edit Project",
@@ -21,7 +22,7 @@ export default async function AdminEditProjectPage({ params }: AdminEditProjectP
 
   const { id } = await params;
 
-  const [project, vendors] = await Promise.all([
+  const [project, vendorsRaw] = await Promise.all([
     prisma.project.findUnique({
       where: { id },
       include: {
@@ -38,6 +39,7 @@ export default async function AdminEditProjectPage({ params }: AdminEditProjectP
       orderBy: { name: "asc" },
     }),
   ]);
+  const vendors = sortByNameCaseInsensitive(vendorsRaw);
 
   if (!project) {
     notFound();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export async function GET(req: NextRequest) {
   const access = await requireAdminSession({ allowModeratorReadOnly: true });
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
       }
     : {};
 
-  const [total, vendors] = await prisma.$transaction([
+  const [total, vendorsRaw] = await prisma.$transaction([
     prisma.vendor.count({ where }),
     prisma.vendor.findMany({
       where,
@@ -61,10 +62,9 @@ export async function GET(req: NextRequest) {
         _count: { select: { projects: true, projectVendors: true } },
       },
       orderBy: { name: "asc" },
-      skip: (page - 1) * limit,
-      take: limit,
     }),
   ]);
+  const vendors = sortByNameCaseInsensitive(vendorsRaw).slice((page - 1) * limit, page * limit);
 
   return NextResponse.json({
     data: vendors,

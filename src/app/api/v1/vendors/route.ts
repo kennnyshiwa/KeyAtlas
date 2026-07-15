@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_REFERENCE } from "@/lib/rate-limit";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export async function GET(req: NextRequest) {
   const limited = await rateLimit(
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
   );
   if (limited) return limited;
 
-  const vendors = await prisma.vendor.findMany({
+  const vendors = sortByNameCaseInsensitive(await prisma.vendor.findMany({
     select: {
       id: true,
       name: true,
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       _count: { select: { projectVendors: true } },
     },
     orderBy: { name: "asc" },
-  });
+  }));
 
   const data = vendors.map((v) => ({
     id: v.id,

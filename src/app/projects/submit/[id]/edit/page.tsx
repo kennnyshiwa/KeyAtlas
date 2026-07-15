@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ProjectForm } from "@/components/projects/project-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export const metadata = {
   title: "Edit Submission",
@@ -22,7 +23,7 @@ export default async function EditSubmissionPage({ params }: EditSubmissionPageP
 
   const { id } = await params;
 
-  const [project, vendors] = await Promise.all([
+  const [project, vendorsRaw] = await Promise.all([
     prisma.project.findUnique({
       where: { id },
       include: {
@@ -39,6 +40,7 @@ export default async function EditSubmissionPage({ params }: EditSubmissionPageP
       orderBy: { name: "asc" },
     }),
   ]);
+  const vendors = sortByNameCaseInsensitive(vendorsRaw);
 
   if (!project) {
     notFound();

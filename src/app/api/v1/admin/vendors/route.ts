@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 import { vendorFormSchema } from "@/lib/validations/vendor";
 
 export async function GET(req: NextRequest) {
@@ -9,10 +10,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const vendors = await prisma.vendor.findMany({
+  const vendors = sortByNameCaseInsensitive(await prisma.vendor.findMany({
     include: { _count: { select: { projects: true, projectVendors: true } } },
     orderBy: { name: "asc" },
-  });
+  }));
 
   const mapped = vendors.map((v) => ({
     id: v.id,

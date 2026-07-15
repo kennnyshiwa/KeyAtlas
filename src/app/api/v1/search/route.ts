@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -138,7 +139,6 @@ export async function GET(req: NextRequest) {
       _count: { select: { projectVendors: true } },
     },
     orderBy: { name: "asc" },
-    take: 10,
   });
 
   const designerPromise = prisma.designer.findMany({
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
 
       return jsonNoStore({
         data: projectHits,
-        vendors: vendors.map((v) => ({
+        vendors: sortByNameCaseInsensitive(vendors).slice(0, 10).map((v) => ({
           id: v.id,
           name: v.name,
           slug: v.slug,

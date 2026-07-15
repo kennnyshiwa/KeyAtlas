@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { ProjectForm } from "@/components/projects/project-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { prisma } from "@/lib/prisma";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export const metadata = {
   title: "Submit a Project",
@@ -15,7 +16,7 @@ export default async function SubmitProjectPage() {
     redirect("/sign-in");
   }
 
-  const [vendors, templateProjects] = await Promise.all([
+  const [vendorsRaw, templateProjects] = await Promise.all([
     prisma.vendor.findMany({
       select: { id: true, name: true, regionsServed: true, storefrontUrl: true },
       orderBy: { name: "asc" },
@@ -45,6 +46,7 @@ export default async function SubmitProjectPage() {
       take: 20,
     }),
   ]);
+  const vendors = sortByNameCaseInsensitive(vendorsRaw);
 
   return (
     <div className="space-y-6">

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/shared/page-header";
 import { VendorCard } from "@/components/vendors/vendor-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function VendorsPage() {
-  const vendors = await prisma.vendor.findMany({
+  const vendors = sortByNameCaseInsensitive(await prisma.vendor.findMany({
     select: {
       name: true,
       slug: true,
@@ -21,7 +22,7 @@ export default async function VendorsPage() {
       _count: { select: { projectVendors: true } },
     },
     orderBy: { name: "asc" },
-  });
+  }));
 
   return (
     <div className="space-y-6">

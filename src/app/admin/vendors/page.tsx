@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
 import { VendorMergeDialog } from "@/components/admin/vendor-merge-dialog";
 import { AdminVendorsInfiniteTable } from "@/components/admin/admin-vendors-infinite-table";
+import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
 
 export const metadata = {
   title: "Manage Vendors",
@@ -60,7 +61,7 @@ export default async function AdminVendorsPage({
       }
     : {};
 
-  const [total, vendors] = await prisma.$transaction([
+  const [total, vendorsRaw] = await prisma.$transaction([
     prisma.vendor.count({ where }),
     prisma.vendor.findMany({
       where,
@@ -73,9 +74,9 @@ export default async function AdminVendorsPage({
         _count: { select: { projects: true, projectVendors: true } },
       },
       orderBy: { name: "asc" },
-      take: PAGE_SIZE,
     }),
   ]);
+  const vendors = sortByNameCaseInsensitive(vendorsRaw).slice(0, PAGE_SIZE);
 
   return (
     <div className="space-y-6">
