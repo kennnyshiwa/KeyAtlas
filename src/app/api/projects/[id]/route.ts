@@ -12,6 +12,7 @@ import { rateLimit, RATE_LIMIT_PROJECT_UPDATE } from "@/lib/rate-limit";
 import { logProjectChanges } from "@/lib/project-change-log";
 import { logAdminAction } from "@/lib/admin-audit";
 import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
+import { getProjectPublishValidationErrors } from "@/lib/project-publish-validation";
 
 async function findOrCreateVendorByEntry(entry: {
   vendorId: string;
@@ -124,7 +125,17 @@ export async function PUT(
   data.profiles = normalizedProfiles;
   data.profile = getPrimaryProjectProfile({ profiles: normalizedProfiles });
 
-  // Vendor required for GROUP_BUY status — only enforce on publish, not drafts
+  if (intent === "publish") {
+    const publishErrors = getProjectPublishValidationErrors({
+      ...data,
+      projectVendors,
+    });
+    if (publishErrors.length > 0) {
+      return NextResponse.json({ error: publishErrors[0].message }, { status: 400 });
+    }
+  }
+
+  // Vendor required for GROUP_BUY status — only enforce on publish/review, not drafts
   if (intent !== "draft" && data.status === "GROUP_BUY" && projectVendors.length === 0) {
     return NextResponse.json(
       { error: "At least one vendor is required for Group Buy projects." },

@@ -27,6 +27,7 @@ import { VendorMultiSelect } from "@/components/projects/vendor-multi-select";
 import { ProjectOwnershipTransfer } from "@/components/projects/project-ownership-transfer";
 import { CATEGORY_LABELS, STATUS_LABELS, PROFILE_OPTIONS } from "@/lib/constants";
 import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
+import { getProjectPublishValidationErrors } from "@/lib/project-publish-validation";
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
 import type { ProjectWithRelations } from "@/types";
@@ -642,28 +643,6 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     return `<figure class="project-inline-image" style="margin:1.5rem 0; text-align:center;"><img src="${safeUrl}" alt="${safeAlt}" loading="lazy" decoding="async" style="max-width:100%; height:auto; border-radius:0.5rem; display:inline-block;" /><figcaption style="margin-top:0.5rem; color:#6b7280; font-size:0.875rem;">${escapeHtml(captionText)}</figcaption></figure><p></p>`;
   };
 
-  const getPublishValidationErrors = () => {
-    const errors: Array<{ id: string; message: string }> = [];
-    if (!formData.title.trim()) errors.push({ id: "title", message: "Title is required" });
-    if (!formData.slug.trim()) errors.push({ id: "slug", message: "Slug is required" });
-    if (!(formData.description ?? "").trim()) errors.push({ id: "description", message: "Description is required" });
-    if (!(formData.heroImage ?? "").trim()) errors.push({ id: "hero-image", message: "Hero image is required" });
-
-    if (formData.status === "GROUP_BUY") {
-      if (!(formData.projectVendors ?? []).filter((pv) => pv.vendorId).length) {
-        errors.push({ id: "vendors", message: "At least one vendor is required for Group Buy" });
-      }
-      if (!formData.gbStartDate) {
-        errors.push({ id: "gbStartDate", message: "GB start date is required for Group Buy" });
-      }
-      if (!formData.gbEndDate) {
-        errors.push({ id: "gbEndDate", message: "GB end date is required for Group Buy" });
-      }
-    }
-
-    return errors;
-  };
-
   const focusValidationField = (id: string) => {
     const element = document.getElementById(id) ?? document.querySelector(`[data-field="${id}"]`);
     if (!element) return;
@@ -678,7 +657,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     options?: { redirectToPreview?: boolean; silent?: boolean }
   ) => {
     if (intent === "publish") {
-      const errors = getPublishValidationErrors();
+      const errors = getProjectPublishValidationErrors(formData);
       if (errors.length > 0) {
         const firstError = errors[0];
         setHeroImageError(firstError.id === "hero-image");
@@ -980,14 +959,16 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              required
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                required
+              />
+            </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -1284,6 +1265,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
                   )
                 }
               />
+              <p className="text-muted-foreground text-xs">Optional for open-ended or TBD group buys.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="estimatedDelivery">Est. Delivery</Label>
