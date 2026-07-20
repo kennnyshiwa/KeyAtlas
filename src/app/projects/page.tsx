@@ -23,11 +23,13 @@ import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Projects",
-  description: "Browse mechanical keyboard interest checks, group buys, and more.",
-  path: "/projects",
-});
+export function generateMetadata(): Metadata {
+  return buildPageMetadata({
+    title: "Projects",
+    description: "Browse mechanical keyboard interest checks, group buys, and more.",
+    path: "/projects",
+  });
+}
 
 interface ProjectsPageProps {
   searchParams: Promise<{

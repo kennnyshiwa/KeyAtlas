@@ -9,12 +9,14 @@ import { ArrowRight, Lightbulb } from "lucide-react";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Mechanical Keyboard Interest Checks",
-  description:
-    "Discover the latest mechanical keyboard interest checks and upcoming concepts. Vote on designs that should become group buys and shape the next wave of keyboard releases.",
-  path: "/discover/interest-checks",
-});
+export function generateMetadata(): Metadata {
+  return buildPageMetadata({
+    title: "Mechanical Keyboard Interest Checks",
+    description:
+      "Discover the latest mechanical keyboard interest checks and upcoming concepts. Vote on designs that should become group buys and shape the next wave of keyboard releases.",
+    path: "/discover/interest-checks",
+  });
+}
 
 export default async function DiscoverInterestChecksPage() {
   const now = new Date();

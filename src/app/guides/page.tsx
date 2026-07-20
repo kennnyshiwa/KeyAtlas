@@ -12,11 +12,13 @@ import { formatDistanceToNow } from "date-fns";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Build Guides",
-  description: "Keyboard build guides from the KeyAtlas community.",
-  path: "/guides",
-});
+export function generateMetadata(): Metadata {
+  return buildPageMetadata({
+    title: "Build Guides",
+    description: "Keyboard build guides from the KeyAtlas community.",
+    path: "/guides",
+  });
+}
 
 export default async function GuidesPage() {
   const session = await auth();

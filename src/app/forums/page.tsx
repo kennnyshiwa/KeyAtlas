@@ -11,11 +11,13 @@ import { formatDistanceToNow } from "date-fns";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Forums",
-  description: "KeyAtlas community forums - discuss keyboards, keycaps, and more.",
-  path: "/forums",
-});
+export function generateMetadata(): Metadata {
+  return buildPageMetadata({
+    title: "Forums",
+    description: "KeyAtlas community forums - discuss keyboards, keycaps, and more.",
+    path: "/forums",
+  });
+}
 
 export default async function ForumsPage() {
   const session = await auth();
