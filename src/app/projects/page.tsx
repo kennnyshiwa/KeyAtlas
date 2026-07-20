@@ -19,14 +19,15 @@ import { addDays } from "date-fns";
 import { scoreFollowedProjectRecommendation } from "@/lib/project-discovery";
 import { resolveProjectStatusInput } from "@/lib/constants";
 import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Projects",
   description: "Browse mechanical keyboard interest checks, group buys, and more.",
-  alternates: { canonical: "/projects" },
-};
+  path: "/projects",
+});
 
 interface ProjectsPageProps {
   searchParams: Promise<{

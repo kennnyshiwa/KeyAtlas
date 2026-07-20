@@ -7,13 +7,14 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Lightbulb } from "lucide-react";
 import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
-  title: "Mechanical Keyboard Interest Checks | KeyAtlas",
+export const metadata: Metadata = buildPageMetadata({
+  title: "Mechanical Keyboard Interest Checks",
   description:
     "Discover the latest mechanical keyboard interest checks and upcoming concepts. Vote on designs that should become group buys and shape the next wave of keyboard releases.",
-  alternates: { canonical: "/discover/interest-checks" },
-};
+  path: "/discover/interest-checks",
+});
 
 export default async function DiscoverInterestChecksPage() {
   const now = new Date();

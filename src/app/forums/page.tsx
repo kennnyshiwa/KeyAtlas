@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Forums",
-  description: "KeyAtlas community forums — discuss keyboards, keycaps, and more.",
-  alternates: { canonical: "/forums" },
-};
+  description: "KeyAtlas community forums - discuss keyboards, keycaps, and more.",
+  path: "/forums",
+});
 
 export default async function ForumsPage() {
   const session = await auth();

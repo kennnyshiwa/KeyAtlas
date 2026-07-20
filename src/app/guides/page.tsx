@@ -10,12 +10,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, BookOpen } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Build Guides",
   description: "Keyboard build guides from the KeyAtlas community.",
-  alternates: { canonical: "/guides" },
-};
+  path: "/guides",
+});
 
 export default async function GuidesPage() {
   const session = await auth();

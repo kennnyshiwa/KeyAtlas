@@ -8,13 +8,14 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Clock, Flame } from "lucide-react";
 import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
-  title: "Active Keyboard Group Buys - March 2026 | KeyAtlas",
+export const metadata: Metadata = buildPageMetadata({
+  title: "Active Keyboard Group Buys",
   description:
     "Browse all active mechanical keyboard group buys. Find live GBs, track pricing, check vendor availability, and join before the window closes.",
-  alternates: { canonical: "/discover/group-buys" },
-};
+  path: "/discover/group-buys",
+});
 
 export default async function DiscoverGroupBuysPage() {
   const now = new Date();
