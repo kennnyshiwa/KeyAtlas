@@ -28,11 +28,11 @@ export default async function EditSubmissionPage({ params }: EditSubmissionPageP
       where: { id },
       include: {
         images: { orderBy: { order: "asc" } },
-        links: true,
+        links: { orderBy: { sortOrder: "asc" } },
         soundTests: { orderBy: { createdAt: "asc" } },
         vendor: true,
         creator: { select: { id: true, name: true, image: true } },
-        projectVendors: true,
+        projectVendors: { orderBy: { sortOrder: "asc" } },
       },
     }),
     prisma.vendor.findMany({

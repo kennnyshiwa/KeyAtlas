@@ -64,6 +64,7 @@ export const projectFormSchema = z.object({
         region: z.string().optional().default(""),
         storeLink: z.string().optional().default(""),
         endDate: z.coerce.date().optional().nullable(),
+        sortOrder: z.number().int().min(0).optional(),
         customVendorName: z.string().max(120).optional().nullable(),
         customVendorWebsite: z.string().url().optional().nullable(),
       })
@@ -83,6 +84,7 @@ export const projectFormSchema = z.object({
       z.object({
         label: z.string().min(1),
         url: z.string().url(),
+        sortOrder: z.number().int().min(0).optional(),
         type: z
           .enum([
             "GEEKHACK",

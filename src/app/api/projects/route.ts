@@ -220,8 +220,9 @@ export async function POST(req: NextRequest) {
 
   const resolvedVendors = (
     await Promise.all(
-      projectVendors.map(async (pv) => ({
+      projectVendors.map(async (pv, index) => ({
         ...pv,
+        sortOrder: pv.sortOrder ?? index,
         vendorId: await findOrCreateVendorByEntry({
           vendorId: pv.vendorId,
           customVendorName: pv.customVendorName,
@@ -234,6 +235,7 @@ export async function POST(req: NextRequest) {
     region?: string;
     storeLink?: string;
     endDate?: Date | null;
+    sortOrder: number;
   }>;
 
   // Auto-set vendorId from first projectVendor for backward compat
@@ -257,7 +259,10 @@ export async function POST(req: NextRequest) {
         create: uniqueImages,
       },
       links: {
-        create: links,
+        create: links.map((link, index) => ({
+          ...link,
+          sortOrder: link.sortOrder ?? index,
+        })),
       },
       projectVendors: {
         create: resolvedVendors.map((pv) => ({
@@ -265,6 +270,7 @@ export async function POST(req: NextRequest) {
           region: pv.region || null,
           storeLink: pv.storeLink || null,
           endDate: pv.endDate ?? null,
+          sortOrder: pv.sortOrder,
         })),
       },
       soundTests: {
@@ -277,10 +283,13 @@ export async function POST(req: NextRequest) {
     },
     include: {
       images: true,
-      links: true,
+      links: { orderBy: { sortOrder: "asc" } },
       soundTests: true,
       vendor: { select: { name: true, slug: true } },
-      projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
+      projectVendors: {
+        orderBy: { sortOrder: "asc" },
+        include: { vendor: { select: { name: true, slug: true } } },
+      },
     },
   });
 

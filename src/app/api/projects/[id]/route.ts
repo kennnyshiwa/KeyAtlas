@@ -62,9 +62,10 @@ export async function GET(
     where: { id },
     include: {
       images: { orderBy: { order: "asc" } },
-      links: true,
+      links: { orderBy: { sortOrder: "asc" } },
       vendor: true,
       creator: { select: { id: true, name: true, image: true } },
+      projectVendors: { orderBy: { sortOrder: "asc" } },
     },
   });
 
@@ -197,8 +198,9 @@ export async function PUT(
 
   const resolvedVendors = (
     await Promise.all(
-      projectVendors.map(async (pv) => ({
+      projectVendors.map(async (pv, index) => ({
         ...pv,
+        sortOrder: pv.sortOrder ?? index,
         vendorId: await findOrCreateVendorByEntry({
           vendorId: pv.vendorId,
           customVendorName: pv.customVendorName,
@@ -211,6 +213,7 @@ export async function PUT(
     region?: string;
     storeLink?: string;
     endDate?: Date | null;
+    sortOrder: number;
   }>;
 
   // Log meaningful field changes
@@ -242,13 +245,19 @@ export async function PUT(
         designerId,
         vendorId: primaryVendorId,
         images: { create: uniqueImages },
-        links: { create: links },
+        links: {
+          create: links.map((link, index) => ({
+            ...link,
+            sortOrder: link.sortOrder ?? index,
+          })),
+        },
         projectVendors: {
           create: resolvedVendors.map((pv) => ({
             vendorId: pv.vendorId,
             region: pv.region || null,
             storeLink: pv.storeLink || null,
             endDate: pv.endDate ?? null,
+            sortOrder: pv.sortOrder,
           })),
         },
         soundTests: {
@@ -261,10 +270,13 @@ export async function PUT(
       },
       include: {
         images: true,
-        links: true,
+        links: { orderBy: { sortOrder: "asc" } },
         soundTests: true,
         vendor: { select: { name: true, slug: true } },
-        projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
+        projectVendors: {
+          orderBy: { sortOrder: "asc" },
+          include: { vendor: { select: { name: true, slug: true } } },
+        },
       },
     });
   });

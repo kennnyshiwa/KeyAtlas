@@ -40,11 +40,14 @@ interface ProjectPageProps {
 async function getProject(slug: string) {
   const include = {
     images: { orderBy: { order: "asc" as const } },
-    links: true,
+    links: { orderBy: { sortOrder: "asc" as const } },
     vendor: true,
     designerProfile: { select: { name: true, slug: true } },
     creator: { select: { id: true, name: true, image: true } },
-    projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
+    projectVendors: {
+      orderBy: { sortOrder: "asc" as const },
+      include: { vendor: { select: { name: true, slug: true } } },
+    },
     soundTests: { orderBy: { createdAt: "asc" as const } },
     _count: { select: { followers: true, favorites: true, comments: true } },
   };

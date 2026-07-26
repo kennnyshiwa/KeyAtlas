@@ -370,11 +370,12 @@ model ProjectLink {
   label String
   url   String
   type  LinkType @default(OTHER)
+  sortOrder Int  @default(0)
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@index([projectId])
+  @@index([projectId, sortOrder])
   @@map("project_links")
 }
 
@@ -411,6 +412,7 @@ model ProjectVendor {
   region    String?
   storeLink String?
   endDate   DateTime?
+  sortOrder Int       @default(0)
   createdAt DateTime  @default(now())
 
   projectId String
@@ -419,7 +421,7 @@ model ProjectVendor {
   vendor    Vendor  @relation("VendorProjects", fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, vendorId, region])
-  @@index([projectId])
+  @@index([projectId, sortOrder])
   @@index([vendorId])
   @@map("project_vendors")
 }

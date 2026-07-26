@@ -39,8 +39,14 @@ export default async function SubmitProjectPage() {
         priceMax: true,
         estimatedDelivery: true,
         images: { select: { url: true, alt: true, order: true, linkUrl: true, openInNewTab: true }, orderBy: { order: "asc" } },
-        links: { select: { label: true, url: true, type: true } },
-        projectVendors: { select: { vendorId: true, region: true, storeLink: true, endDate: true } },
+        links: {
+          select: { label: true, url: true, type: true, sortOrder: true },
+          orderBy: { sortOrder: "asc" },
+        },
+        projectVendors: {
+          select: { vendorId: true, region: true, storeLink: true, endDate: true, sortOrder: true },
+          orderBy: { sortOrder: "asc" },
+        },
       },
       orderBy: { updatedAt: "desc" },
       take: 20,

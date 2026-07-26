@@ -43,7 +43,10 @@ export async function GET(
         select: { id: true, url: true, alt: true, order: true, linkUrl: true, openInNewTab: true },
         orderBy: { order: "asc" },
       },
-      links: { select: { id: true, label: true, url: true, type: true } },
+      links: {
+        select: { id: true, label: true, url: true, type: true },
+        orderBy: { sortOrder: "asc" },
+      },
       soundTests: { select: { id: true, title: true, url: true, platform: true } },
       updates: {
         select: { id: true, title: true, content: true, createdAt: true },
@@ -73,6 +76,7 @@ export async function GET(
       creator: { select: { id: true, username: true, name: true, displayName: true, image: true } },
       designerProfile: { select: { name: true, slug: true } },
       projectVendors: {
+        orderBy: { sortOrder: "asc" },
         include: { vendor: { select: { name: true } } },
       },
       _count: { select: { favorites: true } },
@@ -285,7 +289,7 @@ export async function PATCH(
 
   const normalizedLinks = Array.isArray(body.links)
     ? body.links
-        .map((link: unknown) => {
+        .map((link: unknown, index: number) => {
           const item = typeof link === "object" && link !== null ? (link as Record<string, unknown>) : {};
           const url = typeof item.url === "string" ? item.url.trim() : "";
           const labelSource = typeof item.label === "string"
@@ -299,14 +303,18 @@ export async function PATCH(
             label: label || "Link",
             url,
             type: normalizeLinkType(item.type),
+            sortOrder:
+              typeof item.sortOrder === "number" && Number.isInteger(item.sortOrder) && item.sortOrder >= 0
+                ? item.sortOrder
+                : index,
           };
         })
-        .filter((link: { label: string; url: string; type: EditableProjectLinkType } | null): link is { label: string; url: string; type: EditableProjectLinkType } => !!link)
+        .filter((link: { label: string; url: string; type: EditableProjectLinkType; sortOrder: number } | null): link is { label: string; url: string; type: EditableProjectLinkType; sortOrder: number } => !!link)
     : null;
 
   const normalizedProjectVendors = Array.isArray(body.project_vendors)
     ? body.project_vendors
-        .map((vendor: unknown) => {
+        .map((vendor: unknown, index: number) => {
           const item = typeof vendor === "object" && vendor !== null ? (vendor as Record<string, unknown>) : {};
           const vendorId = typeof item.vendorId === "string" ? item.vendorId.trim() : "";
           if (!vendorId) return null;
@@ -316,9 +324,13 @@ export async function PATCH(
             vendorId,
             region,
             storeLink,
+            sortOrder:
+              typeof item.sortOrder === "number" && Number.isInteger(item.sortOrder) && item.sortOrder >= 0
+                ? item.sortOrder
+                : index,
           };
         })
-        .filter((vendor: { vendorId: string; region: string; storeLink: string } | null): vendor is { vendorId: string; region: string; storeLink: string } => !!vendor)
+        .filter((vendor: { vendorId: string; region: string; storeLink: string; sortOrder: number } | null): vendor is { vendorId: string; region: string; storeLink: string; sortOrder: number } => !!vendor)
     : null;
 
   const previous = await prisma.project.findUnique({
@@ -377,10 +389,11 @@ export async function PATCH(
           ? {
               vendorId: normalizedProjectVendors[0]?.vendorId ?? null,
               projectVendors: {
-                create: normalizedProjectVendors.map((vendor: { vendorId: string; region: string; storeLink: string }) => ({
+                create: normalizedProjectVendors.map((vendor: { vendorId: string; region: string; storeLink: string; sortOrder: number }) => ({
                   vendorId: vendor.vendorId,
                   region: vendor.region || null,
                   storeLink: vendor.storeLink || null,
+                  sortOrder: vendor.sortOrder,
                 })),
               },
             }

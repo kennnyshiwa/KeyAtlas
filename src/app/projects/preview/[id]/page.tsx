@@ -45,10 +45,13 @@ async function getProject(id: string) {
     where: { id },
     include: {
       images: { orderBy: { order: "asc" } },
-      links: true,
+      links: { orderBy: { sortOrder: "asc" } },
       vendor: true,
       creator: { select: { id: true, name: true, image: true } },
-      projectVendors: { include: { vendor: { select: { name: true, slug: true } } } },
+      projectVendors: {
+        orderBy: { sortOrder: "asc" },
+        include: { vendor: { select: { name: true, slug: true } } },
+      },
       soundTests: { orderBy: { createdAt: "asc" } },
     },
   });

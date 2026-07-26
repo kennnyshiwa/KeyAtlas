@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 
 export interface ProjectVendorEntry {
   vendorId: string;
@@ -88,6 +88,15 @@ export function VendorMultiSelect({
     onChange(value.filter((_, i) => i !== index));
   };
 
+  const moveEntry = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= value.length) return;
+    const updated = [...value];
+    const [entry] = updated.splice(index, 1);
+    updated.splice(nextIndex, 0, entry);
+    onChange(updated);
+  };
+
   return (
     <div className="space-y-3">
       <div className="sticky top-24 z-20 -mx-6 flex items-center justify-between border-b bg-background/95 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -157,7 +166,29 @@ export function VendorMultiSelect({
             </div>
 
           </div>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-between gap-2">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => moveEntry(i, -1)}
+                disabled={i === 0}
+              >
+                <ArrowUp className="mr-1 h-3 w-3" />
+                Move Up
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => moveEntry(i, 1)}
+                disabled={i === value.length - 1}
+              >
+                <ArrowDown className="mr-1 h-3 w-3" />
+                Move Down
+              </Button>
+            </div>
             <Button
               type="button"
               variant="destructive"

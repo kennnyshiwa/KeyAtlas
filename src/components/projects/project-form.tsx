@@ -31,7 +31,7 @@ import { getProjectPublishValidationErrors } from "@/lib/project-publish-validat
 import { generateSlug } from "@/lib/utils";
 import type { ProjectFormData } from "@/lib/validations/project";
 import type { ProjectWithRelations } from "@/types";
-import { Plus, Trash2, Loader2, Eye, Download, Save, Volume2, ChevronDown } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2, Loader2, Eye, Download, Save, Volume2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import type { UrlImportPrefillPayload } from "@/lib/import/url-prefill";
 
@@ -48,6 +48,7 @@ interface ProjectFormProps {
       region: string | null;
       storeLink: string | null;
       endDate: Date | null;
+      sortOrder?: number;
     }[];
   };
   vendors?: { id: string; name: string; regionsServed?: string[]; storefrontUrl?: string | null }[];
@@ -67,8 +68,8 @@ interface ProjectFormProps {
     priceMax: number | null;
     estimatedDelivery: string | null;
     images: { url: string; alt: string | null; order: number; linkUrl: string | null; openInNewTab: boolean }[];
-    links: { label: string; url: string; type: ProjectFormData["links"][number]["type"] }[];
-    projectVendors: { vendorId: string; region: string | null; storeLink: string | null; endDate: Date | null }[];
+    links: { label: string; url: string; type: ProjectFormData["links"][number]["type"]; sortOrder?: number }[];
+    projectVendors: { vendorId: string; region: string | null; storeLink: string | null; endDate: Date | null; sortOrder?: number }[];
   }[];
   mode?: "admin" | "submit";
   showSectionNav?: boolean;
@@ -169,11 +170,13 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
       region: pv.region ?? "",
       storeLink: pv.storeLink ?? "",
       endDate: pv.endDate ?? null,
+      sortOrder: pv.sortOrder,
     })) ?? [],
     links: project?.links?.map((link) => ({
       label: link.label,
       url: link.url,
       type: link.type,
+      sortOrder: link.sortOrder,
     })) ?? [],
     soundTests: project?.soundTests?.map((st) => ({
       url: st.url,
@@ -540,7 +543,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
   const addLink = () => {
     updateField("links", [
       ...formData.links,
-      { label: "", url: "", type: "OTHER" as const },
+      { label: "", url: "", type: "OTHER" as const, sortOrder: formData.links.length },
     ]);
   };
 
@@ -561,6 +564,7 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
         label: new URL(url).hostname.replace(/^www\./, ""),
         url,
         type: parseLinkType(url),
+        sortOrder: formData.links.length,
       }));
 
     if (newLinks.length === 0) {
@@ -590,6 +594,15 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
     );
   };
 
+  const moveLink = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= formData.links.length) return;
+    const updated = [...formData.links];
+    const [link] = updated.splice(index, 1);
+    updated.splice(nextIndex, 0, link);
+    updateField("links", updated);
+  };
+
   const applyTemplate = () => {
     const selected = templateProjects.find((item) => item.id === templateProjectId);
     if (!selected) return;
@@ -611,8 +624,13 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
       priceMax: selected.priceMax,
       estimatedDelivery: selected.estimatedDelivery,
       images: selected.images.map((image, index) => ({ ...image, order: index, alt: image.alt ?? undefined })),
-      links: selected.links,
-      projectVendors: selected.projectVendors.map((vendor) => ({ ...vendor, region: vendor.region ?? "", storeLink: vendor.storeLink ?? "" })),
+      links: selected.links.map((link, index) => ({ ...link, sortOrder: link.sortOrder ?? index })),
+      projectVendors: selected.projectVendors.map((vendor, index) => ({
+        ...vendor,
+        region: vendor.region ?? "",
+        storeLink: vendor.storeLink ?? "",
+        sortOrder: vendor.sortOrder ?? index,
+      })),
       published: false,
       featured: false,
     }));
@@ -687,7 +705,16 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
           ...image,
           order: index,
         })),
-        projectVendors: (formData.projectVendors ?? []).filter((pv) => pv.vendorId),
+        projectVendors: (formData.projectVendors ?? [])
+          .filter((pv) => pv.vendorId)
+          .map((vendor, index) => ({
+            ...vendor,
+            sortOrder: index,
+          })),
+        links: (formData.links ?? []).map((link, index) => ({
+          ...link,
+          sortOrder: index,
+        })),
         soundTests: (formData.soundTests ?? [])
           .filter((st) => st.url?.trim())
           .map((st) => ({
@@ -1422,6 +1449,28 @@ export function ProjectForm({ project, vendors = [], templateProjects = [], mode
                   </SelectContent>
                 </Select>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => moveLink(i, -1)}
+                className="min-h-11 min-w-11"
+                disabled={i === 0}
+                aria-label="Move link up"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => moveLink(i, 1)}
+                className="min-h-11 min-w-11"
+                disabled={i === formData.links.length - 1}
+                aria-label="Move link down"
+              >
+                <ArrowDown className="h-4 w-4" />
+              </Button>
               <Button
                 type="button"
                 variant="destructive"
