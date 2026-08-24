@@ -305,9 +305,76 @@ export async function mirrorPrefillImages<T extends { url: string }>(images: T[]
   );
 }
 
+type ImportImage = { url: string };
+type MirrorUrl = (url: string, userId?: string) => Promise<string>;
+
+export type MirroredImportMedia<T extends ImportImage> = {
+  description: string;
+  images: T[];
+};
+
 const IMG_SRC_RE = /(<img\b[^>]*\bsrc\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
 const A_HREF_RE = /(<a\b[^>]*\bhref\s*=\s*["'])([^"']+)(["'][^>]*>)/gi;
 const ANCHOR_RE = /<a\b([^>]*\bhref\s*=\s*["'])([^"']+)(["'][^>]*)>([\s\S]*?)<\/a>/gi;
+
+export function rewriteImportImageUrlsInHtml(
+  html: string,
+  mirroredByNormalized: ReadonlyMap<string, string>,
+): string {
+  const rewrite = (rawUrl: string): string | null => {
+    const normalized = normalizeMirrorableImageUrl(rawUrl);
+    return mirroredByNormalized.get(normalized) ?? null;
+  };
+
+  let result = html.replace(IMG_SRC_RE, (full, prefix: string, src: string, suffix: string) => {
+    const rewritten = rewrite(src);
+    return rewritten ? `${prefix}${rewritten}${suffix}` : full;
+  });
+
+  result = result.replace(A_HREF_RE, (full, prefix: string, href: string, suffix: string) => {
+    const rewritten = rewrite(href);
+    return rewritten ? `${prefix}${rewritten}${suffix}` : full;
+  });
+
+  return rewritePostimgViewerAnchorsToImageUrl(result);
+}
+
+/**
+ * Mirrors gallery and rich-description media as one operation. Gallery URLs are
+ * mirrored first and reused by normalized source URL in the description, so a
+ * source image present in both places is uploaded only once.
+ */
+export async function mirrorImportMedia<T extends ImportImage>(
+  description: string,
+  images: T[],
+  userId?: string,
+  mirrorUrl: MirrorUrl = mirrorImportImageUrlOrOriginal,
+): Promise<MirroredImportMedia<T>> {
+  const mirroredByNormalized = new Map<string, string>();
+  const mirroredImages: T[] = [];
+
+  for (const image of images) {
+    const normalized = normalizeMirrorableImageUrl(image.url);
+    let mirrored = mirroredByNormalized.get(normalized);
+    if (!mirrored) {
+      mirrored = await mirrorUrl(normalized, userId);
+      mirroredByNormalized.set(normalized, mirrored);
+    }
+    mirroredImages.push({ ...image, url: mirrored });
+  }
+
+  const candidates = extractMirrorableImageUrlCandidatesFromHtml(description);
+  for (const normalized of new Set(candidates.values())) {
+    if (!mirroredByNormalized.has(normalized)) {
+      mirroredByNormalized.set(normalized, await mirrorUrl(normalized, userId));
+    }
+  }
+
+  return {
+    description: rewriteImportImageUrlsInHtml(description, mirroredByNormalized),
+    images: mirroredImages,
+  };
+}
 
 function isPostimgViewerUrl(input: string): boolean {
   try {
@@ -346,20 +413,11 @@ export async function mirrorImportImageSrcsInHtml(html: string, userId?: string)
     rewrites.set(raw, mirroredByNormalized.get(normalized) ?? raw);
   }
 
-  // Rewrite both img src and a href
-  let result = html.replace(IMG_SRC_RE, (full, prefix: string, src: string, suffix: string) => {
-    const rewritten = rewrites.get(src);
-    if (!rewritten) return full;
-    return `${prefix}${rewritten}${suffix}`;
-  });
-
-  result = result.replace(A_HREF_RE, (full, prefix: string, href: string, suffix: string) => {
-    const rewritten = rewrites.get(href);
-    if (!rewritten) return full;
-    return `${prefix}${rewritten}${suffix}`;
-  });
-
-  return rewritePostimgViewerAnchorsToImageUrl(result);
+  const normalizedRewrites = new Map<string, string>();
+  for (const [raw, rewritten] of rewrites) {
+    normalizedRewrites.set(normalizeMirrorableImageUrl(raw), rewritten);
+  }
+  return rewriteImportImageUrlsInHtml(html, normalizedRewrites);
 }
 
 export async function mirrorImgurImageSrcsInHtml(html: string, userId?: string): Promise<string> {

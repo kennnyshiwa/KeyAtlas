@@ -6,6 +6,7 @@ import {
   isMirrorableImportImageUrl,
   isPostimgImageUrl,
   mirrorImportImageSrcsInHtml,
+  mirrorImportMedia,
   normalizeMirrorableImageUrl,
 } from "@/lib/import/imgur-mirror";
 
@@ -14,6 +15,42 @@ describe("Geekhack/import image mirroring helpers", () => {
     expect(isGeekhackImageUrl("https://geekhack.org/index.php?action=dlattach;topic=126619.0;attach=316873;image")).toBe(true);
     expect(isMirrorableImportImageUrl("https://cdn.geekhack.org/attachments/ocean-spirit-render-jpg.12345/")).toBe(true);
     expect(isMirrorableImportImageUrl("https://geekhack.org/index.php?topic=126619.0")).toBe(false);
+  });
+
+  it("reuses one mirrored URL for matching gallery and description sources", async () => {
+    const source = "https://i.imgur.com/shared.png";
+    const calls: string[] = [];
+    const result = await mirrorImportMedia(
+      `<p>Before <a href="${source}"><img src="${source}"></a> after</p>`,
+      [{ url: source, alt: "Shared" }],
+      undefined,
+      async (url) => {
+        calls.push(url);
+        return "https://imagedelivery.net/account/shared/public";
+      },
+    );
+
+    expect(calls).toEqual([source]);
+    expect(result.images[0].url).toBe("https://imagedelivery.net/account/shared/public");
+    expect(result.description).toBe(
+      '<p>Before <a href="https://imagedelivery.net/account/shared/public"><img src="https://imagedelivery.net/account/shared/public"></a> after</p>',
+    );
+  });
+
+  it("preserves text/order and mirrors description-only images separately", async () => {
+    const gallerySource = "https://i.imgur.com/gallery.png";
+    const descriptionOnly = "https://i.imgur.com/detail.png";
+    const result = await mirrorImportMedia(
+      `<p>First</p><img src="${descriptionOnly}"><p>Last</p><img src="${gallerySource}">`,
+      [{ url: gallerySource }],
+      undefined,
+      async (url) => `https://mirror.test/${new URL(url).pathname.slice(1)}`,
+    );
+
+    expect(result.images).toEqual([{ url: "https://mirror.test/gallery.png" }]);
+    expect(result.description).toBe(
+      '<p>First</p><img src="https://mirror.test/detail.png"><p>Last</p><img src="https://mirror.test/gallery.png">',
+    );
   });
 
   it("ignores decorative Geekhack chrome assets", () => {

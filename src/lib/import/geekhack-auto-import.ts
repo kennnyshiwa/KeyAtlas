@@ -22,8 +22,7 @@ import {
   type ExtractedThread,
 } from "@/lib/import/geekhack";
 import {
-  mirrorImgurImageSrcsInHtml,
-  mirrorPrefillImages,
+  mirrorImportMedia,
 } from "@/lib/import/imgur-mirror";
 import {
   scanBoardForTopics,
@@ -939,23 +938,19 @@ async function importTopic(
 
   // 5. Mirror images
   let mirroredDescription = prefill.description;
+  let mirroredImages = prefill.images;
   try {
-    mirroredDescription = await mirrorImgurImageSrcsInHtml(prefill.description, creatorId);
+    const media = await mirrorImportMedia(prefill.description, prefill.images, creatorId);
+    mirroredDescription = media.description;
+    mirroredImages = media.images;
   } catch (err) {
-    console.warn(`${logPrefix} image mirroring (description) failed:`, err);
+    console.warn(`${logPrefix} image mirroring failed:`, err);
   }
 
   try {
     mirroredDescription = await stripBrokenImageBlocksFromHtml(mirroredDescription);
   } catch (err) {
     console.warn(`${logPrefix} image cleanup (description) failed:`, err);
-  }
-
-  let mirroredImages = prefill.images;
-  try {
-    mirroredImages = await mirrorPrefillImages(prefill.images, creatorId);
-  } catch (err) {
-    console.warn(`${logPrefix} image mirroring (prefill images) failed:`, err);
   }
 
   // 6. Skip imports with no meaningful content
