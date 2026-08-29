@@ -27,6 +27,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify notification scheduler Compose wiring
+        run: |
+          npm run qa:compose:scheduler
+          npm run qa:compose:scheduler:integration
+
       - name: Set image name
         id: image
         run: |

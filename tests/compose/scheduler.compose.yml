@@ -1,0 +1,51 @@
+services:
+  app:
+    image: python:3.13-alpine
+    entrypoint: ["python", "/test/scheduler-stub.py"]
+    command: []
+    depends_on: !reset {}
+    ports: !reset []
+    volumes: !override
+      - ./tests/compose/scheduler-stub.py:/test/scheduler-stub.py:ro
+      - scheduler-results:/results
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/api/health')"]
+      interval: 1s
+      timeout: 1s
+      retries: 20
+      start_period: 1s
+
+  scheduler:
+    environment:
+      NOTIFICATION_JOB_SCHEDULE: "* * * * *"
+    volumes:
+      - scheduler-crontab:/etc/crontabs
+
+  scheduler-verifier:
+    image: alpine:3.20
+    depends_on:
+      scheduler:
+        condition: service_started
+    environment:
+      NOTIFICATION_JOB_SECRET: ${NOTIFICATION_JOB_SECRET:?NOTIFICATION_JOB_SECRET is required}
+    volumes:
+      - scheduler-crontab:/crontabs:ro
+      - scheduler-results:/results:ro
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        expected='* * * * * wget -qO- --header="Authorization: Bearer $${NOTIFICATION_JOB_SECRET}" --post-data= http://app:3000/api/internal/notifications/gb-ending-soon 2>&1'
+        for attempt in $$(seq 1 90); do
+          if [ -f /crontabs/root ] && [ "$$(cat /crontabs/root)" = "$${expected}" ] && [ -f /results/post-ok ]; then
+            echo "crontab and authenticated scheduled POST verified"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "scheduler integration timed out" >&2
+        exit 1
+
+volumes:
+  scheduler-crontab:
+  scheduler-results:
