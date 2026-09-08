@@ -9,7 +9,7 @@ const ALLOWED_CONTENT_TYPES = [
 ];
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const VALIDATION_TIMEOUT_MS = 5000;
-const HEAD_FALLBACK_STATUSES = new Set([405, 408, 425, 429, 500, 502, 503, 504]);
+const HEAD_FALLBACK_STATUSES = new Set([405, 408, 425, 429, 500, 501, 502, 503, 504]);
 
 export class ImageUrlValidationError extends Error {
   constructor(message: string) {
@@ -21,10 +21,11 @@ export class ImageUrlValidationError extends Error {
 function responseSize(response: Response): number | null {
   const contentRange = response.headers.get("content-range");
   const rangeTotal = contentRange?.match(/\/(\d+)$/)?.[1];
-  const value = rangeTotal ?? response.headers.get("content-length");
-  if (!value) return null;
+  // A 206 Content-Length is only the returned slice, not the image total.
+  const value = rangeTotal ?? (response.status === 206 ? null : response.headers.get("content-length"));
+  if (!value || !/^\d+$/.test(value)) return null;
   const size = Number(value);
-  return Number.isFinite(size) ? size : null;
+  return Number.isFinite(size) && size >= 0 ? size : null;
 }
 
 function assertValidImageResponse(response: Response): void {
@@ -38,7 +39,10 @@ function assertValidImageResponse(response: Response): void {
   }
 
   const size = responseSize(response);
-  if (size !== null && size > MAX_IMAGE_BYTES) {
+  if (size === null) {
+    throw new ImageUrlValidationError("Could not determine image size");
+  }
+  if (size > MAX_IMAGE_BYTES) {
     throw new ImageUrlValidationError("Image is too large. Maximum size is 20MB");
   }
 }

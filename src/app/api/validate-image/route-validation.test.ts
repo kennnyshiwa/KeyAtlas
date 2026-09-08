@@ -85,6 +85,18 @@ describe("remote image validation", () => {
     expect(mocks.safeFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("uses Range GET when HEAD returns 501 Not Implemented", async () => {
+    mocks.safeFetch
+      .mockResolvedValueOnce(response(501))
+      .mockResolvedValueOnce(response(206, {
+        "content-type": "image/webp",
+        "content-range": "bytes 0-0/8192",
+      }));
+
+    await expect(validateRemoteImage("https://other-host.test/image.webp")).resolves.toBeUndefined();
+    expect(mocks.safeFetch).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects invalid content types without retrying", async () => {
     mocks.safeFetch.mockResolvedValueOnce(response(200, {
       "content-type": "text/html",
@@ -111,6 +123,23 @@ describe("remote image validation", () => {
         "content-range": `bytes 0-0/${20 * 1024 * 1024 + 1}`,
       }));
     await expect(validateRemoteImage(postimgUrl)).rejects.toThrow("too large");
+  });
+
+  it("rejects image responses whose total size cannot be proven", async () => {
+    mocks.safeFetch.mockResolvedValueOnce(response(200, {
+      "content-type": "image/jpeg",
+    }));
+    await expect(validateRemoteImage(postimgUrl)).rejects.toThrow("determine image size");
+
+    const timeout = new Error("timed out");
+    timeout.name = "TimeoutError";
+    mocks.safeFetch
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce(response(206, {
+        "content-type": "image/jpeg",
+        "content-length": "1",
+      }));
+    await expect(validateRemoteImage(postimgUrl)).rejects.toThrow("determine image size");
   });
 
   it("preserves a meaningful timeout category after the fallback also times out", async () => {

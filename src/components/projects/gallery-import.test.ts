@@ -7,9 +7,11 @@ import {
 } from "./gallery-import";
 
 describe("gallery URL imports", () => {
+  const postimgUrl = "https://i.postimg.cc/tp3GgzDB/01-base-2026-09-07-19-00-28-Greenshot.jpg";
+
   it("parses comma and newline separated URLs in input order", () => {
-    expect(parseGalleryUrlEntries(" https://img.test/one.jpg,https://img.test/two.jpg\r\nhttps://img.test/three.jpg ")).toEqual([
-      "https://img.test/one.jpg",
+    expect(parseGalleryUrlEntries(` ${postimgUrl},https://img.test/two.jpg\r\nhttps://img.test/three.jpg `)).toEqual([
+      postimgUrl,
       "https://img.test/two.jpg",
       "https://img.test/three.jpg",
     ]);
@@ -21,17 +23,21 @@ describe("gallery URL imports", () => {
       return url;
     });
 
-    await expect(validateGalleryUrlEntries([
-      "https://i.postimg.cc/one.jpg",
+    const result = await validateGalleryUrlEntries([
+      postimgUrl,
       "https://example.test/bad.jpg",
       "https://i.postimg.cc/two.jpg",
-    ], validate)).resolves.toEqual({
-      validUrls: ["https://i.postimg.cc/one.jpg", "https://i.postimg.cc/two.jpg"],
+    ], validate);
+
+    expect(result).toEqual({
+      validUrls: [postimgUrl, "https://i.postimg.cc/two.jpg"],
       failures: [{
         url: "https://example.test/bad.jpg",
         error: "URL does not point to a valid image",
       }],
     });
+    expect(result.failures.map((failure) => failure.url).join("\n"))
+      .toBe("https://example.test/bad.jpg");
   });
 
   it("preserves existing gallery metadata and order while skipping duplicates", () => {
@@ -63,5 +69,36 @@ describe("gallery URL imports", () => {
       addedCount: 1,
       duplicateCount: 2,
     });
+  });
+
+  it("preserves upload and link metadata through draft save/reload before importing", () => {
+    const savedDraft: GalleryImage[] = [
+      {
+        url: "/uploads/gallery/uploaded.webp",
+        alt: "Uploaded keyboard prototype",
+        order: 0,
+        linkUrl: null,
+        openInNewTab: true,
+      },
+      {
+        url: "https://cdn.example.test/detail.jpg",
+        alt: "Detail view",
+        order: 1,
+        linkUrl: "https://example.test/details",
+        openInNewTab: false,
+      },
+    ];
+    const reloadedDraft = JSON.parse(JSON.stringify(savedDraft)) as GalleryImage[];
+
+    expect(appendUniqueGalleryUrls(reloadedDraft, [postimgUrl]).images).toEqual([
+      ...savedDraft,
+      {
+        url: postimgUrl,
+        alt: "",
+        order: 2,
+        linkUrl: null,
+        openInNewTab: true,
+      },
+    ]);
   });
 });
