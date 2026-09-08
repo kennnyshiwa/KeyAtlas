@@ -9,14 +9,13 @@ import { SmartImage } from "@/components/shared/smart-image";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, ImagePlus, Link, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
-
-type GalleryImage = {
-  url: string;
-  alt?: string;
-  order: number;
-  linkUrl?: string | null;
-  openInNewTab: boolean;
-};
+import {
+  appendUniqueGalleryUrls,
+  parseGalleryUrlEntries,
+  validateGalleryUrlEntries,
+  type GalleryImportFailure,
+  type GalleryImage,
+} from "./gallery-import";
 
 interface GalleryStudioProps {
   images: GalleryImage[];
@@ -33,6 +32,7 @@ export function GalleryStudio({ images, onChange }: GalleryStudioProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percent: 0, phase: "uploading" as "uploading" | "processing" });
   const [isAddingUrls, setIsAddingUrls] = useState(false);
+  const [urlListFailures, setUrlListFailures] = useState<GalleryImportFailure[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasImages = images.length > 0;
@@ -59,18 +59,8 @@ export function GalleryStudio({ images, onChange }: GalleryStudioProps) {
     const cleanUrl = url.trim();
     if (!cleanUrl) return;
 
-    const nextImages = [
-      ...images,
-      {
-        url: cleanUrl,
-        alt: "",
-        order: images.length,
-        linkUrl: null,
-        openInNewTab: true,
-      },
-    ];
-
-    apply(nextImages, nextImages.length - 1);
+    const result = appendUniqueGalleryUrls(images, [cleanUrl]);
+    if (result.addedCount > 0) apply(result.images, result.images.length - 1);
   };
 
   const validateImageUrl = async (rawUrl: string): Promise<string | null> => {
@@ -106,39 +96,29 @@ export function GalleryStudio({ images, onChange }: GalleryStudioProps) {
   };
 
   const handleAddUrlList = async () => {
-    const entries = urlListInput
-      .split(/\r?\n|,/) 
-      .map((entry) => entry.trim())
-      .filter(Boolean);
+    const entries = parseGalleryUrlEntries(urlListInput);
 
     if (entries.length === 0) return;
 
     setIsAddingUrls(true);
     try {
-      const validatedUrls: string[] = [];
-      for (const entry of entries) {
-        const url = await validateImageUrl(entry);
-        if (url) validatedUrls.push(url);
-      }
+      const { validUrls, failures } = await validateGalleryUrlEntries(entries, validateImageUrl);
+      const result = appendUniqueGalleryUrls(images, validUrls);
 
-      if (validatedUrls.length > 0) {
-        const nextImages = [
-          ...images,
-          ...validatedUrls.map((url, index) => ({
-            url,
-            alt: "",
-            order: images.length + index,
-            linkUrl: null,
-            openInNewTab: true,
-          })),
-        ];
-        apply(nextImages, nextImages.length - 1);
-        setUrlListInput("");
-      }
+      if (result.addedCount > 0) apply(result.images, result.images.length - 1);
+      setUrlListFailures(failures);
+      setUrlListInput(failures.map((failure) => failure.url).join("\n"));
 
-      toast.success(`Added ${validatedUrls.length} image${validatedUrls.length === 1 ? "" : "s"}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "One or more URLs could not be validated");
+      const duplicateSuffix = result.duplicateCount > 0
+        ? `; skipped ${result.duplicateCount} duplicate${result.duplicateCount === 1 ? "" : "s"}`
+        : "";
+      if (failures.length > 0) {
+        toast.error(
+          `Added ${result.addedCount} image${result.addedCount === 1 ? "" : "s"}; ${failures.length} failed${duplicateSuffix}`
+        );
+      } else {
+        toast.success(`Added ${result.addedCount} image${result.addedCount === 1 ? "" : "s"}${duplicateSuffix}`);
+      }
     } finally {
       setIsAddingUrls(false);
     }
@@ -310,10 +290,25 @@ export function GalleryStudio({ images, onChange }: GalleryStudioProps) {
         <Textarea
           id="gallery-bulk-urls"
           value={urlListInput}
-          onChange={(event) => setUrlListInput(event.target.value)}
+          onChange={(event) => {
+            setUrlListInput(event.target.value);
+            setUrlListFailures([]);
+          }}
           rows={3}
           placeholder="https://example.com/one.jpg\nhttps://example.com/two.jpg"
         />
+        {urlListFailures.length > 0 && (
+          <div role="alert" className="text-destructive space-y-1 text-xs">
+            <p className="font-medium">Could not add {urlListFailures.length} URL{urlListFailures.length === 1 ? "" : "s"}:</p>
+            <ul className="list-disc space-y-1 pl-4">
+              {urlListFailures.map((failure, index) => (
+                <li key={`${failure.url}-${index}`}>
+                  <span className="break-all">{failure.url}</span>: {failure.error}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <p className="text-muted-foreground text-xs">Tip: use this for quick imports from albums or forum posts.</p>
           <Button type="button" variant="secondary" disabled={isAddingUrls || !urlListInput.trim()} onClick={handleAddUrlList}>

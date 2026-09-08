@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { looksLikeImageUrl, IMAGE_EXTENSIONS } from "@/lib/image-url";
-import { safeFetch } from "@/lib/security/ssrf-guard";
-
-const ALLOWED_CONTENT_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/avif",
-];
+import { UrlSafetyError } from "@/lib/security/ssrf-guard";
+import {
+  ImageUrlValidationError,
+  validateRemoteImage,
+} from "@/lib/security/remote-image-validation";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -51,27 +47,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // HEAD request to verify it's actually an image (with SSRF protection)
+  // Prefer HEAD, with one bounded Range GET fallback for hosts with flaky or
+  // unsupported HEAD handling. safeFetch validates every redirect target.
   try {
-    const res = await safeFetch(url, { method: "HEAD", timeoutMs: 5000 });
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: "Could not reach image URL" },
-        { status: 400 }
-      );
-    }
-
-    const contentType = res.headers.get("content-type")?.split(";")[0]?.trim();
-    if (!contentType || !ALLOWED_CONTENT_TYPES.includes(contentType)) {
-      return NextResponse.json(
-        { error: "URL does not point to a valid image (JPEG, PNG, WebP, GIF, AVIF)" },
-        { status: 400 }
-      );
-    }
-
+    await validateRemoteImage(url);
     return NextResponse.json({ valid: true, url });
-  } catch {
+  } catch (error) {
+    if (error instanceof ImageUrlValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof UrlSafetyError) {
+      return NextResponse.json({ error: "Image URL is not allowed" }, { status: 400 });
+    }
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      return NextResponse.json({ error: "Image URL verification timed out" }, { status: 400 });
+    }
     return NextResponse.json(
       { error: "Could not verify image URL" },
       { status: 400 }

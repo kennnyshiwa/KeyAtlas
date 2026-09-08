@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { isPrivateIP } from "./ssrf-guard";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { isPrivateIP, safeFetch } from "./ssrf-guard";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("isPrivateIP", () => {
   it("blocks 127.0.0.1", () => expect(isPrivateIP("127.0.0.1")).toBe(true));
@@ -16,4 +20,30 @@ describe("isPrivateIP", () => {
   it("blocks fd00:: ULA", () => expect(isPrivateIP("fd00::1")).toBe(true));
   it("blocks ::ffff:127.0.0.1", () => expect(isPrivateIP("::ffff:127.0.0.1")).toBe(true));
   it("allows public IPv6", () => expect(isPrivateIP("2607:f8b0:4004:800::200e")).toBe(false));
+});
+
+describe("safeFetch redirects", () => {
+  it("rejects a redirect to a private IP before requesting the target", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, { status: 302, headers: { location: "http://127.0.0.1/private.jpg" } })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(safeFetch("https://8.8.8.8/image.jpg", {
+      allowedProtocols: ["https:"],
+    })).rejects.toThrow("private/internal IP address");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a redirect that downgrades an HTTPS-only request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, { status: 302, headers: { location: "http://8.8.4.4/image.jpg" } })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(safeFetch("https://8.8.8.8/image.jpg", {
+      allowedProtocols: ["https:"],
+    })).rejects.toThrow("disallowed protocol");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

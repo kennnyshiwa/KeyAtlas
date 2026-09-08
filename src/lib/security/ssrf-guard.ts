@@ -15,6 +15,13 @@ const BLOCKED_HOSTNAMES = [
   "kubernetes.default.svc",
 ];
 
+export class UrlSafetyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UrlSafetyError";
+  }
+}
+
 /**
  * Returns true if the IP address is in a private/reserved range.
  */
@@ -75,11 +82,11 @@ export async function assertSafeUrl(urlString: string): Promise<void> {
   try {
     parsed = new URL(urlString);
   } catch {
-    throw new Error("Invalid URL");
+    throw new UrlSafetyError("Invalid URL");
   }
 
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    throw new Error("Only HTTP(S) URLs are allowed");
+    throw new UrlSafetyError("Only HTTP(S) URLs are allowed");
   }
 
   const hostname = parsed.hostname.toLowerCase();
@@ -91,13 +98,13 @@ export async function assertSafeUrl(urlString: string): Promise<void> {
 
   // Block known internal hostnames
   if (BLOCKED_HOSTNAMES.includes(hostname)) {
-    throw new Error("URL points to a blocked internal host");
+    throw new UrlSafetyError("URL points to a blocked internal host");
   }
 
   // If hostname is already an IP, check directly
   if (net.isIP(hostname)) {
     if (isPrivateIP(hostname)) {
-      throw new Error("URL points to a private/internal IP address");
+      throw new UrlSafetyError("URL points to a private/internal IP address");
     }
     return;
   }
@@ -109,18 +116,17 @@ export async function assertSafeUrl(urlString: string): Promise<void> {
     const all = [...addresses, ...addresses6];
 
     if (all.length === 0) {
-      throw new Error("Could not resolve hostname");
+      throw new UrlSafetyError("Could not resolve hostname");
     }
 
     for (const ip of all) {
       if (isPrivateIP(ip)) {
-        throw new Error("URL resolves to a private/internal IP address");
+        throw new UrlSafetyError("URL resolves to a private/internal IP address");
       }
     }
   } catch (err) {
-    if (err instanceof Error && err.message.startsWith("URL ")) throw err;
-    if (err instanceof Error && err.message === "Could not resolve hostname") throw err;
-    throw new Error("Could not resolve hostname");
+    if (err instanceof UrlSafetyError) throw err;
+    throw new UrlSafetyError("Could not resolve hostname");
   }
 }
 
@@ -135,11 +141,15 @@ export async function safeFetch(
     timeoutMs?: number;
     maxResponseBytes?: number;
     headers?: Record<string, string>;
+    allowedProtocols?: string[];
   } = {}
 ): Promise<Response> {
-  const { method = "GET", timeoutMs = 10_000, headers } = options;
+  const { method = "GET", timeoutMs = 10_000, headers, allowedProtocols } = options;
 
   await assertSafeUrl(url);
+  if (allowedProtocols && !allowedProtocols.includes(new URL(url).protocol)) {
+    throw new UrlSafetyError("URL uses a disallowed protocol");
+  }
 
   const res = await fetch(url, {
     method,
@@ -154,6 +164,9 @@ export async function safeFetch(
     if (location) {
       const redirectUrl = new URL(location, url).toString();
       await assertSafeUrl(redirectUrl);
+      if (allowedProtocols && !allowedProtocols.includes(new URL(redirectUrl).protocol)) {
+        throw new UrlSafetyError("Redirect target uses a disallowed protocol");
+      }
       // Follow the one redirect
       return fetch(redirectUrl, {
         method,
