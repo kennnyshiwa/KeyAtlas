@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { validateImageBuffer } from "@/lib/security/upload-validation";
@@ -16,7 +17,8 @@ const ALLOWED_TYPES = [
 const MAX_SIZE = 20 * 1024 * 1024; // 20MB (Cloudflare Images limit)
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
+  const apiUser = await authenticateApiKey(req);
+  const session = apiUser ? { user: apiUser } : await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { projectFormSchema } from "@/lib/validations/project";
 import { indexProject } from "@/lib/meilisearch";
@@ -135,7 +136,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
+  // Native clients authenticate with a bearer key; browsers use Auth.js cookies.
+  const apiUser = await authenticateApiKey(req);
+  const session = apiUser ? { user: apiUser } : await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
@@ -256,7 +259,7 @@ export async function POST(req: NextRequest) {
       vendorId: primaryVendorId,
       creatorId: session.user.id,
       images: {
-        create: uniqueImages,
+        create: uniqueImages.map((image, order) => ({ ...image, order })),
       },
       links: {
         create: links.map((link, index) => ({

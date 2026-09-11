@@ -1,3 +1,4 @@
+import { projectFormSchema } from "@/lib/validations/project";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { indexProject, removeProjectFromIndex } from "@/lib/meilisearch";
@@ -272,6 +273,27 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
+  const parsedImages = body.images === undefined ? null : projectFormSchema.shape.images.refine((entries) => entries.every((image) => {
+    if (!Number.isInteger(image.order) || image.order < 0) return false;
+    // Local storage returns /uploads filenames; hosted storage returns absolute URLs.
+    if (/^\/uploads\/[^/?#\\]+$/.test(image.url) && !image.url.includes("..")) return true;
+    try {
+      const url = new URL(image.url);
+      return (url.protocol === "https:" || url.protocol === "http:") && !!url.hostname;
+    } catch {
+      return false;
+    }
+  })).safeParse(body.images);
+  if (parsedImages && !parsedImages.success) {
+    return NextResponse.json({ error: "Invalid gallery images" }, { status: 400 });
+  }
+  const seenImageUrls = new Set<string>();
+  const images = parsedImages?.success ? parsedImages.data.filter((image) => {
+    if (seenImageUrls.has(image.url)) return false;
+    seenImageUrls.add(image.url);
+    return true;
+  }) : null;
+
   const normalizeLinkType = (value: unknown): EditableProjectLinkType => {
     switch (value) {
       case "GEEKHACK":
@@ -358,6 +380,23 @@ export async function PATCH(
     : undefined;
 
   const updated = await prisma.$transaction(async (tx) => {
+    // Mobile gallery additions must not erase web-authored link metadata.
+    const previousImages = images === null ? [] : await tx.projectImage.findMany({ where: { projectId: existing.id } });
+    const previousImagesByUrl = new Map(previousImages.map((image) => [image.url, image]));
+    const replacementImages = images?.map((image, order) => {
+      const previousImage = previousImagesByUrl.get(image.url);
+      return {
+        ...image,
+        order,
+        ...(previousImage ? {
+          id: previousImage.id,
+          createdAt: previousImage.createdAt,
+          alt: image.alt ?? previousImage.alt,
+          linkUrl: previousImage.linkUrl,
+          openInNewTab: previousImage.openInNewTab,
+        } : {}),
+      };
+    });
     if (normalizedLinks !== null) {
       await tx.projectLink.deleteMany({ where: { projectId: existing.id } });
     }
@@ -368,6 +407,7 @@ export async function PATCH(
     return tx.project.update({
       where: { id: existing.id },
       data: {
+        ...(images !== null ? { images: { deleteMany: {}, create: replacementImages } } : {}),
         title: body.title,
         description: body.description ?? null,
         status: body.status as ProjectStatus | undefined,
