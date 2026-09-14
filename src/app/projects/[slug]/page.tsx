@@ -133,7 +133,8 @@ export async function generateMetadata({
     toAbsoluteUrl(project.heroImage || project.images[0]?.url) || `${siteUrl}/window.svg`;
 
   return {
-    title,
+    // This is already a complete title; do not append the root layout's brand again.
+    title: { absolute: title },
     description,
     alternates: { canonical },
     openGraph: {
