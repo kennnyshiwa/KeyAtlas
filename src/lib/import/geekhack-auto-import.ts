@@ -1,3 +1,4 @@
+import { isReservedProjectSlug } from "@/lib/project-slug-aliases";
 /**
  * geekhack-auto-import.ts
  *
@@ -320,7 +321,7 @@ async function uniqueSlug(base: string): Promise<string> {
   const candidate = slugify(base);
 
   const existing = await prisma.project.findUnique({ where: { slug: candidate }, select: { id: true } });
-  if (!existing) return candidate;
+  if (!existing && !isReservedProjectSlug(candidate)) return candidate;
 
   // Append suffix -2, -3, … until free
   for (let suffix = 2; suffix <= 99; suffix++) {

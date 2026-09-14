@@ -1,3 +1,4 @@
+import { isReservedProjectSlug } from "@/lib/project-slug-aliases";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { authenticateApiKey } from "@/lib/api-auth";
@@ -189,6 +190,9 @@ export async function POST(req: NextRequest) {
 
   // Normalize slug to URL-safe ASCII to prevent 404s from Unicode slugs
   data.slug = slugify(data.slug) || slugify(data.title) || `project-${Date.now()}`;
+  if (isReservedProjectSlug(data.slug)) {
+    return NextResponse.json({ error: "This slug is reserved for an existing project link" }, { status: 409 });
+  }
 
   // Non-admin users cannot feature projects.
   // When REQUIRE_PROJECT_REVIEW is off, non-admin projects are auto-published.

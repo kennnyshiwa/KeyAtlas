@@ -1,3 +1,4 @@
+import { getProjectSlugAliasId, projectSlugWhere } from "@/lib/project-slug-aliases";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Script from "next/script";
@@ -59,17 +60,9 @@ async function getProject(slug: string) {
       return slug;
     }
   })();
-  const slugCandidates = Array.from(
-    new Set([
-      slug,
-      decodedSlug,
-      decodedSlug.normalize("NFC"),
-      decodedSlug.normalize("NFD"),
-    ])
-  );
 
   const direct = await prisma.project.findFirst({
-    where: { slug: { in: slugCandidates } },
+    where: projectSlugWhere(slug),
     include,
   });
   if (direct) return direct;
@@ -171,7 +164,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   })();
   const canonicalSlug = project.slug.normalize("NFC");
 
-  if (canonicalSlug !== requestedSlug) {
+  // Bounded repair aliases render this record with canonical metadata instead
+  // of depending on a streamed redirect (also keeps repair rollback links valid).
+  if (canonicalSlug !== requestedSlug && !getProjectSlugAliasId(slug)) {
     redirect(`/projects/${encodeURIComponent(project.slug)}`);
   }
 

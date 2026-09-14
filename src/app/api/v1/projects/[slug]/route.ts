@@ -1,3 +1,6 @@
+import { auth } from "@/lib/auth";
+import { deleteProjectRecord } from "@/lib/project-delete";
+import { projectSlugWhere, projectSlugCandidates } from "@/lib/project-slug-aliases";
 import { projectFormSchema } from "@/lib/validations/project";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
@@ -21,24 +24,9 @@ export async function GET(
   if (limited) return limited;
 
   const { slug } = await params;
-  const decodedSlug = (() => {
-    try {
-      return decodeURIComponent(slug);
-    } catch {
-      return slug;
-    }
-  })();
-  const slugCandidates = Array.from(
-    new Set([
-      slug,
-      decodedSlug,
-      decodedSlug.normalize("NFC"),
-      decodedSlug.normalize("NFD"),
-    ])
-  );
 
   const project = await prisma.project.findFirst({
-    where: { slug: { in: slugCandidates }, published: true },
+    where: { ...projectSlugWhere(slug), published: true },
     include: {
       images: {
         select: { id: true, url: true, alt: true, order: true, linkUrl: true, openInNewTab: true },
@@ -235,23 +223,10 @@ export async function PATCH(
   if (limited) return limited;
 
   const { slug } = await params;
-  const decodedSlug = (() => {
-    try {
-      return decodeURIComponent(slug);
-    } catch {
-      return slug;
-    }
-  })();
-  const slugCandidates = Array.from(
-    new Set([
-      slug,
-      decodedSlug,
-      decodedSlug.normalize("NFC"),
-      decodedSlug.normalize("NFD"),
-    ])
-  );
+  // Installed iOS editors retain their opening slug across the one-record repair.
+  // Resolve only the two reserved names by ID; authorization below is unchanged.
   const existing = await prisma.project.findFirst({
-    where: { slug: { in: slugCandidates } },
+    where: projectSlugWhere(slug),
     select: { id: true, creatorId: true },
   });
 
@@ -475,4 +450,43 @@ export async function PATCH(
   }
 
   return NextResponse.json({ data: updated });
+}
+
+/** Installed iOS requestVoid decodes JSON on success; do not return an empty 204. */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> },
+) {
+  // An explicitly supplied invalid bearer must not fall through to cookie auth.
+  const identity = req.headers.has("authorization")
+    ? await authenticateApiKey(req)
+    : (await auth())?.user;
+  if (!identity?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Read the current role for browser sessions as well as bearer credentials.
+  const user = await prisma.user.findUnique({ where: { id: identity.id }, select: { role: true } });
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limited = await rateLimit(identity.id, "v1:projects:delete", RATE_LIMIT_PROJECT_UPDATE);
+  if (limited) return limited;
+
+  const { slug } = await params;
+  const project = await prisma.project.findFirst({
+    where: { slug: { in: projectSlugCandidates(slug) } },
+    select: { id: true, creatorId: true, published: true },
+  });
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const isAdmin = user.role === "ADMIN";
+  if (!isAdmin && project.creatorId !== identity.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (project.published) {
+    return NextResponse.json({ error: "Only unpublished drafts can be deleted" }, { status: 403 });
+  }
+  const deleted = await deleteProjectRecord(project.id, {
+    unpublishedOnly: true,
+    ...(!isAdmin ? { creatorId: identity.id } : {}),
+  });
+  if (!deleted) return NextResponse.json({ error: "Draft changed; reload before deleting" }, { status: 409 });
+  await removeProjectFromIndex(project.id);
+  return NextResponse.json({ success: true });
 }

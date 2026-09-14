@@ -1,3 +1,5 @@
+import { deleteProjectRecord } from "@/lib/project-delete";
+import { isReservedProjectSlug } from "@/lib/project-slug-aliases";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -189,7 +191,7 @@ export async function PUT(
   const slugConflict = await prisma.project.findFirst({
     where: { slug: data.slug, NOT: { id } },
   });
-  if (slugConflict) {
+  if (slugConflict || isReservedProjectSlug(data.slug, id)) {
     return NextResponse.json(
       { error: "A project with this slug already exists" },
       { status: 409 }
@@ -384,7 +386,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  await prisma.project.delete({ where: { id } });
+  const deleted = await deleteProjectRecord(id, {
+    unpublishedOnly: !isStaff,
+    ...(!isStaff ? { creatorId: session.user.id } : {}),
+  });
+  if (!deleted) return NextResponse.json({ error: "Project changed; reload before deleting" }, { status: 409 });
   await removeProjectFromIndex(id);
 
   if (isStaff) {

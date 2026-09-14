@@ -151,6 +151,14 @@ export async function importUrlPrefill(url: string): Promise<UrlImportPrefillPay
 
   const html = await response.text();
   const title = pickTitle(html, parsed.hostname);
+  // Verified on the Heartbreaker roadmap: Notion serves generic marketing
+  // metadata instead of the public document. Never import that as a project.
+  const notionHost = (hostname: string) => /(^|\.)notion\.(site|so)$/.test(hostname);
+  const finalHost = new URL(response.url || url).hostname;
+  if ((notionHost(parsed.hostname) || notionHost(finalHost)) &&
+      /^notion(?:\s*[|–—-]\s*where teams and agents work together)?$/i.test(title.trim())) {
+    throw new Error("This Notion page returned generic site metadata, not project content. Use the project’s Geekhack or vendor page, or enter its details manually.");
+  }
   const description = pickDescription(html);
   const combinedText = `${title} ${stripHtml(description)} ${stripHtml(html).slice(0, 3000)}`;
   const status = inferStatus(combinedText);
