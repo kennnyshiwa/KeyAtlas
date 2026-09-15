@@ -1,7 +1,8 @@
+import { createForumPost } from "@/lib/forums/create";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit, RATE_LIMIT_LIST, RATE_LIMIT_FORUM_POST_CREATE } from "@/lib/rate-limit";
+import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
 
 export async function GET(
   req: NextRequest,
@@ -54,55 +55,6 @@ export async function GET(
   });
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ threadId: string }> }
-) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const limited = await rateLimit(user.id, "v1:forums:create-post", RATE_LIMIT_FORUM_POST_CREATE);
-  if (limited) return limited;
-
-  const { threadId } = await params;
-
-  const thread = await prisma.forumThread.findUnique({
-    where: { id: threadId },
-    select: { id: true, locked: true },
-  });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
-
-  if (thread.locked) {
-    return NextResponse.json({ error: "Thread is locked" }, { status: 403 });
-  }
-
-  let body: { content?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const { content } = body;
-  if (typeof content !== "string" || content.trim().length === 0) {
-    return NextResponse.json({ error: "Content is required" }, { status: 400 });
-  }
-
-  const post = await prisma.forumPost.create({
-    data: {
-      content: content.trim(),
-      threadId,
-      authorId: user.id,
-    },
-    include: {
-      author: { select: { id: true, username: true, image: true } },
-    },
-  });
-
-  return NextResponse.json({ data: post }, { status: 201 });
+export async function POST(req: NextRequest, { params }: { params: Promise<{ threadId: string }> }) {
+  return createForumPost(req, (await params).threadId);
 }

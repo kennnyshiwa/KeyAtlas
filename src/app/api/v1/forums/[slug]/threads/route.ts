@@ -1,7 +1,8 @@
+import { createForumThread } from "@/lib/forums/create";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit, RATE_LIMIT_LIST, RATE_LIMIT_FORUM_THREAD_CREATE } from "@/lib/rate-limit";
+import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
 
 export async function GET(
   req: NextRequest,
@@ -60,66 +61,6 @@ export async function GET(
   });
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
-) {
-  const user = await authenticateApiKey(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const limited = await rateLimit(user.id, "v1:forums:create-thread", RATE_LIMIT_FORUM_THREAD_CREATE);
-  if (limited) return limited;
-
-  const { slug } = await params;
-
-  const category = await prisma.forumCategory.findUnique({
-    where: { slug },
-    select: { id: true },
-  });
-
-  if (!category) {
-    return NextResponse.json({ error: "Category not found" }, { status: 404 });
-  }
-
-  let body: { title?: string; content?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const { title, content } = body;
-  if (typeof title !== "string" || title.trim().length < 3) {
-    return NextResponse.json({ error: "Title must be at least 3 characters" }, { status: 400 });
-  }
-  if (typeof content !== "string" || content.trim().length === 0) {
-    return NextResponse.json({ error: "Content is required" }, { status: 400 });
-  }
-
-  const baseSlug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 100);
-
-  let threadSlug = baseSlug;
-  let counter = 0;
-  while (await prisma.forumThread.findUnique({ where: { slug: threadSlug } })) {
-    counter++;
-    threadSlug = `${baseSlug}-${counter}`;
-  }
-
-  const thread = await prisma.forumThread.create({
-    data: {
-      title: title.trim(),
-      slug: threadSlug,
-      content: content.trim(),
-      categoryId: category.id,
-      authorId: user.id,
-    },
-  });
-
-  return NextResponse.json({ data: thread }, { status: 201 });
+export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  return createForumThread(req, (await params).slug);
 }
