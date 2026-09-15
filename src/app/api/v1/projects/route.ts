@@ -4,16 +4,27 @@ import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
 import type { Prisma, ProjectCategory } from "@/generated/prisma/client";
 import { resolveProjectStatusInput } from "@/lib/constants";
-import { normalizeProjectProfiles } from "@/lib/project-profiles";
+import { projectCardSelect, projectCards, privateViewerResponse } from "@/lib/v1-project-cards";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  // Public read — optionally authenticated for personalized results later
+  try {
+    return await getProjects(req);
+  } catch {
+    // Never expose database/auth internals or bypass personalized cache policy.
+    return privateViewerResponse(NextResponse.json({ error: "Internal server error" }, { status: 500 }));
+  }
+}
+
+async function getProjects(req: NextRequest) {
+  // Public read with optional, page-bounded viewer state
   const user = await authenticateApiKey(req).catch(() => null);
 
   // Rate-limit by user id if authenticated, otherwise by IP
   const rateLimitKey = user?.id ?? (req.headers.get("x-forwarded-for") ?? "anon");
   const limited = await rateLimit(rateLimitKey, "v1:projects", RATE_LIMIT_LIST);
-  if (limited) return limited;
+  if (limited) return privateViewerResponse(limited);
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
@@ -93,28 +104,7 @@ export async function GET(req: NextRequest) {
   const [projects, total] = await Promise.all([
     prisma.project.findMany({
       where,
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        category: true,
-        status: true,
-        priceMin: true,
-        priceMax: true,
-        currency: true,
-        heroImage: true,
-        designer: true,
-        profile: true,
-        profiles: true,
-        tags: true,
-        gbStartDate: true,
-        gbEndDate: true,
-        icDate: true,
-        createdAt: true,
-        updatedAt: true,
-        vendor: { select: { name: true } },
-        _count: { select: { favorites: true, comments: true } },
-      },
+      select: projectCardSelect,
       orderBy,
       skip: offset,
       take: limit,
@@ -122,73 +112,14 @@ export async function GET(req: NextRequest) {
     prisma.project.count({ where }),
   ]);
 
-  // Batch-fetch follow counts for all projects in one query
-  const projectIds = projects.map((p) => p.id);
-  const followCounts = projectIds.length > 0
-    ? await prisma.follow.groupBy({
-        by: ["targetId"],
-        where: { targetType: "PROJECT", targetId: { in: projectIds } },
-        _count: true,
-      })
-    : [];
-  const followMap = new Map(followCounts.map((f) => [f.targetId, f._count]));
+  const data = await projectCards(projects, user?.id);
 
-  const data = projects.map((p) => ({
-    id: p.id,
-    title: p.title,
-    slug: p.slug,
-    description: null,
-    status: p.status,
-    hero_image_url: p.heroImage,
-    category: p.category,
-    category_id: p.category,
-    profile: p.profile,
-    profiles: normalizeProjectProfiles(p.profiles, p.profile),
-    designer: null,
-    pricing: {
-      min_price: p.priceMin,
-      max_price: p.priceMax,
-      currency: p.currency,
-    },
-    vendors: p.vendor
-      ? [
-          {
-            id: `${p.id}-vendor`,
-            vendor: {
-              id: "",
-              name: p.vendor.name,
-              slug: "",
-              logo_url: null,
-            },
-            url: null,
-            region: null,
-          },
-        ]
-      : [],
-    gallery: [],
-    timeline: [],
-    comments: [],
-    tags: p.tags ?? [],
-    links: [],
-    estimated_delivery: null,
-    gb_start_date: p.gbStartDate,
-    gb_end_date: p.gbEndDate,
-    follow_count: followMap.get(p.id) ?? 0,
-    favorite_count: p._count.favorites,
-    comment_count: p._count.comments,
-    is_following: false,
-    is_favorited: false,
-    is_featured: false,
-    created_at: p.createdAt,
-    updated_at: p.updatedAt,
-  }));
-
-  return NextResponse.json({
+  return privateViewerResponse(NextResponse.json({
     data,
     total,
     page,
     page_size: limit,
     has_more: page * limit < total,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-  });
+  }));
 }
