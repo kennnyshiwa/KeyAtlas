@@ -50,10 +50,14 @@ export function detectImageType(buffer: Buffer): string | null {
       continue;
     }
 
-    // Extra check for AVIF: look for "avif" or "avis" after "ftyp"
+    // Require a complete, bounded ftyp box and an explicit AVIF major brand.
+    // Generic HEIF brands (mif1/msf1) also describe HEIC: do not label them AVIF.
+    // Extended/unsized ftyp boxes are conservatively unsupported.
     if (sig.mime === "image/avif") {
+      const boxSize = buffer.readUInt32BE(0);
+      if (boxSize < 16 || boxSize > buffer.length || boxSize % 4 !== 0) continue;
       const brand = buffer.subarray(8, 12).toString("ascii");
-      if (brand === "avif" || brand === "avis" || brand === "mif1") {
+      if (brand === "avif" || brand === "avis") {
         return "image/avif";
       }
       continue;

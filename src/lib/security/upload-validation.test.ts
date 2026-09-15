@@ -24,8 +24,28 @@ describe("detectImageType", () => {
   });
 
   it("detects AVIF", () => {
-    // ....ftypavif
-    const buf = Buffer.from([0x00, 0x00, 0x00, 0x1c, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66]);
+    // Complete ftyp: size, type, major brand, minor version, compatible brand.
+    const buf = Buffer.alloc(20);
+    buf.writeUInt32BE(20); buf.write("ftypavif", 4, "ascii"); buf.write("avif", 16, "ascii");
+    expect(detectImageType(buf)).toBe("image/avif");
+  });
+
+  it.each(["mif1", "msf1", "heic", "heix", "hevc", "hevx"])("rejects unsupported %s major even with AVIF compatibility", brand => {
+    const buf = Buffer.alloc(20);
+    buf.writeUInt32BE(20); buf.write("ftyp", 4, "ascii");
+    buf.write(brand, 8, "ascii"); buf.write("avif", 16, "ascii");
+    expect(detectImageType(buf)).toBeNull();
+  });
+
+  it.each([0, 1, 12, 17, 24, 0xffffffff])("rejects malformed or unsupported ftyp size %s", size => {
+    const buf = Buffer.alloc(20);
+    buf.writeUInt32BE(size); buf.write("ftypavif", 4, "ascii");
+    expect(detectImageType(buf)).toBeNull();
+  });
+
+  it("supports the explicit AVIF sequence brand", () => {
+    const buf = Buffer.alloc(20);
+    buf.writeUInt32BE(20); buf.write("ftypavis", 4, "ascii"); buf.write("avis", 16, "ascii");
     expect(detectImageType(buf)).toBe("image/avif");
   });
 
