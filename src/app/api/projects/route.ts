@@ -10,7 +10,7 @@ import { notifyWatchlistMatches } from "@/lib/notifications/watchlist";
 import { getPrimaryProjectProfile, normalizeProjectProfiles } from "@/lib/project-profiles";
 import { getProjectPublishValidationErrors } from "@/lib/project-publish-validation";
 import { normalizeDesignerName, resolveDesignerIdByName } from "@/lib/designer-profiles";
-import type { ProjectCategory } from "@/generated/prisma/client";
+import type { Prisma, ProjectCategory } from "@/generated/prisma/client";
 import { REQUIRE_PROJECT_REVIEW } from "@/lib/feature-flags";
 import { rateLimit, RATE_LIMIT_PROJECT_CREATE } from "@/lib/rate-limit";
 import { resolveProjectStatusInput } from "@/lib/constants";
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
   };
 
   // Build orderBy from sort param
-  type OrderBy = Record<string, "asc" | "desc">;
+  type OrderBy = Prisma.ProjectOrderByWithRelationInput;
   let orderBy: OrderBy | OrderBy[];
   switch (sort) {
     case "oldest":
@@ -87,32 +87,29 @@ export async function GET(req: NextRequest) {
       orderBy = { updatedAt: "desc" };
       break;
     case "gb-newest":
-      orderBy = [{ gbStartDate: "desc" }, { createdAt: "desc" }];
+      orderBy = [{ gbStartDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }];
       break;
     case "gb-oldest":
-      orderBy = [{ gbStartDate: "asc" }, { createdAt: "asc" }];
+      orderBy = [{ gbStartDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }];
       break;
     case "gb-ending":
       orderBy = [{ gbEndDate: "asc" }, { createdAt: "desc" }];
       break;
     case "ic-newest":
-      orderBy = [{ icDate: "desc" }, { createdAt: "desc" }];
+      orderBy = [{ icDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }];
       break;
     case "ic-oldest":
-      orderBy = [{ icDate: "asc" }, { createdAt: "asc" }];
+      orderBy = [{ icDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }];
       break;
     default:
       orderBy = { createdAt: "desc" };
   }
 
-  if (sort === "gb-newest" || sort === "gb-oldest") {
-    Object.assign(where, { gbStartDate: { not: null } });
-  }
+  // Only "gb-ending" narrows the result set, because "ending soon" is a genuine
+  // filter. The date sorts must not drop rows: undated projects sort last via
+  // `nulls: "last"`, matching src/app/projects/page.tsx and /api/v1/projects.
   if (sort === "gb-ending") {
     Object.assign(where, { gbEndDate: { not: null, gte: new Date() } });
-  }
-  if (sort === "ic-newest" || sort === "ic-oldest") {
-    Object.assign(where, { icDate: { not: null } });
   }
 
   const [projects, total] = await Promise.all([
