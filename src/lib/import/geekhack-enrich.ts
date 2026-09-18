@@ -581,6 +581,46 @@ function extractYearFromTimestamp(timestamp: string | null | undefined): number 
 }
 
 /**
+ * Parse a full Geekhack OP timestamp into a date.
+ * Geekhack renders the first post as `« on: Wed, 16 September 2026, 03:14:10 »`,
+ * so the thread's own post date is always available even when the body text
+ * never spells out an "IC:" date. Entities and the day-of-week prefix are
+ * stripped, then the day/month/year is read directly (no locale parsing).
+ * Returns a UTC midnight date so it sorts consistently with other date fields.
+ */
+export function parseGeekhackTimestamp(timestamp: string | null | undefined): Date | null {
+  if (!timestamp) return null;
+
+  const cleaned = timestamp
+    .replace(/&#171;|&#187;|&laquo;|&raquo;|[«»]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[A-Za-z]{3,9},\s*/, "");
+
+  // "16 September 2026, 03:14:10"
+  const dmy = cleaned.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(20\d{2})/);
+  if (dmy) {
+    const month = MONTH_MAP[dmy[2].toLowerCase()];
+    if (month !== undefined) {
+      const d = new Date(Date.UTC(parseInt(dmy[3], 10), month, parseInt(dmy[1], 10)));
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+
+  // "September 16, 2026, 03:14:10 PM"
+  const mdy = cleaned.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(20\d{2})/);
+  if (mdy) {
+    const month = MONTH_MAP[mdy[1].toLowerCase()];
+    if (month !== undefined) {
+      const d = new Date(Date.UTC(parseInt(mdy[3], 10), month, parseInt(mdy[2], 10)));
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Parse a natural date string. If no year is found, uses `inferYear` as fallback.
  */
 function parseNaturalDate(str: string, inferYear?: number): Date | null {
@@ -650,7 +690,8 @@ function parseNaturalDate(str: string, inferYear?: number): Date | null {
 function extractDates(
   project: ProjectForEnrichment,
   text: string,
-  opYear?: number
+  opYear?: number,
+  opDate?: Date | null
 ): EnrichmentChange[] {
   const changes: EnrichmentChange[] = [];
 
@@ -735,15 +776,24 @@ function extractDates(
       /(?:Interest\s*Check\s*[:=]?)\s*(.+?)(?:\n|$|\.)/i,
     ];
 
+    let icDate: Date | null = null;
     for (const pattern of icPatterns) {
       const match = text.match(pattern);
       if (match) {
-        const date = parseNaturalDate(match[1], inferYear);
-        if (date) {
-          changes.push({ field: "icDate", oldValue: null, newValue: date });
-          break;
-        }
+        icDate = parseNaturalDate(match[1], inferYear);
+        if (icDate) break;
       }
+    }
+
+    // Fallback: the thread's own post date. An interest-check thread's first
+    // post IS the interest check, so when the body never states a date the OP
+    // timestamp is the correct answer rather than leaving the field empty.
+    if (!icDate && project.status === "INTEREST_CHECK" && opDate) {
+      icDate = opDate;
+    }
+
+    if (icDate) {
+      changes.push({ field: "icDate", oldValue: null, newValue: icDate });
     }
   }
 
@@ -993,7 +1043,8 @@ export function enrichProject(
   //    project.createdAt is when it was imported to KeyAtlas (could be years later)
   //    thread.op.timestamp is when the GH post was made (much more accurate)
   const opYear = extractYearFromTimestamp(thread.op?.timestamp);
-  const dateChanges = extractDates(project, text, opYear);
+  const opDate = parseGeekhackTimestamp(thread.op?.timestamp);
+  const dateChanges = extractDates(project, text, opYear, opDate);
   for (const change of dateChanges) {
     changes.push(change);
     projectUpdate[change.field] = change.newValue;
