@@ -35,12 +35,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Check that the URL path looks like an image file
-  if (!looksLikeImageUrl(parsed.pathname)) {
+  // Accept file paths and extensionless Cloudflare Images delivery links.
+  // Both still go through the same remote type, size and SSRF checks below.
+  if (!looksLikeImageUrl(url)) {
     return NextResponse.json(
       {
         error:
-          "URL does not look like an image. Supported extensions: " +
+          "Use a Cloudflare Images delivery URL or an image file. Supported extensions: " +
           IMAGE_EXTENSIONS.join(", "),
       },
       { status: 400 }

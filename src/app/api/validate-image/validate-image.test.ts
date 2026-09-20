@@ -2,6 +2,25 @@ import { describe, it, expect } from "vitest";
 import { looksLikeImageUrl, IMAGE_EXTENSIONS } from "@/lib/image-url";
 
 describe("looksLikeImageUrl", () => {
+  it("accepts previous Cloudflare uploads without a filename extension", () => {
+    expect(looksLikeImageUrl("https://imagedelivery.net/m0p8rUUdkqTB71WSkwM2sg/6d53d0af-76a3-4e7d-92f1-0113f55d3b00/public")).toBe(true);
+    expect(looksLikeImageUrl("https://imagedelivery.net/account/image/thumbnail?token=abc")).toBe(true);
+  });
+
+  it.each([
+    "https://imagedelivery.net.evil.test/account/image/public",
+    "https://imagedelivery.net@evil.test/account/image/public",
+    "https://evil.test/imagedelivery.net/account/image/public",
+    "http://imagedelivery.net/account/image/public",
+    "https://user:pass@imagedelivery.net/account/image/public",
+    "https://imagedelivery.net:8443/account/image/public",
+    "https://imagedelivery.net/account/image",
+    "https://imagedelivery.net/account//public",
+    "https://imagedelivery.net/",
+  ])("does not recognize an invalid/lookalike delivery URL: %s", (url) => {
+    expect(looksLikeImageUrl(url)).toBe(false);
+  });
+
   it.each([
     "/photo.png",
     "/photo.jpg",
