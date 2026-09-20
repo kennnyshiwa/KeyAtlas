@@ -40,6 +40,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   experimental: {
     ppr: false,
+    // /api/upload accepts 20MB images. Leave room for multipart framing so
+    // Next does not truncate the request before the route can validate it.
+    proxyClientMaxBodySize: "21mb",
   },
   async headers() {
     return [
