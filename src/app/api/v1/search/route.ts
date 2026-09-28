@@ -3,6 +3,7 @@ import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, RATE_LIMIT_LIST } from "@/lib/rate-limit";
 import { sortByNameCaseInsensitive } from "@/lib/sort-by-name";
+import { resolveSearchTotal } from "@/lib/search-pagination";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -178,6 +179,8 @@ export async function GET(req: NextRequest) {
 
       const projectHits = rerankProjectHits(await filterToLiveProjectHits(results.hits), q);
 
+      const total = resolveSearchTotal(results, offset, projectHits.length);
+
       return jsonNoStore({
         data: projectHits,
         vendors: sortByNameCaseInsensitive(vendors).slice(0, 10).map((v) => ({
@@ -204,8 +207,8 @@ export async function GET(req: NextRequest) {
         pagination: {
           page,
           limit,
-          total: projectHits.length,
-          totalPages: Math.ceil(projectHits.length / limit),
+          total,
+          totalPages: Math.ceil(total / limit),
         },
       });
     } catch {
