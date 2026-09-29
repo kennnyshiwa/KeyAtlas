@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SmartImage } from "@/components/shared/smart-image";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CATEGORY_LABELS, STATUS_LABELS } from "@/lib/constants";
 import { formatPrice, formatDate } from "@/lib/utils";
-import { Search, X, Plus } from "lucide-react";
+import { Search, X, Plus, Link2, Check } from "lucide-react";
 import type { ProjectCategory, ProjectStatus } from "@/generated/prisma/client";
 
 interface CompareProject {
@@ -39,6 +39,9 @@ export function ComparePageClient({ initialIds }: ComparePageClientProps) {
   const [projects, setProjects] = useState<CompareProject[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CompareProject[]>([]);
+  const [copied, setCopied] = useState(false);
+  // The first render must not rewrite the URL the visitor arrived on.
+  const hydrated = useRef(false);
 
   useEffect(() => {
     if (!initialIds) return;
@@ -48,6 +51,36 @@ export function ComparePageClient({ initialIds }: ComparePageClientProps) {
       .then((data) => setProjects(data.projects || []))
       .catch(() => {});
   }, [initialIds]);
+
+  // Keep the address bar in step with the selection, so the URL is always
+  // the comparison on screen and is worth copying at any moment.
+  useEffect(() => {
+    if (!hydrated.current) {
+      hydrated.current = true;
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    if (projects.length) {
+      url.searchParams.set("ids", projects.map((p) => p.slug).join(","));
+    } else {
+      url.searchParams.delete("ids");
+    }
+    window.history.replaceState(null, "", url.toString());
+  }, [projects]);
+
+  async function copyCompareLink() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("ids", projects.map((p) => p.slug).join(","));
+
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard can be blocked; the URL is already correct in the address bar.
+    }
+  }
 
   async function searchProjects(q: string) {
     if (!q.trim()) {
@@ -120,8 +153,9 @@ export function ComparePageClient({ initialIds }: ComparePageClientProps) {
         description="Compare up to 4 projects side by side."
       />
 
-      {projects.length < 4 && (
-        <div className="relative max-w-sm">
+      <div className="flex flex-wrap items-start gap-3">
+        {projects.length < 4 && (
+        <div className="relative w-full max-w-sm">
           <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <Input
             value={searchQuery}
@@ -149,7 +183,19 @@ export function ComparePageClient({ initialIds }: ComparePageClientProps) {
             </Card>
           )}
         </div>
-      )}
+        )}
+
+        {projects.length > 0 && (
+          <Button variant="outline" onClick={copyCompareLink}>
+            {copied ? (
+              <Check className="mr-2 h-4 w-4" />
+            ) : (
+              <Link2 className="mr-2 h-4 w-4" />
+            )}
+            {copied ? "Link copied" : "Copy compare link"}
+          </Button>
+        )}
+      </div>
 
       {projects.length === 0 ? (
         <Card>
