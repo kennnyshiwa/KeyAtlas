@@ -35,6 +35,15 @@ interface ComparePageClientProps {
   initialIds?: string;
 }
 
+/**
+ * URLSearchParams percent-encodes the separator, which turns a link meant to
+ * be pasted into a forum post into ...?ids=a%2Cb. Commas are legal unencoded
+ * in a query value, so restore them.
+ */
+function readableUrl(url: URL) {
+  return url.toString().replace(/%2C/g, ",");
+}
+
 export function ComparePageClient({ initialIds }: ComparePageClientProps) {
   const [projects, setProjects] = useState<CompareProject[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,7 +75,7 @@ export function ComparePageClient({ initialIds }: ComparePageClientProps) {
     } else {
       url.searchParams.delete("ids");
     }
-    window.history.replaceState(null, "", url.toString());
+    window.history.replaceState(null, "", readableUrl(url));
   }, [projects]);
 
   async function copyCompareLink() {
@@ -74,7 +83,7 @@ export function ComparePageClient({ initialIds }: ComparePageClientProps) {
     url.searchParams.set("ids", projects.map((p) => p.slug).join(","));
 
     try {
-      await navigator.clipboard.writeText(url.toString());
+      await navigator.clipboard.writeText(readableUrl(url));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
