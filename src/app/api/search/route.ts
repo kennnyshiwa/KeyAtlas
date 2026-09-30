@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchProjects, searchDesigners, searchVendors } from "@/lib/meilisearch";
 import { prisma } from "@/lib/prisma";
+import { resolveSearchTotal } from "@/lib/search-pagination";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -112,7 +113,8 @@ export async function GET(req: NextRequest) {
       offset,
     });
     const hits = rerankProjectHits(await filterToLiveProjectHits(results.hits), q);
-    return jsonNoStore({ ...results, hits, estimatedTotalHits: hits.length });
+    const estimatedTotalHits = resolveSearchTotal(results, offset, hits.length);
+    return jsonNoStore({ ...results, hits, estimatedTotalHits });
   }
 
   if (type === "designers") {
