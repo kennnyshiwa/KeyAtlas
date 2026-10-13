@@ -600,6 +600,22 @@ function sortedJoin(values: string[]): string {
   return Array.from(new Set(values)).sort().join("|");
 }
 
+function haveCompatibleBrandOrProfileTokens(a: string[], b: string[]): boolean {
+  const aKey = sortedJoin(a);
+  const bKey = sortedJoin(b);
+  if (aKey === bKey) return true;
+
+  // GMK is the manufacturer of MTNU, so community titles commonly alternate
+  // between "GMK MTNU Name" and "MTNU Name" for the same set. Keep this
+  // exception narrow: it must share MTNU and the only extra token may be GMK.
+  const withoutGmk = (values: string[]) => values.filter((token) => token !== "gmk");
+  return (
+    a.includes("mtnu") &&
+    b.includes("mtnu") &&
+    sortedJoin(withoutGmk(a)) === sortedJoin(withoutGmk(b))
+  );
+}
+
 function tokenizeProductFamilyKey(value: string): string[] {
   return value
     .replace(/\+/g, "plus")
@@ -713,7 +729,7 @@ export function isConservativeLifecycleDuplicate(aTitle: string, bTitle: string)
       // the same product with minor title evolution.
       if (smaller.length >= 2 && contained / smaller.length >= 0.8) {
         // Still respect brand/profile/round constraints
-        if (sortedJoin(a.brandOrProfile) === sortedJoin(b.brandOrProfile) &&
+        if (haveCompatibleBrandOrProfileTokens(a.brandOrProfile, b.brandOrProfile) &&
             sortedJoin(a.rounds) === sortedJoin(b.rounds)) {
           return true;
         }
@@ -725,7 +741,7 @@ export function isConservativeLifecycleDuplicate(aTitle: string, bTitle: string)
   // core model/family anchor is clearly the same project.
   if (a.productFamilyKey && b.productFamilyKey) {
     if (
-      sortedJoin(a.brandOrProfile) === sortedJoin(b.brandOrProfile) &&
+      haveCompatibleBrandOrProfileTokens(a.brandOrProfile, b.brandOrProfile) &&
       sortedJoin(a.rounds) === sortedJoin(b.rounds) &&
       isTokenPrefixMatch(a.productFamilyKey, b.productFamilyKey)
     ) {
@@ -741,7 +757,7 @@ export function isConservativeLifecycleDuplicate(aTitle: string, bTitle: string)
   }
 
   // Keep product-defining signatures aligned (don't merge GMK vs SA, PBT vs ABS, R1 vs R2).
-  if (sortedJoin(a.brandOrProfile) !== sortedJoin(b.brandOrProfile)) return false;
+  if (!haveCompatibleBrandOrProfileTokens(a.brandOrProfile, b.brandOrProfile)) return false;
   if (sortedJoin(a.rounds) !== sortedJoin(b.rounds)) return false;
 
   const aTokens = new Set(a.tokens);

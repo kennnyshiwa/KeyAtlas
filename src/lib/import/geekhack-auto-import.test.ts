@@ -125,6 +125,15 @@ describe("isConservativeLifecycleDuplicate", () => {
     ).toBe(true);
   });
 
+  it("matches GMK MTNU titles to the same set named with MTNU alone", () => {
+    expect(
+      isConservativeLifecycleDuplicate(
+        "[IC] GMK MTNU Moon Wake",
+        "MTNU Moon Wake"
+      )
+    ).toBe(true);
+  });
+
   it("merges HyperBeige lifecycle/title variants", () => {
     expect(
       isConservativeLifecycleDuplicate(
