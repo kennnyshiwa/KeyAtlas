@@ -5,7 +5,7 @@ import {
   fetchGeekhackThread,
   validateGeekhackTopicUrl,
 } from "@/lib/import/geekhack";
-import { mirrorImgurImageSrcsInHtml, mirrorPrefillImages } from "@/lib/import/imgur-mirror";
+import { mirrorImportMedia } from "@/lib/import/imgur-mirror";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -28,10 +28,13 @@ export async function POST(req: NextRequest) {
   try {
     const thread = await fetchGeekhackThread(topic.normalizedUrl);
     const basePrefill = buildGeekhackPrefillPayload(thread);
+    // Gallery first, then description, under one bounded mirror budget; a URL
+    // present in both is fetched once.
+    const media = await mirrorImportMedia(basePrefill.description, basePrefill.images, session.user.id);
     const prefill = {
       ...basePrefill,
-      description: await mirrorImgurImageSrcsInHtml(basePrefill.description, session.user.id),
-      images: await mirrorPrefillImages(basePrefill.images, session.user.id),
+      description: media.description,
+      images: media.images,
     };
 
     return NextResponse.json({ prefill, thread: { title: thread.title, canonicalUrl: thread.canonicalUrl } });

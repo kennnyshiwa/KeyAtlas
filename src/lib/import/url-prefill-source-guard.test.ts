@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ fetch: vi.fn(), mirror: vi.fn() }));
 vi.mock("@/lib/security/ssrf-guard", () => ({ safeFetch: m.fetch }));
-vi.mock("@/lib/import/imgur-mirror", () => ({ mirrorPrefillImages: m.mirror, mirrorImgurImageSrcsInHtml: async (s: string) => s }));
+vi.mock("@/lib/import/imgur-mirror", () => ({ mirrorImportMedia: m.mirror }));
 import { importUrlPrefill } from "./url-prefill";
 const source = "https://swagkeys.notion.site/Heartbreaker-c47f75d53601832db46301eebc13e323";
 function page(title: string, url = source) { m.fetch.mockResolvedValue({ ok: true, url, text: async () => `<title>Notion</title><meta property="og:title" content="${title}"><article>Project details</article>` }); }
 describe("verified Notion source corruption guard", () => {
-  beforeEach(() => { vi.clearAllMocks(); m.mirror.mockImplementation(async (images) => images); });
+  beforeEach(() => { vi.clearAllMocks(); m.mirror.mockImplementation(async (description, images) => ({ description, images })); });
   it.each(["Notion | Where teams and agents work together", "Notion"])("rejects generic Notion metadata %s before importing any media", async (title) => {
     page(title); await expect(importUrlPrefill(source)).rejects.toThrow("generic site metadata"); expect(m.mirror).not.toHaveBeenCalled();
   });

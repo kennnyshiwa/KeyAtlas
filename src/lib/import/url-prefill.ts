@@ -4,7 +4,7 @@ import {
   fetchGeekhackThread,
   validateGeekhackTopicUrl,
 } from "@/lib/import/geekhack";
-import { mirrorImgurImageSrcsInHtml, mirrorPrefillImages } from "@/lib/import/imgur-mirror";
+import { mirrorImportMedia } from "@/lib/import/imgur-mirror";
 import type { ProjectStatus } from "@/generated/prisma/client";
 
 export interface UrlImportPrefillPayload {
@@ -128,10 +128,13 @@ export async function importUrlPrefill(url: string): Promise<UrlImportPrefillPay
   if (geekhackTopic) {
     const thread = await fetchGeekhackThread(geekhackTopic.normalizedUrl);
     const prefill = buildGeekhackPrefillPayload(thread);
+    // Gallery first, then description, under one bounded mirror budget; a URL
+    // present in both is fetched once.
+    const media = await mirrorImportMedia(prefill.description, prefill.images);
     return {
       ...prefill,
-      description: await mirrorImgurImageSrcsInHtml(prefill.description),
-      images: await mirrorPrefillImages(prefill.images),
+      description: media.description,
+      images: media.images,
       links: prefill.links,
     };
   }
@@ -165,11 +168,11 @@ export async function importUrlPrefill(url: string): Promise<UrlImportPrefillPay
   const dates = inferDates(combinedText);
 
   const normalizedSource = response.url || url;
-  const images = await mirrorPrefillImages(pickImages(html, normalizedSource, title));
+  const media = await mirrorImportMedia(description, pickImages(html, normalizedSource, title));
 
   return {
     title,
-    description: await mirrorImgurImageSrcsInHtml(description),
+    description: media.description,
     sourceUrl: normalizedSource,
     category: "KEYCAPS",
     status,
@@ -183,6 +186,6 @@ export async function importUrlPrefill(url: string): Promise<UrlImportPrefillPay
         type: inferType(normalizedSource),
       },
     ],
-    images,
+    images: media.images,
   };
 }

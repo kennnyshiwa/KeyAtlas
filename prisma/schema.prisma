@@ -789,6 +789,39 @@ model ImageAsset {
   @@map("image_assets")
 }
 
+// ─── Import image mirror failures ────────────────────────────
+// Durable record of import images that could not be mirrored to our storage
+// at import time (the project hotlinks the original URL meanwhile). Retried by
+// GET /api/cron/image-mirror-retry — see docs/image-mirror-retry.md.
+
+enum ImageMirrorFailureStatus {
+  PENDING
+  RESOLVED
+  GAVE_UP
+}
+
+model ImageMirrorFailure {
+  id              String                   @id @default(cuid())
+  /// Normalized source URL (normalizeMirrorableImageUrl)
+  sourceUrl       String                   @unique
+  /// imgur | geekhack | drop | postimg
+  source          String
+  status          ImageMirrorFailureStatus @default(PENDING)
+  /// Number of retry-job download attempts (the original import-time failure is not counted)
+  attempts        Int                      @default(0)
+  /// Failed reference-rewrite passes after the image was mirrored (resolvedUrl set)
+  rewriteFailures Int                      @default(0)
+  lastError       String?                  @db.Text
+  lastAttemptAt   DateTime?
+  nextAttemptAt   DateTime                 @default(now())
+  resolvedUrl     String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@map("image_mirror_failures")
+}
+
 model AdminAuditLog {
   id          String   @id @default(cuid())
   actorId     String

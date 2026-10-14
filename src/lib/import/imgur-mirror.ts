@@ -5,10 +5,119 @@ import { validateImageBuffer } from "@/lib/security/upload-validation";
 import { getStorageProvider } from "@/lib/storage";
 import { prisma } from "@/lib/prisma";
 
-const MAX_REMOTE_IMAGE_BYTES = 20 * 1024 * 1024; // Match upload API limit
-const REMOTE_IMAGE_TIMEOUT_MS = 12_000;
+export const MAX_REMOTE_IMAGE_BYTES = 20 * 1024 * 1024; // Match upload API limit
 
-type MirrorableImageSource = "imgur" | "geekhack" | "drop" | "postimg";
+/**
+ * Mirror download timeouts.
+ *
+ * safeFetch passes `AbortSignal.timeout(timeoutMs)` to fetch(); undici keeps
+ * that signal attached to the response body, so the timeout is a TOTAL
+ * deadline covering connect + headers + the whole streamed body read (a body
+ * read still in progress when it fires rejects with a TimeoutError). We pick
+ * the deadline per source: fast hosts keep a short one, slow hosts
+ * (i.postimg.cc can take ~100 s for an 860 KB file from the prod server) get a
+ * moderately longer one at import time. Import-time mirroring is additionally
+ * bounded by a per-call budget (IMPORT_MIRROR_TIME_BUDGET_MS) so a topic full
+ * of slow images cannot stall an import; the long-timeout path (120 s, enough
+ * for a slow-but-progressing download) belongs to the background retry job.
+ * Note: if the host answers with a redirect, safeFetch follows it with a fresh
+ * timeout, so the worst case is ~2x the per-fetch value.
+ */
+export const REMOTE_IMAGE_TIMEOUT_MS = 12_000;
+/** Import-time timeout for slow hosts (postimg). */
+export const SLOW_HOST_REMOTE_IMAGE_TIMEOUT_MS = 30_000;
+/** Timeout used by the background retry job, regardless of source. */
+export const RETRY_REMOTE_IMAGE_TIMEOUT_MS = 120_000;
+/** Total time one import call may spend mirroring images. */
+export const IMPORT_MIRROR_TIME_BUDGET_MS = 90_000;
+export const IMPORT_MIRROR_BUDGET_EXHAUSTED = "import mirror budget exhausted";
+/** Don't start a fetch with less than this much budget left. */
+const MIN_IMPORT_FETCH_MS = 1_000;
+
+export type MirrorableImageSource = "imgur" | "geekhack" | "drop" | "postimg";
+
+const REMOTE_IMAGE_TIMEOUT_MS_BY_SOURCE: Record<MirrorableImageSource, number> = {
+  imgur: REMOTE_IMAGE_TIMEOUT_MS,
+  geekhack: REMOTE_IMAGE_TIMEOUT_MS,
+  drop: REMOTE_IMAGE_TIMEOUT_MS,
+  postimg: SLOW_HOST_REMOTE_IMAGE_TIMEOUT_MS,
+};
+
+export function getMirrorTimeoutMs(source: MirrorableImageSource): number {
+  return REMOTE_IMAGE_TIMEOUT_MS_BY_SOURCE[source] ?? REMOTE_IMAGE_TIMEOUT_MS;
+}
+
+/**
+ * Mirror failure. `permanent` marks failures retrying cannot fix (HTTP 404/410,
+ * image larger than the limit); the retry job gives up on those immediately.
+ */
+export class ImageMirrorError extends Error {
+  readonly status?: number;
+  readonly permanent: boolean;
+
+  constructor(message: string, options: { status?: number; permanent?: boolean; cause?: unknown } = {}) {
+    super(message, options.cause === undefined ? undefined : { cause: options.cause });
+    this.name = "ImageMirrorError";
+    this.status = options.status;
+    this.permanent = options.permanent ?? false;
+  }
+}
+
+const PERMANENT_HTTP_STATUSES = new Set([404, 410]);
+
+function parseContentLength(header: string | null): number | null {
+  if (!header || !/^\s*\d+\s*$/.test(header)) return null;
+  const value = Number(header);
+  return Number.isSafeInteger(value) ? value : null;
+}
+
+/**
+ * Streams a response body into a Buffer, aborting as soon as more than
+ * `maxBytes` have been received (instead of buffering the whole body first).
+ * When the response declares an identity-encoded Content-Length, the number of
+ * bytes actually read must match it exactly; a short read (connection dropped
+ * mid-body) is an error rather than a silently truncated image.
+ */
+export async function readResponseBodyWithLimit(response: Response, maxBytes: number): Promise<Buffer> {
+  const declaredLength = parseContentLength(response.headers.get("content-length"));
+  const encoding = response.headers.get("content-encoding")?.trim().toLowerCase() ?? "";
+  const lengthDescribesBody = !encoding || encoding === "identity";
+
+  if (declaredLength !== null && declaredLength > maxBytes) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new ImageMirrorError(`Image too large (${declaredLength} bytes)`, { permanent: true });
+  }
+
+  if (!response.body) {
+    throw new ImageMirrorError("Fetched image is empty");
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new ImageMirrorError(`Image exceeds max size (more than ${maxBytes} bytes)`, { permanent: true });
+    }
+    chunks.push(value);
+  }
+
+  if (declaredLength !== null && lengthDescribesBody && received !== declaredLength) {
+    throw new ImageMirrorError(
+      received < declaredLength
+        ? `Short read: received ${received} of ${declaredLength} bytes`
+        : `Body length mismatch: received ${received} bytes, Content-Length ${declaredLength}`,
+    );
+  }
+
+  return Buffer.concat(chunks, received);
+}
 
 const ALLOWED_IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
 
@@ -114,7 +223,7 @@ function isPostimgImageUrlObject(parsed: URL): boolean {
   return /\.(?:jpe?g|png|gif|webp|avif)$/i.test(parsed.pathname.toLowerCase());
 }
 
-function classifyMirrorableImageUrl(input: string): MirrorableImageSource | null {
+export function classifyMirrorableImageUrl(input: string): MirrorableImageSource | null {
   const decoded = decodeHtmlAttributeUrl(input);
 
   try {
@@ -196,7 +305,20 @@ function getFilenameHint(sourceUrl: URL, ext: string, source: MirrorableImageSou
   return `${clean}${ext}`;
 }
 
-export async function mirrorImportImageUrlToLocal(inputUrl: string, userId?: string): Promise<string> {
+export type MirrorImportImageOptions = {
+  /** Total download deadline (headers + body). Defaults to the per-source value. */
+  timeoutMs?: number;
+};
+
+function isTimeoutError(err: unknown): boolean {
+  return err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+}
+
+export async function mirrorImportImageUrlToLocal(
+  inputUrl: string,
+  userId?: string,
+  options: MirrorImportImageOptions = {},
+): Promise<string> {
   const value = normalizeMirrorableImageUrl(inputUrl);
   const source = classifyMirrorableImageUrl(value);
   if (!source) {
@@ -204,43 +326,47 @@ export async function mirrorImportImageUrlToLocal(inputUrl: string, userId?: str
   }
 
   const parsed = new URL(value);
+  const timeoutMs = options.timeoutMs ?? getMirrorTimeoutMs(source);
 
-  const response = await safeFetch(value, {
-    timeoutMs: REMOTE_IMAGE_TIMEOUT_MS,
-    headers: {
-      accept: "image/*",
-      "user-agent": "KeyVault Imgur Mirror/1.0",
-    },
-  });
+  let bytes: Buffer;
+  try {
+    const response = await safeFetch(value, {
+      timeoutMs,
+      headers: {
+        accept: "image/*",
+        "user-agent": "KeyVault Imgur Mirror/1.0",
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(`Mirror fetch failed (${response.status})`);
-  }
-
-  const contentType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
-  if (!contentType.startsWith("image/")) {
-    throw new Error(`Unexpected content type: ${contentType || "unknown"}`);
-  }
-
-  const contentLengthHeader = response.headers.get("content-length");
-  if (contentLengthHeader) {
-    const contentLength = Number(contentLengthHeader);
-    if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_IMAGE_BYTES) {
-      throw new Error(`Image too large (${contentLength} bytes)`);
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new ImageMirrorError(`Mirror fetch failed (${response.status})`, {
+        status: response.status,
+        permanent: PERMANENT_HTTP_STATUSES.has(response.status),
+      });
     }
+
+    const contentType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
+    if (!contentType.startsWith("image/")) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new ImageMirrorError(`Unexpected content type: ${contentType || "unknown"}`, { permanent: true });
+    }
+
+    bytes = await readResponseBodyWithLimit(response, MAX_REMOTE_IMAGE_BYTES);
+  } catch (err) {
+    if (isTimeoutError(err)) {
+      throw new ImageMirrorError(`Mirror fetch timed out after ${timeoutMs}ms`, { cause: err });
+    }
+    throw err;
   }
 
-  const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length === 0) {
-    throw new Error("Fetched image is empty");
-  }
-  if (bytes.length > MAX_REMOTE_IMAGE_BYTES) {
-    throw new Error(`Image exceeds max size (${bytes.length} bytes)`);
+    throw new ImageMirrorError("Fetched image is empty");
   }
 
   const validation = validateImageBuffer(bytes, ALLOWED_IMAGE_MIMES);
   if (!validation.valid) {
-    throw new Error(validation.error);
+    throw new ImageMirrorError(validation.error, { permanent: true });
   }
 
   // Content-hash dedup: return existing URL if we've seen this exact image
@@ -277,15 +403,142 @@ export async function mirrorImportImageUrlToLocal(inputUrl: string, userId?: str
   return url;
 }
 
-export async function mirrorImportImageUrlOrOriginal(url: string, userId?: string): Promise<string> {
-  const normalized = normalizeMirrorableImageUrl(url);
-  if (!isMirrorableImportImageUrl(normalized)) return url;
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+const MAX_RECORDED_ERROR_CHARS = 2000;
+
+/**
+ * Durably records a failed import-image mirror so the image-mirror-retry cron
+ * can retry it later (see docs/image-mirror-retry.md). Never throws.
+ *
+ * - New URL: creates a PENDING row due immediately (attempts=0; only retry-job
+ *   attempts are counted).
+ * - Existing row (any status): only lastError/lastAttemptAt are refreshed, so
+ *   a GAVE_UP or RESOLVED row is never reset and PENDING backoff is untouched.
+ *   With `preserveExistingError` (budget exhaustion — no fetch was attempted)
+ *   an existing row is left completely untouched.
+ *
+ * Returns the row's resolvedUrl when the retry job has already mirrored the
+ * image (RESOLVED, or PENDING awaiting reference rewrites), so callers can use
+ * the mirrored copy instead of hotlinking.
+ */
+export async function recordImageMirrorFailure(
+  sourceUrl: string,
+  source: MirrorableImageSource,
+  error: unknown,
+  options: { preserveExistingError?: boolean } = {},
+): Promise<string | null> {
+  const message = errorMessage(error).slice(0, MAX_RECORDED_ERROR_CHARS);
+  const now = new Date();
 
   try {
-    return await mirrorImportImageUrlToLocal(normalized, userId);
-  } catch {
-    return url;
+    const row = await prisma.imageMirrorFailure.upsert({
+      where: { sourceUrl },
+      create: {
+        sourceUrl,
+        source,
+        status: "PENDING",
+        attempts: 0,
+        lastError: message,
+        lastAttemptAt: now,
+        nextAttemptAt: now,
+      },
+      update: options.preserveExistingError ? {} : { lastError: message, lastAttemptAt: now },
+      select: { status: true, resolvedUrl: true },
+    });
+
+    if (row.resolvedUrl) {
+      console.warn(
+        `[image-mirror] failed ${source} ${sourceUrl}: ${message} — using previously resolved mirror ${row.resolvedUrl}`,
+      );
+      return row.resolvedUrl;
+    }
+
+    console.warn(
+      `[image-mirror] failed ${source} ${sourceUrl}: ${message} — recorded for retry (status=${row.status})`,
+    );
+    return null;
+  } catch (recordErr) {
+    console.error(
+      `[image-mirror] failed ${source} ${sourceUrl}: ${message} — could not record for retry: ${errorMessage(recordErr)}`,
+    );
+    return null;
   }
+}
+
+/**
+ * Mirrors an import image, falling back to the (normalized) original URL
+ * (hotlink) on failure. Failures are recorded in image_mirror_failures for
+ * later retry. The fallback is the normalized form so the stored hero/gallery
+ * value equals the failure row's sourceUrl, which the retry job matches.
+ */
+export async function mirrorImportImageUrlOrOriginal(
+  url: string,
+  userId?: string,
+  options: MirrorImportImageOptions = {},
+): Promise<string> {
+  const normalized = normalizeMirrorableImageUrl(url);
+  const source = classifyMirrorableImageUrl(normalized);
+  if (!source) return url;
+
+  try {
+    return await mirrorImportImageUrlToLocal(normalized, userId, options);
+  } catch (err) {
+    const resolvedUrl = await recordImageMirrorFailure(normalized, source, err);
+    return resolvedUrl ?? normalized;
+  }
+}
+
+/** Wall-clock budget shared by the mirror calls of one import. */
+export type ImportMirrorBudget = { remainingMs(): number };
+
+export function createImportMirrorBudget(
+  budgetMs: number = IMPORT_MIRROR_TIME_BUDGET_MS,
+  clock: () => number = Date.now,
+): ImportMirrorBudget {
+  const deadline = clock() + budgetMs;
+  return { remainingMs: () => Math.max(0, deadline - clock()) };
+}
+
+export type ImportMirrorBudgetOptions = {
+  /** Share one budget across several calls (e.g. description + gallery). */
+  budget?: ImportMirrorBudget;
+  /** Budget for this call when `budget` is not given (default 90 s). */
+  budgetMs?: number;
+  clock?: () => number;
+};
+
+function resolveImportMirrorBudget(options: ImportMirrorBudgetOptions): ImportMirrorBudget {
+  return options.budget ?? createImportMirrorBudget(options.budgetMs, options.clock);
+}
+
+/**
+ * Bounds a mirror function by an import budget: each fetch's timeout is capped
+ * at the remaining budget, and once it is spent remaining mirrorable URLs are
+ * not fetched — they are recorded as PENDING failures for the retry job and the
+ * (normalized) original URL is kept (hotlink fallback).
+ */
+function withImportMirrorBudget(mirrorUrl: MirrorUrl, budget: ImportMirrorBudget): MirrorUrl {
+  return async (url, userId) => {
+    const normalized = normalizeMirrorableImageUrl(url);
+    const source = classifyMirrorableImageUrl(normalized);
+    if (!source) return mirrorUrl(url, userId);
+
+    const remainingMs = budget.remainingMs();
+    if (remainingMs < MIN_IMPORT_FETCH_MS) {
+      const resolvedUrl = await recordImageMirrorFailure(
+        normalized,
+        source,
+        new ImageMirrorError(IMPORT_MIRROR_BUDGET_EXHAUSTED),
+        { preserveExistingError: true },
+      );
+      return resolvedUrl ?? normalized;
+    }
+
+    return mirrorUrl(url, userId, { timeoutMs: Math.min(getMirrorTimeoutMs(source), remainingMs) });
+  };
 }
 
 export async function mirrorImgurUrlToLocal(inputUrl: string, userId?: string): Promise<string> {
@@ -296,17 +549,27 @@ export async function mirrorImgurUrlOrOriginal(url: string, userId?: string): Pr
   return mirrorImportImageUrlOrOriginal(url, userId);
 }
 
-export async function mirrorPrefillImages<T extends { url: string }>(images: T[], userId?: string): Promise<T[]> {
+/**
+ * Mirrors prefill images in parallel. Bounded by the import budget: every
+ * fetch's timeout is capped at the remaining budget, so the whole call cannot
+ * take (much) longer than the budget.
+ */
+export async function mirrorPrefillImages<T extends { url: string }>(
+  images: T[],
+  userId?: string,
+  options: ImportMirrorBudgetOptions = {},
+): Promise<T[]> {
+  const mirror = withImportMirrorBudget(mirrorImportImageUrlOrOriginal, resolveImportMirrorBudget(options));
   return Promise.all(
     images.map(async (image) => ({
       ...image,
-      url: await mirrorImportImageUrlOrOriginal(image.url, userId),
+      url: await mirror(image.url, userId),
     }))
   );
 }
 
 type ImportImage = { url: string };
-type MirrorUrl = (url: string, userId?: string) => Promise<string>;
+export type MirrorUrl = (url: string, userId?: string, options?: MirrorImportImageOptions) => Promise<string>;
 
 export type MirroredImportMedia<T extends ImportImage> = {
   description: string;
@@ -320,6 +583,7 @@ const ANCHOR_RE = /<a\b([^>]*\bhref\s*=\s*["'])([^"']+)(["'][^>]*)>([\s\S]*?)<\/
 export function rewriteImportImageUrlsInHtml(
   html: string,
   mirroredByNormalized: ReadonlyMap<string, string>,
+  options: { rewritePostimgViewerAnchors?: boolean } = {},
 ): string {
   const rewrite = (rawUrl: string): string | null => {
     const normalized = normalizeMirrorableImageUrl(rawUrl);
@@ -336,43 +600,72 @@ export function rewriteImportImageUrlsInHtml(
     return rewritten ? `${prefix}${rewritten}${suffix}` : full;
   });
 
-  return rewritePostimgViewerAnchorsToImageUrl(result);
+  return options.rewritePostimgViewerAnchors === false ? result : rewritePostimgViewerAnchorsToImageUrl(result);
 }
 
+/** Max concurrent gallery mirror fetches in mirrorImportMedia. */
+export const IMPORT_MIRROR_CONCURRENCY = 4;
+
+export type MirrorImportMediaOptions = ImportMirrorBudgetOptions & {
+  /** Gallery worker-pool size (default IMPORT_MIRROR_CONCURRENCY). */
+  concurrency?: number;
+};
+
 /**
- * Mirrors gallery and rich-description media as one operation. Gallery URLs are
- * mirrored first and reused by normalized source URL in the description, so a
- * source image present in both places is uploaded only once.
+ * Mirrors gallery and rich-description media as one operation.
+ *
+ * - Gallery images are mirrored first by a small worker pool (default 4
+ *   concurrent fetches); output order matches input order.
+ * - Description-only images are mirrored afterwards, one at a time.
+ * - Every normalized source URL is fetched at most once, even when duplicates
+ *   are in flight concurrently (callers share the in-flight promise), and a
+ *   gallery result is reused for the same image in the description.
+ * - Bounded by the import budget (default 90 s); URLs reached after it is spent
+ *   are recorded for retry (PENDING) and keep their original URL.
  */
 export async function mirrorImportMedia<T extends ImportImage>(
   description: string,
   images: T[],
   userId?: string,
-  mirrorUrl: MirrorUrl = mirrorImportImageUrlOrOriginal,
+  mirrorUrlUnbounded: MirrorUrl = mirrorImportImageUrlOrOriginal,
+  options: MirrorImportMediaOptions = {},
 ): Promise<MirroredImportMedia<T>> {
-  const mirroredByNormalized = new Map<string, string>();
-  const mirroredImages: T[] = [];
-
-  for (const image of images) {
-    const normalized = normalizeMirrorableImageUrl(image.url);
-    let mirrored = mirroredByNormalized.get(normalized);
-    if (!mirrored) {
-      mirrored = await mirrorUrl(normalized, userId);
-      mirroredByNormalized.set(normalized, mirrored);
+  const mirrorUrl = withImportMirrorBudget(mirrorUrlUnbounded, resolveImportMirrorBudget(options));
+  const inFlight = new Map<string, Promise<string>>();
+  const mirrorOnce = (normalized: string): Promise<string> => {
+    let pending = inFlight.get(normalized);
+    if (!pending) {
+      pending = mirrorUrl(normalized, userId);
+      inFlight.set(normalized, pending);
     }
-    mirroredImages.push({ ...image, url: mirrored });
-  }
+    return pending;
+  };
+
+  const galleryUrls = images.map((image) => normalizeMirrorableImageUrl(image.url));
+  const mirroredGallery: string[] = new Array(images.length);
+  const concurrency = Math.max(1, Math.floor(options.concurrency ?? IMPORT_MIRROR_CONCURRENCY));
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < galleryUrls.length) {
+      const index = nextIndex++;
+      mirroredGallery[index] = await mirrorOnce(galleryUrls[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, galleryUrls.length) }, worker));
+
+  const mirroredByNormalized = new Map<string, string>();
+  galleryUrls.forEach((normalized, index) => mirroredByNormalized.set(normalized, mirroredGallery[index]));
 
   const candidates = extractMirrorableImageUrlCandidatesFromHtml(description);
   for (const normalized of new Set(candidates.values())) {
     if (!mirroredByNormalized.has(normalized)) {
-      mirroredByNormalized.set(normalized, await mirrorUrl(normalized, userId));
+      mirroredByNormalized.set(normalized, await mirrorOnce(normalized));
     }
   }
 
   return {
     description: rewriteImportImageUrlsInHtml(description, mirroredByNormalized),
-    images: mirroredImages,
+    images: images.map((image, index) => ({ ...image, url: mirroredGallery[index] })),
   };
 }
 
@@ -397,15 +690,20 @@ function rewritePostimgViewerAnchorsToImageUrl(html: string): string {
   });
 }
 
-export async function mirrorImportImageSrcsInHtml(html: string, userId?: string): Promise<string> {
+export async function mirrorImportImageSrcsInHtml(
+  html: string,
+  userId?: string,
+  options: ImportMirrorBudgetOptions = {},
+): Promise<string> {
   if (!html) return html;
 
   const candidates = extractMirrorableImageUrlCandidatesFromHtml(html);
   if (candidates.size === 0) return html;
 
+  const mirror = withImportMirrorBudget(mirrorImportImageUrlOrOriginal, resolveImportMirrorBudget(options));
   const mirroredByNormalized = new Map<string, string>();
   for (const normalized of new Set(candidates.values())) {
-    mirroredByNormalized.set(normalized, await mirrorImportImageUrlOrOriginal(normalized, userId));
+    mirroredByNormalized.set(normalized, await mirror(normalized, userId));
   }
 
   const rewrites = new Map<string, string>();
@@ -420,6 +718,10 @@ export async function mirrorImportImageSrcsInHtml(html: string, userId?: string)
   return rewriteImportImageUrlsInHtml(html, normalizedRewrites);
 }
 
-export async function mirrorImgurImageSrcsInHtml(html: string, userId?: string): Promise<string> {
-  return mirrorImportImageSrcsInHtml(html, userId);
+export async function mirrorImgurImageSrcsInHtml(
+  html: string,
+  userId?: string,
+  options: ImportMirrorBudgetOptions = {},
+): Promise<string> {
+  return mirrorImportImageSrcsInHtml(html, userId, options);
 }
